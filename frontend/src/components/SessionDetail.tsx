@@ -64,14 +64,16 @@ export const SessionDetail: React.FC = () => {
     ];
 
     return (
-        <div className="min-h-screen bg-gray-50 p-6 md:p-8">
-            <Header
-                title="Session Monitor"
+        <div className="min-h-screen bg-gray-50 flex flex-col">
+             <Header
+                title={activeSession?.isActive ? 'Session Monitor' : 'Session History'}
                 isConnected={isConnected}
                 onLogout={handleLogoutClick}
                 showBack={true}
                 onBack={() => navigate('/teacher')}
             />
+
+            <div className="p-6 md:p-8 flex-1 w-full max-w-7xl mx-auto">
 
             <ConfirmationModal 
                 isOpen={showEndSessionModal}
@@ -165,7 +167,7 @@ export const SessionDetail: React.FC = () => {
                     
                     {sortedStudents.length === 0 && (
                         <div className="col-span-full py-12 text-center bg-white rounded border border-dashed border-gray-300 text-gray-400">
-                            Waiting for students to join...
+                            {activeSession?.isActive ? 'Waiting for students to join...' : 'No data recorded for this session.'}
                         </div>
                     )}
                 </div>
@@ -190,6 +192,7 @@ export const SessionDetail: React.FC = () => {
                     />
                 </Modal>
             )}
+         </div>
         </div>
     );
 };

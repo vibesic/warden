@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { z } from 'zod';
 import prisma from '../utils/prisma';
-import { createSession, endSession, getActiveSession, getSessionHistory, validateSession } from '../services/session.service';
+import { createSession, endSession, getActiveSession, getSessionHistory, validateSession, getSessionByCode } from '../services/session.service';
 
 // Validation Schemas
 const RegisterSchema = z.object({
@@ -173,8 +173,8 @@ export const initializeSocket = (io: Server) => {
         if (!data || !data.sessionCode) return;
         const { sessionCode } = data;
 
-        const sessionCheck = await validateSession(sessionCode);
-        if (!sessionCheck.valid || !sessionCheck.session) {
+        const session = await getSessionByCode(sessionCode);
+        if (!session) {
           socket.emit('dashboard:error', { message: 'Session not found' });
           return;
         }
@@ -183,7 +183,7 @@ export const initializeSocket = (io: Server) => {
 
         // Fetch students for this session
         const students = await prisma.student.findMany({
-          where: { sessionId: sessionCheck.session.id },
+          where: { sessionId: session.id },
           include: {
             violations: {
               orderBy: { timestamp: 'desc' }
@@ -193,9 +193,9 @@ export const initializeSocket = (io: Server) => {
 
         socket.emit('dashboard:session_state', {
           session: {
-            ...sessionCheck.session,
-            createdAt: sessionCheck.session.createdAt.toISOString(),
-            endedAt: sessionCheck.session.endedAt?.toISOString()
+            ...session,
+            createdAt: session.createdAt.toISOString(),
+            endedAt: session.endedAt?.toISOString()
           },
           students: students.map((s) => ({
             studentId: s.studentId, // Text ID

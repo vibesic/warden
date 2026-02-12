@@ -55,10 +55,18 @@ export const validateSession = async (code: string) => {
     where: { code }
   });
 
+  if (session && !session.isActive) return { valid: false, reason: 'Session has ended', session }; // Return session even if ended, but valid=false
+
   if (!session) return { valid: false, reason: 'Invalid session code' };
   if (!session.isActive) return { valid: false, reason: 'Session has ended' };
 
   return { valid: true, session };
+};
+
+export const getSessionByCode = async (code: string) => {
+  return prisma.session.findUnique({
+    where: { code }
+  });
 };
 
 export const getSessionHistory = async () => {

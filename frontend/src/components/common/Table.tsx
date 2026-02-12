@@ -15,6 +15,7 @@ interface TableProps<T> {
     emptyMessage?: string;
     className?: string;
     rowClassName?: string;
+    onRowClick?: (item: T) => void;
 }
 
 export const Table = <T,>({ 
@@ -23,7 +24,8 @@ export const Table = <T,>({
     keyExtractor, 
     emptyMessage = 'No data available',
     className = '',
-    rowClassName = ''
+    rowClassName = '',
+    onRowClick
 }: TableProps<T>) => {
     
     if (data.length === 0) {
@@ -53,7 +55,8 @@ export const Table = <T,>({
                     {data.map((item, index) => (
                         <tr 
                             key={keyExtractor(item, index)} 
-                            className={`hover:bg-gray-50 transition-colors group ${rowClassName}`}
+                            className={`hover:bg-gray-50 transition-colors group ${onRowClick ? 'cursor-pointer' : ''} ${rowClassName}`}
+                            onClick={() => onRowClick && onRowClick(item)}
                         >
                             {columns.map((col, index) => (
                                 <td 

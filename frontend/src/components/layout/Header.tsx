@@ -17,7 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
     showBack = false 
 }) => {
     return (
-        <header className="mb-6 md:mb-8 flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100 transition-all">
+        <header className="flex justify-between items-center bg-white p-4 shadow-sm border-b border-gray-200 sticky top-0 z-30">
             <div className="flex items-center gap-4">
                 {showBack && onBack && (
                     <button 

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTeacherSocket } from '../hooks/useTeacherSocket';
-import { PlusCircle, Play, Clock, ChevronRight } from 'lucide-react';
+import { PlusCircle, Play, Clock } from 'lucide-react';
 import { ConfirmationModal } from './common/ConfirmationModal';
 import { Header } from './layout/Header';
 import { Table, TableColumn } from './common/Table';
@@ -13,10 +13,19 @@ interface Props {
   onLogout: () => void;
 }
 
+const formatDuration = (start: string, end?: string) => {
+    if (!end) return '-';
+    const diff = new Date(end).getTime() - new Date(start).getTime();
+    const minutes = Math.floor(diff / 60000);
+    const seconds = Math.floor((diff % 60000) / 1000);
+    return `${minutes}m ${seconds}s`;
+};
+
 export const TeacherDashboard: React.FC<Props> = ({ onLogout }) => {
   const { isConnected, activeSession, history, createSession, endSession } = useTeacherSocket();
   const navigate = useNavigate();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   const handleLogoutClick = () => {
       if (activeSession && activeSession.isActive) {
@@ -34,28 +43,43 @@ export const TeacherDashboard: React.FC<Props> = ({ onLogout }) => {
         onLogout();
   };
 
-  // If an active session is detected, simple redirection is risky as it might auto-redirect on login.
-  // Instead we show a prominent "Resume" card.
-  
   const handleCreateSession = () => {
+      setIsCreating(true);
       createSession();
-      // We rely on the activeSession state update to show the resume button, 
-      // or we can add a listener for 'dashboard:session_created' specifically if we want auto-redirect.
-      // For now, the UI update is sufficient.
   };
+
+  useEffect(() => {
+      if (isCreating && activeSession) {
+          setIsCreating(false);
+          navigate(`/teacher/session/${activeSession.code}`);
+      }
+  }, [activeSession, isCreating, navigate]);
 
   const historyColumns: TableColumn<typeof history[0]>[] = [
       {
-          header: 'Date',
+          header: 'Start Date',
           cell: (session) => (
-              <span className="text-sm text-gray-600">
-                  {new Date(session.createdAt).toLocaleDateString()} <span className="text-gray-400 mx-1">•</span> {new Date(session.createdAt).toLocaleTimeString()}
-              </span>
+              <div className="flex flex-col">
+                  <span className="font-medium text-gray-800">{new Date(session.createdAt).toLocaleDateString()}</span>
+                  <span className="text-xs text-gray-500">{new Date(session.createdAt).toLocaleTimeString()}</span>
+              </div>
           )
       },
       {
+          header: 'End Date',
+          cell: (session) => session.endedAt ? (
+             <span className="text-gray-600">{new Date(session.endedAt).toLocaleTimeString()}</span>
+          ) : (
+             <span className="text-gray-400">-</span>
+          )
+      },
+      {
+          header: 'Duration',
+          cell: (session) => <span className="text-gray-600 font-mono text-xs">{formatDuration(session.createdAt, session.endedAt)}</span>
+      },
+      {
           header: 'Session Code',
-          cell: (session) => <span className="font-mono font-medium text-gray-800">{session.code}</span>
+          cell: (session) => <span className="font-mono font-bold text-indigo-900">{session.code}</span>
       },
       {
           header: 'Status',
@@ -64,30 +88,19 @@ export const TeacherDashboard: React.FC<Props> = ({ onLogout }) => {
           ) : (
               <StatusBadge status="inactive" text="Ended" />
           )
-      },
-      {
-          header: 'Action',
-          className: 'text-right',
-          cell: (session) => (
-              <Button 
-                  variant="ghost"
-                  onClick={() => navigate(`/teacher/session/${session.code}`)}
-                  className="text-indigo-600 hover:text-indigo-800 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                  View <ChevronRight size={16} className="ml-1" />
-              </Button>
-          )
       }
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 md:p-8">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header 
         title="Proctor Dashboard" 
         isConnected={isConnected} 
         onLogout={handleLogoutClick} 
       />
 
+      <div className="p-6 md:p-8 flex-1 w-full max-w-7xl mx-auto space-y-8">
+      
       <ConfirmationModal 
           isOpen={showLogoutModal}
           title="Active Session in Progress"
@@ -97,8 +110,6 @@ export const TeacherDashboard: React.FC<Props> = ({ onLogout }) => {
           onConfirm={confirmLogout}
           onCancel={() => setShowLogoutModal(false)}
       />
-
-      <main className="max-w-5xl mx-auto space-y-8">
           
           {/* Active Session Card */}
           {activeSession ? (
@@ -140,6 +151,7 @@ export const TeacherDashboard: React.FC<Props> = ({ onLogout }) => {
                       variant="secondary"
                       className="gap-2 px-6 py-3 mx-auto"
                       icon={<PlusCircle size={20} />}
+                      isLoading={isCreating}
                   >
                       Create New Session
                   </Button>
@@ -148,17 +160,18 @@ export const TeacherDashboard: React.FC<Props> = ({ onLogout }) => {
 
           {/* Recent Sessions */}
           <section>
-              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4 pl-6">Recent History</h3>
+              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4 pl-1">Recent History</h3>
               <Card className="border-gray-200 overflow-hidden" padding="none">
                   <Table 
                       data={history}
                       columns={historyColumns}
                       keyExtractor={(item) => item.id}
                       emptyMessage="No past sessions found."
+                      onRowClick={(session) => navigate(`/teacher/session/${session.code}`)}
                   />
               </Card>
           </section>
-      </main>
+      </div>
     </div>
   );
 };
