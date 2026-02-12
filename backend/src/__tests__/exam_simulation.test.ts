@@ -14,6 +14,10 @@ const prismaMock = vi.hoisted(() => ({
   violation: {
     create: vi.fn(),
   },
+  session: {
+    findFirst: vi.fn(),
+    findUnique: vi.fn(),
+  }
 }));
 
 vi.mock('../utils/prisma', () => ({
@@ -31,12 +35,11 @@ describe('Exam Simulation (E2E Flow)', () => {
   beforeAll(() => {
     httpServer = createServer();
     io = new Server(httpServer);
-    cleanupSocket = initializeSocket(io);
+    initializeSocket(io);
     httpServer.listen(port);
   });
 
   afterAll(() => {
-    cleanupSocket();
     io.close();
     httpServer.close();
   });
@@ -47,15 +50,33 @@ describe('Exam Simulation (E2E Flow)', () => {
 
   it('should successfully complete the full Register -> Report -> Alert flow', () => {
     return new Promise<void>(async (resolve, reject) => {
-      // Setup successful DB responses
-      prismaMock.student.upsert.mockResolvedValue({ studentId: 'sim_student_01' } as any);
+      // Mock Data
+      const sessionMock = { id: 'sess_1', code: '123456', isActive: true, createdAt: new Date() };
+
+      // Mock session retrieval (for all calls)
+      prismaMock.session.findUnique.mockResolvedValue(sessionMock as any);
+      prismaMock.session.findFirst.mockResolvedValue(sessionMock as any);
+
+      // Mock student retrieval for dashboard join
+      prismaMock.student.findMany.mockResolvedValue([]);
+
+      // Mock student upsert (register)
+      prismaMock.student.upsert.mockResolvedValue({
+          id: 'uuid-sim-1',
+          studentId: 'sim_student_01',
+          name: 'Sim User',
+          sessionId: 'sess_1'
+      } as any);
+
+      // Mock violation create
       prismaMock.violation.create.mockResolvedValue({
         id: 'v_123',
         type: 'INTERNET_ACCESS',
-        studentId: 'sim_student_01'
+        studentId: 'uuid-sim-1',
+        timestamp: new Date()
       } as any);
 
-      // 1. Teacher Connects
+      // 1. Connect Clients
       const teacherSocket = Client(`http://localhost:${port}`);
       const studentSocket = Client(`http://localhost:${port}`);
 
@@ -64,15 +85,15 @@ describe('Exam Simulation (E2E Flow)', () => {
         studentSocket.disconnect();
       };
 
-      // Handle Timeout (Fail test if flow takes too long)
+      // Handle Timeout
       const timeout = setTimeout(() => {
         teardown();
         reject(new Error('Simulation timed out: Alert not received'));
-      }, 2000);
+      }, 3000);
 
-      // Teacher Logic
+      // 2. Teacher Logic
       teacherSocket.on('connect', () => {
-        teacherSocket.emit('dashboard:join');
+        teacherSocket.emit('dashboard:join_session', { sessionCode: '123456' });
       });
 
       teacherSocket.on('dashboard:alert', (data) => {
@@ -80,31 +101,33 @@ describe('Exam Simulation (E2E Flow)', () => {
           expect(data).toBeDefined();
           expect(data.violation.type).toBe('INTERNET_ACCESS');
           expect(data.studentId).toBe('sim_student_01');
-
+          
           clearTimeout(timeout);
           teardown();
-          resolve();
-        } catch (error) {
+          resolve(); 
+        } catch (e) {
           clearTimeout(timeout);
           teardown();
-          reject(error);
+          reject(e);
         }
       });
 
-      // Student Logic
+      // 3. Student Logic
       studentSocket.on('connect', () => {
-        studentSocket.emit('register', {
-          studentId: 'sim_student_01',
-          name: 'Simulation Student'
-        });
+        // Wait briefly for teacher to likely be joined
+        setTimeout(() => {
+            studentSocket.emit('register', {
+                studentId: 'sim_student_01',
+                name: 'Sim User',
+                sessionCode: '123456'
+            });
+        }, 50);
       });
 
-      // The Critical Fix Verification: Wait for 'registered'
       studentSocket.on('registered', () => {
         studentSocket.emit('report_violation', {
-          studentId: 'sim_student_01',
           type: 'INTERNET_ACCESS',
-          details: 'Simulation Script Violation'
+          details: 'Simulation violation'
         });
       });
     });

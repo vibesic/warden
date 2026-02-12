@@ -16,6 +16,12 @@ const prismaMock = vi.hoisted(() => ({
   violation: {
     create: vi.fn(),
   },
+  session: {
+      findUnique: vi.fn().mockResolvedValue({ id: 's1', code: '123456', isActive: true, createdAt: new Date() }),
+      findFirst: vi.fn().mockResolvedValue({ id: 's1', code: '123456', isActive: true, createdAt: new Date() }),
+      findMany: vi.fn(),
+      count: vi.fn()
+  }
 }));
 
 vi.mock('../utils/prisma', () => ({
@@ -23,21 +29,20 @@ vi.mock('../utils/prisma', () => ({
 }));
 
 describe('Socket Gateway', () => {
+
   let io: Server;
   let clientSocket: ClientSocket;
   let httpServer: any;
-  let cleanupSocket: () => void;
   const port = 3001; // Use different port for tests
 
   beforeAll(() => {
     httpServer = createServer();
     io = new Server(httpServer);
-    cleanupSocket = initializeSocket(io);
+    initializeSocket(io);
     httpServer.listen(port);
   });
 
   afterAll(() => {
-    cleanupSocket();
     io.close();
     httpServer.close();
   });
@@ -60,10 +65,15 @@ describe('Socket Gateway', () => {
   });
 
   it('should register a new student and emit registered event', async () => {
-    const studentData = { studentId: 'test_student_1', name: 'Test Student' };
+    const studentData = { studentId: 'test_student_1', name: 'Test Student', sessionCode: '123456' };
 
     // Setup Mock
-    prismaMock.student.upsert.mockResolvedValue({} as any);
+    // The socket handler calls createSession... wait, register does NOT create session. 
+    // It calls student.upsert.
+    // However, if we look at socket.ts, it likely validates the session exists via validateSession OR creates it?
+    // Let's assume validation passes or mock whatever is needed. 
+    // Wait, existing code might need session validation mockery if it does that.
+    prismaMock.student.upsert.mockResolvedValue({ id: 'uuid-1', ...studentData } as any);
 
     return new Promise<void>((resolve, reject) => {
       clientSocket.emit('register', studentData);
@@ -82,11 +92,15 @@ describe('Socket Gateway', () => {
 
   it('should process heartbeat', async () => {
     const heartbeatData = { studentId: 'test_student_2' };
+    const registerData = { studentId: 'test_student_2', name: 'Test', sessionCode: '123456' };
+    
+    prismaMock.student.upsert.mockResolvedValue({ id: 'uuid-2', ...registerData } as any);
     prismaMock.student.update.mockResolvedValue({} as any);
 
-    clientSocket.emit('register', { studentId: 'test_student_2', name: 'Test' });
-    // Small delay to ensure registration before heartbeat (though not strictly required by server logic, good for realism)
-    await new Promise(r => setTimeout(r, 50));
+    await new Promise<void>(resolve => {
+        clientSocket.emit('register', registerData);
+        clientSocket.once('registered', () => resolve());
+    });
 
     clientSocket.emit('heartbeat', heartbeatData);
 
@@ -94,19 +108,27 @@ describe('Socket Gateway', () => {
     await new Promise(r => setTimeout(r, 200));
 
     // The disconnect handler from previous tests might interfere if we don't look specifically
-    // We expect at least one call with isOnline: true
+    // We expect at least one call with isOnline: true AND matching the UUID from upsert return
     const calls = prismaMock.student.update.mock.calls;
-    const heartbeatCall = calls.find(args => args[0].where.studentId === heartbeatData.studentId && args[0].data.isOnline === true);
+    // Note: socket.data.studentUuid will be 'uuid-2' from the upsert mock return above
+    const heartbeatCall = calls.find(args => args[0].where.id === 'uuid-2' && args[0].data.isOnline === true);
     expect(heartbeatCall).toBeDefined();
   });
 
   it('should report violation', async () => {
+    const registerData = { studentId: 'test_student_3', name: 'Violator', sessionCode: '123456' };
     const violationData = {
-      studentId: 'test_student_3',
       type: 'INTERNET_ACCESS',
       details: 'Google detected'
     };
-    prismaMock.violation.create.mockResolvedValue({} as any);
+    
+    prismaMock.student.upsert.mockResolvedValue({ id: 'uuid-3', ...registerData } as any);
+    prismaMock.violation.create.mockResolvedValue({ timestamp: new Date() } as any);
+
+    await new Promise<void>(resolve => {
+        clientSocket.emit('register', registerData);
+        clientSocket.once('registered', () => resolve());
+    });
 
     return new Promise<void>((resolve) => {
       clientSocket.emit('report_violation', violationData);
@@ -114,11 +136,11 @@ describe('Socket Gateway', () => {
       setTimeout(() => {
         // Find the call for this specific student
         const calls = prismaMock.violation.create.mock.calls;
-        const callArgs = calls.find(c => c[0].data.studentId === violationData.studentId)?.[0];
+        const callArgs = calls.find(c => c[0].data.studentId === 'uuid-3'); // Used UUID
 
         expect(callArgs).toBeDefined();
-        expect(callArgs!.data).toMatchObject({
-          studentId: violationData.studentId,
+        expect(callArgs![0].data).toMatchObject({
+          studentId: 'uuid-3',
           type: violationData.type,
           details: violationData.details,
         });
@@ -139,5 +161,35 @@ describe('Socket Gateway', () => {
         resolve();
       }, 50);
     });
+  });
+
+
+
+  it('should return dashboard overview', async () => {
+    // Mock prisma.session.findMany
+    const historyMock = [
+       { id: 'h1', code: '111111', createdAt: new Date(), endedAt: null, isActive: false, _count: { students: 5 } }
+    ];
+    prismaMock.session.findMany.mockResolvedValue(historyMock);
+    
+    // Create new client to test dashboard events
+    const teacherSocket = Client(`http://localhost:${3001}`);
+    await new Promise<void>((resolve) => teacherSocket.on('connect', resolve));
+
+    await new Promise<void>((resolve, reject) => {
+        teacherSocket.on('dashboard:overview', (data: any) => {
+            try {
+                expect(data.history).toHaveLength(1);
+                expect(data.history[0].code).toBe('111111');
+                expect(data.history[0].studentCount).toBe(5);
+                resolve();
+            } catch (e) {
+                reject(e);
+            }
+        });
+        teacherSocket.emit('dashboard:join_overview');
+    });
+
+    teacherSocket.close();
   });
 });

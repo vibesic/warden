@@ -28,11 +28,10 @@ describe('Heartbeat Cleanup Service', () => {
     httpServer = createServer();
     io = new Server(httpServer);
     // Initialize socket which starts the interval
-    cleanupSocket = initializeSocket(io);
+    initializeSocket(io);
   });
 
   afterAll(() => {
-    cleanupSocket();
     io.close();
     httpServer.close();
     vi.useRealTimers();
@@ -53,10 +52,10 @@ describe('Heartbeat Cleanup Service', () => {
 
     prismaMock.student.findMany.mockResolvedValue([deadStudent] as any);
     prismaMock.student.update.mockResolvedValue({} as any);
-    prismaMock.violation.create.mockResolvedValue({} as any);
+    prismaMock.violation.create.mockResolvedValue({ timestamp: new Date() } as any);
 
-    // 2. Advance time by 10s (Interval tick)
-    await vi.advanceTimersByTimeAsync(11000);
+    // 2. Advance time by > 30s (Interval tick is 30s)
+    await vi.advanceTimersByTimeAsync(32000);
 
     // 3. Verify FindMany called
     expect(prismaMock.student.findMany).toHaveBeenCalled();
@@ -76,7 +75,7 @@ describe('Heartbeat Cleanup Service', () => {
     // 5. Verify Violation created
     expect(prismaMock.violation.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        studentId: deadStudent.studentId, // Ensure string ID used
+        studentId: deadStudent.id, // Use ID (UUID)
         type: 'DISCONNECTION',
       }),
     });
