@@ -37,21 +37,27 @@ export const SecureExamMonitor: React.FC<Props> = ({ studentId, studentName, ses
     sendHeartbeat();
     const timer = setInterval(() => {
       sendHeartbeat();
-    }, 4000); // Slightly faster than server timeout (which is check every 10s for >30s old)
+    }, 2000); // Check every 2s
     return () => clearInterval(timer);
   }, [sendHeartbeat]);
 
-  // Handle Visibility Change (Tab Switch)
-  useEffect(() => {
-      const handleVisibilityChange = () => {
-          if (document.hidden) {
-              reportViolation('TAB_SWITCH', 'Student switched tabs or minimized window');
-          }
-      };
+  // Track Disconnection (Logic: If we lose server connection, they might have switched networks)
+  const [lastDisconnectTime, setLastDisconnectTime] = useState<number | null>(null);
 
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-      return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [reportViolation]);
+  useEffect(() => {
+      if (!isConnected && !lastDisconnectTime) {
+          // Just disconnected
+          setLastDisconnectTime(Date.now());
+      } else if (isConnected && lastDisconnectTime) {
+          // Reconnected
+          const duration = Date.now() - lastDisconnectTime;
+          if (duration > 5000) { // Only log if disconnected for > 5 seconds
+              const seconds = Math.round(duration / 1000);
+              reportViolation('CONNECTION_LOST', `Client disconnected from exam server for ${seconds}s. Possible network switch.`);
+          }
+          setLastDisconnectTime(null);
+      }
+  }, [isConnected, lastDisconnectTime, reportViolation]);
 
   // Handle Internet Violation
   useEffect(() => {
