@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTeacherSocket } from '../hooks/useTeacherSocket';
-import { PlusCircle, Play, Clock } from 'lucide-react';
 import { ConfirmationModal } from './common/ConfirmationModal';
 import { Header } from './layout/Header';
 import { Table, TableColumn } from './common/Table';
@@ -59,35 +58,28 @@ export const TeacherDashboard: React.FC<Props> = ({ onLogout }) => {
       {
           header: 'Start Date',
           cell: (session) => (
-              <div className="flex flex-col">
-                  <span className="font-medium text-gray-800">{new Date(session.createdAt).toLocaleDateString()}</span>
-                  <span className="text-xs text-gray-500">{new Date(session.createdAt).toLocaleTimeString()}</span>
-              </div>
+              <span className="text-gray-800 whitespace-nowrap">{new Date(session.createdAt).toLocaleString()}</span>
           )
       },
       {
           header: 'End Date',
           cell: (session) => session.endedAt ? (
-             <span className="text-gray-600">{new Date(session.endedAt).toLocaleTimeString()}</span>
+             <span className="text-gray-800 whitespace-nowrap">{new Date(session.endedAt).toLocaleString()}</span>
           ) : (
              <span className="text-gray-400">-</span>
           )
       },
       {
           header: 'Duration',
-          cell: (session) => <span className="text-gray-600 font-mono text-xs">{formatDuration(session.createdAt, session.endedAt)}</span>
+          cell: (session) => <span className="text-gray-600 text-sm">{formatDuration(session.createdAt, session.endedAt)}</span>
+      },
+      {
+          header: 'Students',
+          cell: (session) => <span className="text-gray-900 font-medium">{session.studentCount || 0}</span>
       },
       {
           header: 'Session Code',
           cell: (session) => <span className="font-mono font-bold text-indigo-900">{session.code}</span>
-      },
-      {
-          header: 'Status',
-          cell: (session) => session.isActive ? (
-              <StatusBadge status="active" pulse text="Active" />
-          ) : (
-              <StatusBadge status="inactive" text="Ended" />
-          )
       }
   ];
 
@@ -113,57 +105,48 @@ export const TeacherDashboard: React.FC<Props> = ({ onLogout }) => {
           
           {/* Active Session Card */}
           {activeSession ? (
-              <Card className="border-indigo-100 overflow-hidden" padding="lg">
+              <Card className="border-indigo-100 overflow-hidden pl-6 pr-6 pt-6 pb-6" padding="none">
                   <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                      <div className="flex items-center gap-5">
-                          <div className="p-4 bg-indigo-50 text-indigo-600 rounded-full">
-                              <Play size={32} fill="currentColor" />
-                          </div>
-                          <div>
-                              <h2 className="text-lg font-bold text-gray-800">Exam Session in Progress</h2>
-                              <p className="text-gray-500 text-sm mb-1">Session Code</p>
-                              <p className="text-3xl font-mono font-bold text-indigo-600 tracking-wider hover:scale-105 transition-transform origin-left cursor-default">
-                                  {activeSession.code}
-                              </p>
-                              <p className="text-xs text-gray-400 mt-2">
-                                  Started: {new Date(activeSession.createdAt).toLocaleTimeString()}
-                              </p>
-                          </div>
+                      <div>
+                          <h2 className="text-lg font-bold text-gray-800 mb-1">Exam In Progress</h2>
+                          <p className="text-3xl font-mono font-bold text-indigo-600 tracking-wider">
+                              {activeSession.code}
+                          </p>
                       </div>
                       
                       <Button 
                           onClick={() => navigate(`/teacher/session/${activeSession.code}`)}
-                          className="w-full md:w-auto px-8 py-3 shadow-sm transform hover:-translate-y-0.5"
+                          className="w-full md:w-auto px-8 py-3 shadow-sm"
                       >
-                          Resume Monitoring &rarr;
+                          See Details
                       </Button>
                   </div>
               </Card>
           ) : (
-              <Card className="border-dashed border-gray-300 flex flex-col items-center justify-center text-center" padding="lg">
-                  <div className="mb-4 p-4 bg-gray-50 rounded-full text-gray-400 mx-auto">
-                      <Clock size={40} />
+              <Card className="border-dashed border-gray-300" padding="md">
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                      <div>
+                          <h2 className="text-lg font-bold text-gray-700">No Active Session</h2>
+                          <p className="text-gray-500 text-sm">Ready to start a new exam?</p>
+                      </div>
+                      <Button 
+                          onClick={handleCreateSession}
+                          variant="secondary"
+                          className="w-full md:w-auto px-6 py-2"
+                          isLoading={isCreating}
+                      >
+                          Create New Session
+                      </Button>
                   </div>
-                  <h2 className="text-xl font-bold text-gray-700 mb-2">No Active Session</h2>
-                  <p className="text-gray-500 mb-6 max-w-sm mx-auto">Ready to start a new exam? Generating a session code will allow students to connect.</p>
-                  <Button 
-                      onClick={handleCreateSession}
-                      variant="secondary"
-                      className="gap-2 px-6 py-3 mx-auto"
-                      icon={<PlusCircle size={20} />}
-                      isLoading={isCreating}
-                  >
-                      Create New Session
-                  </Button>
               </Card>
           )}
 
           {/* Recent Sessions */}
           <section>
-              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4 pl-1">Recent History</h3>
+              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4 pl-6">Recent History</h3>
               <Card className="border-gray-200 overflow-hidden" padding="none">
                   <Table 
-                      data={history}
+                      data={history.filter(s => !s.isActive)}
                       columns={historyColumns}
                       keyExtractor={(item) => item.id}
                       emptyMessage="No past sessions found."
