@@ -37,6 +37,9 @@ export const SessionDetail: React.FC = () => {
     };
 
     const confirmLogout = () => {
+        if (activeSession?.isActive) {
+            endSession(); // End session on logout
+        }
         navigate('/teacher/login');
     };
 
@@ -83,8 +86,8 @@ export const SessionDetail: React.FC = () => {
             <ConfirmationModal 
                 isOpen={showLogoutModal}
                 title="Active Session in Progress"
-                message="You have an exam session currently running. Logging out will not stop the session, but you will stop monitoring students. Are you sure you want to logout?"
-                confirmText="Logout"
+                message="You have an exam session currently running. Logging out will END the session and disconnect all students. Are you sure you want to end the session and logout?"
+                confirmText="End Session & Logout"
                 isDanger={true}
                 onConfirm={confirmLogout}
                 onCancel={() => setShowLogoutModal(false)}

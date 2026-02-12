@@ -14,7 +14,7 @@ interface Props {
 }
 
 export const TeacherDashboard: React.FC<Props> = ({ onLogout }) => {
-  const { isConnected, activeSession, history, createSession } = useTeacherSocket();
+  const { isConnected, activeSession, history, createSession, endSession } = useTeacherSocket();
   const navigate = useNavigate();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
@@ -27,6 +27,9 @@ export const TeacherDashboard: React.FC<Props> = ({ onLogout }) => {
   };
 
   const confirmLogout = () => {
+        if (activeSession && activeSession.isActive) {
+            endSession(); // End the session to logout students
+        }
         setShowLogoutModal(false);
         onLogout();
   };
@@ -88,8 +91,8 @@ export const TeacherDashboard: React.FC<Props> = ({ onLogout }) => {
       <ConfirmationModal 
           isOpen={showLogoutModal}
           title="Active Session in Progress"
-          message="You have an exam session currently running. Logging out will not stop the session, but you will stop monitoring students. Are you sure you want to logout?"
-          confirmText="Logout"
+          message="You have an exam session currently running. Logging out will END the session and disconnect all students. Are you sure you want to end the session and logout?"
+          confirmText="End Session & Logout"
           isDanger={true}
           onConfirm={confirmLogout}
           onCancel={() => setShowLogoutModal(false)}
