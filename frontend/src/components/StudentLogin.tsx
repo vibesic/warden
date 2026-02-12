@@ -56,20 +56,22 @@ export const StudentLogin: React.FC<StudentLoginProps> = ({ onLogin, onSwitchToT
           
           <Input
             label="Student ID"
-            placeholder="S12345"
+            placeholder="12345"
             value={studentId}
-            onChange={(e) => setStudentId(e.target.value)}
+            onChange={(e) => setStudentId(e.target.value.replace(/\D/g, ''))}
             required
+            inputMode="numeric"
           />
 
           <Input
-            label="Session Code (PIN)"
+            label="Session Code"
             placeholder="000000"
             value={sessionCode}
-            onChange={(e) => setSessionCode(e.target.value)}
+            onChange={(e) => setSessionCode(e.target.value.replace(/\D/g, ''))}
             maxLength={6}
             required
             className="font-mono tracking-widest text-center text-lg"
+            inputMode="numeric"
           />
           
           {error && <div className="text-red-500 text-sm text-center font-bold">{error}</div>}
