@@ -62,10 +62,10 @@ describe('Exam Simulation (E2E Flow)', () => {
 
       // Mock student upsert (register)
       prismaMock.student.upsert.mockResolvedValue({
-          id: 'uuid-sim-1',
-          studentId: 'sim_student_01',
-          name: 'Sim User',
-          sessionId: 'sess_1'
+        id: 'uuid-sim-1',
+        studentId: 'sim_student_01',
+        name: 'Sim User',
+        sessionId: 'sess_1'
       } as any);
 
       // Mock violation create
@@ -101,10 +101,10 @@ describe('Exam Simulation (E2E Flow)', () => {
           expect(data).toBeDefined();
           expect(data.violation.type).toBe('INTERNET_ACCESS');
           expect(data.studentId).toBe('sim_student_01');
-          
+
           clearTimeout(timeout);
           teardown();
-          resolve(); 
+          resolve();
         } catch (e) {
           clearTimeout(timeout);
           teardown();
@@ -116,11 +116,11 @@ describe('Exam Simulation (E2E Flow)', () => {
       studentSocket.on('connect', () => {
         // Wait briefly for teacher to likely be joined
         setTimeout(() => {
-            studentSocket.emit('register', {
-                studentId: 'sim_student_01',
-                name: 'Sim User',
-                sessionCode: '123456'
-            });
+          studentSocket.emit('register', {
+            studentId: 'sim_student_01',
+            name: 'Sim User',
+            sessionCode: '123456'
+          });
         }, 50);
       });
 

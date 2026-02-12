@@ -17,10 +17,13 @@ const prismaMock = vi.hoisted(() => ({
     create: vi.fn(),
   },
   session: {
-      findUnique: vi.fn().mockResolvedValue({ id: 's1', code: '123456', isActive: true, createdAt: new Date() }),
-      findFirst: vi.fn().mockResolvedValue({ id: 's1', code: '123456', isActive: true, createdAt: new Date() }),
-      findMany: vi.fn(),
-      count: vi.fn()
+    findUnique: vi.fn().mockResolvedValue({ id: 's1', code: '123456', isActive: true, createdAt: new Date() }),
+    findFirst: vi.fn().mockResolvedValue({ id: 's1', code: '123456', isActive: true, createdAt: new Date() }),
+    findMany: vi.fn(),
+    create: vi.fn().mockResolvedValue({ id: 's2', code: '654321', isActive: true, createdAt: new Date() }),
+    update: vi.fn().mockResolvedValue({ id: 's1', code: '123456', isActive: false, endedAt: new Date() }),
+    updateMany: vi.fn(),
+    count: vi.fn()
   }
 }));
 
@@ -93,13 +96,13 @@ describe('Socket Gateway', () => {
   it('should process heartbeat', async () => {
     const heartbeatData = { studentId: 'test_student_2' };
     const registerData = { studentId: 'test_student_2', name: 'Test', sessionCode: '123456' };
-    
+
     prismaMock.student.upsert.mockResolvedValue({ id: 'uuid-2', ...registerData } as any);
     prismaMock.student.update.mockResolvedValue({} as any);
 
     await new Promise<void>(resolve => {
-        clientSocket.emit('register', registerData);
-        clientSocket.once('registered', () => resolve());
+      clientSocket.emit('register', registerData);
+      clientSocket.once('registered', () => resolve());
     });
 
     clientSocket.emit('heartbeat', heartbeatData);
@@ -121,13 +124,13 @@ describe('Socket Gateway', () => {
       type: 'INTERNET_ACCESS',
       details: 'Google detected'
     };
-    
+
     prismaMock.student.upsert.mockResolvedValue({ id: 'uuid-3', ...registerData } as any);
     prismaMock.violation.create.mockResolvedValue({ timestamp: new Date() } as any);
 
     await new Promise<void>(resolve => {
-        clientSocket.emit('register', registerData);
-        clientSocket.once('registered', () => resolve());
+      clientSocket.emit('register', registerData);
+      clientSocket.once('registered', () => resolve());
     });
 
     return new Promise<void>((resolve) => {
@@ -168,26 +171,26 @@ describe('Socket Gateway', () => {
   it('should return dashboard overview', async () => {
     // Mock prisma.session.findMany
     const historyMock = [
-       { id: 'h1', code: '111111', createdAt: new Date(), endedAt: null, isActive: false, _count: { students: 5 } }
+      { id: 'h1', code: '111111', createdAt: new Date(), endedAt: null, isActive: false, _count: { students: 5 } }
     ];
     prismaMock.session.findMany.mockResolvedValue(historyMock);
-    
+
     // Create new client to test dashboard events
     const teacherSocket = Client(`http://localhost:${3001}`);
     await new Promise<void>((resolve) => teacherSocket.on('connect', resolve));
 
     await new Promise<void>((resolve, reject) => {
-        teacherSocket.on('dashboard:overview', (data: any) => {
-            try {
-                expect(data.history).toHaveLength(1);
-                expect(data.history[0].code).toBe('111111');
-                expect(data.history[0].studentCount).toBe(5);
-                resolve();
-            } catch (e) {
-                reject(e);
-            }
-        });
-        teacherSocket.emit('dashboard:join_overview');
+      teacherSocket.on('dashboard:overview', (data: any) => {
+        try {
+          expect(data.history).toHaveLength(1);
+          expect(data.history[0].code).toBe('111111');
+          expect(data.history[0].studentCount).toBe(5);
+          resolve();
+        } catch (e) {
+          reject(e);
+        }
+      });
+      teacherSocket.emit('dashboard:join_overview');
     });
 
     teacherSocket.close();
