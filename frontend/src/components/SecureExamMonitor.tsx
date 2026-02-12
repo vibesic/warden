@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useInternetSniffer } from '../hooks/useInternetSniffer';
 import { useExamSocket } from '../hooks/useExamSocket';
+import { Modal } from './common/Modal';
+import { Button } from './common/Button';
+import { FullScreenAlert } from './common/FullScreenAlert';
 
 interface Props {
   studentId: string;
@@ -66,39 +69,47 @@ export const SecureExamMonitor: React.FC<Props> = ({ studentId, studentName, ses
   }, [isSecure, reportViolation, violationReported]);
 
   if (showEndModal) {
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
-            <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full text-center">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">Exam Session Ended</h2>
-                <p className="text-gray-600 mb-6">The teacher has ended this exam session. You will now be logged out.</p>
-                <button 
-                    onClick={onLogout}
-                    className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition"
-                >
-                    OK
-                </button>
-            </div>
-        </div>
-    );
+      return (
+          <Modal 
+            isOpen={true} 
+            onClose={() => {}} // Block closing
+            title="Exam Session Ended"
+            closeOnBackdropClick={false}
+            footer={
+                <Button onClick={onLogout} className="w-full">
+                    OK, Logout
+                </Button>
+            }
+          >
+              <div className="text-center py-4 text-gray-600">
+                  <p>The teacher has ended this exam session. You will now be logged out.</p>
+              </div>
+          </Modal>
+      );
   }
 
   if (!isSecure) {
     return (
-      <div className="fixed inset-0 bg-red-600 text-white flex flex-col items-center justify-center z-50 p-4 text-center">
-        <h1 className="text-6xl font-bold mb-4">VIOLATION DETECTED</h1>
-        <p className="text-2xl">UNAUTHORIZED INTERNET ACCESS DETECTED</p>
-        <p className="mt-4">This incident has been logged. Please disconnect any external network devices immediately.</p>
-        <div className="mt-8 text-sm opacity-75">Student ID: {studentId}</div>
-        <div className="mt-2 text-xs opacity-50">Connection Status: {isConnected ? 'Server Connected' : 'Server Disconnected'}</div>
-        {onLogout && (
-            <button 
-                onClick={onLogout}
-                className="mt-8 px-6 py-2 bg-white text-red-600 font-bold rounded shadow hover:bg-gray-100 transition-colors"
-            >
-                Logout
-            </button>
-        )}
-      </div>
+        <FullScreenAlert 
+            title="VIOLATION DETECTED" 
+            subtitle="UNAUTHORIZED INTERNET ACCESS DETECTED"
+            message="This incident has been logged. Please disconnect any external network devices immediately."
+            variant="danger"
+        >
+            <div className="flex flex-col items-center gap-2">
+                <div className="text-sm opacity-75">Student ID: {studentId}</div>
+                <div className="text-xs opacity-50">Connection Status: {isConnected ? 'Server Connected' : 'Server Disconnected'}</div>
+            </div>
+            
+            {onLogout && (
+                <button 
+                    onClick={onLogout}
+                    className="mt-8 px-6 py-2 bg-white text-red-600 font-bold rounded shadow hover:bg-gray-100 transition-colors"
+                >
+                    Logout
+                </button>
+            )}
+        </FullScreenAlert>
     );
   }
 

@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTeacherSocket, Violation } from '../hooks/useTeacherSocket';
-import { AlertTriangle, Wifi, WifiOff, ArrowLeft } from 'lucide-react';
-import { ConfirmationModal } from './ConfirmationModal';
+import { AlertTriangle, Wifi, WifiOff } from 'lucide-react';
+import { ConfirmationModal } from './common/ConfirmationModal';
+import { Modal } from './common/Modal';
+import { Button } from './common/Button';
+import { Header } from './layout/Header';
+import { Table, TableColumn } from './common/Table';
 
 export const SessionDetail: React.FC = () => {
     const { sessionCode } = useParams<{ sessionCode: string }>();
@@ -38,33 +42,33 @@ export const SessionDetail: React.FC = () => {
 
     const onlineCount = sortedStudents.filter(s => s.isOnline).length;
 
+    const violationColumns: TableColumn<Violation>[] = [
+        {
+            header: 'Time',
+            className: 'px-4 py-3 whitespace-nowrap text-gray-600',
+            cell: (v) => new Date(v.timestamp).toLocaleTimeString()
+        },
+        {
+            header: 'Type',
+            className: 'px-4 py-3 font-bold text-red-600',
+            cell: (v) => v.type.replace(/_/g, ' ')
+        },
+        {
+            header: 'Details',
+            className: 'px-4 py-3 text-gray-700',
+            cell: (v) => v.details || '-'
+        }
+    ];
+
     return (
         <div className="min-h-screen bg-gray-50 p-6 md:p-8">
-            <header className="mb-6 flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                <div className="flex items-center gap-4">
-                   <button 
-                       onClick={() => navigate('/teacher')} 
-                       className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
-                       title="Back to Dashboard"
-                   >
-                       <ArrowLeft size={20} />
-                   </button>
-                   <h1 className="text-xl font-bold text-gray-800">Session Monitor</h1>
-                </div>
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full">
-                        <span className={`h-2.5 w-2.5 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                        <span className="text-xs font-semibold text-gray-600">{isConnected ? 'Connected' : 'Disconnected'}</span>
-                    </div>
-
-                    <button 
-                         onClick={handleLogoutClick} 
-                         className="text-sm font-medium text-red-600 hover:text-red-700 px-4 py-2 hover:bg-red-50 rounded-lg transition-colors"
-                     >
-                         Logout
-                     </button>
-                </div>
-            </header>
+            <Header
+                title="Session Monitor"
+                isConnected={isConnected}
+                onLogout={handleLogoutClick}
+                showBack={true}
+                onBack={() => navigate('/teacher')}
+            />
 
             <ConfirmationModal 
                 isOpen={showEndSessionModal}
@@ -165,58 +169,23 @@ export const SessionDetail: React.FC = () => {
             </section>
 
             {selectedStudent && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
-                        <header className="p-4 border-b flex justify-between items-center bg-red-50">
-                            <h3 className="font-bold text-red-800 flex items-center gap-2">
-                                <AlertTriangle size={20} />
-                                Violation Log: {selectedStudent.name}
-                            </h3>
-                            <button 
-                                onClick={() => setSelectedStudent(null)}
-                                className="text-gray-500 hover:text-gray-700 p-1 hover:bg-black/5 rounded"
-                            >
-                                ✕
-                            </button>
-                        </header>
-                        
-                        <div className="p-0 overflow-y-auto flex-1">
-                            <table className="w-full text-sm text-left">
-                                <thead className="text-xs text-gray-500 bg-gray-50 sticky top-0">
-                                    <tr>
-                                        <th className="px-4 py-3 font-medium">Time</th>
-                                        <th className="px-4 py-3 font-medium">Type</th>
-                                        <th className="px-4 py-3 font-medium">Details</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {selectedStudent.violations.map((v, i) => (
-                                        <tr key={i} className="hover:bg-red-50/30">
-                                            <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                                                {new Date(v.timestamp).toLocaleTimeString()}
-                                            </td>
-                                            <td className="px-4 py-3 font-bold text-red-600">
-                                                {v.type.replace(/_/g, ' ')}
-                                            </td>
-                                            <td className="px-4 py-3 text-gray-700">
-                                                {v.details || '-'}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                        
-                        <div className="p-4 border-t bg-gray-50 text-right">
-                            <button 
-                                onClick={() => setSelectedStudent(null)}
-                                className="px-4 py-2 bg-white border border-gray-300 rounded text-sm font-medium hover:bg-gray-50"
-                            >
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <Modal
+                    isOpen={!!selectedStudent}
+                    onClose={() => setSelectedStudent(null)}
+                    title={`Violation Log: ${selectedStudent.name}`}
+                    size="lg"
+                    headerClassName="bg-red-50 text-red-800"
+                    footer={<Button onClick={() => setSelectedStudent(null)} variant="secondary">Close</Button>}
+                >
+                    <Table 
+                        data={selectedStudent.violations}
+                        columns={violationColumns}
+                        keyExtractor={(_, index) => index}
+                        emptyMessage="No violations recorded."
+                        className="w-full text-sm text-left"
+                        rowClassName="hover:bg-red-50/30"
+                    />
+                </Modal>
             )}
         </div>
     );
