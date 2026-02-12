@@ -71,6 +71,11 @@ export const getSessionByCode = async (code: string) => {
 
 export const getSessionHistory = async () => {
   return prisma.session.findMany({
-    orderBy: { createdAt: 'desc' }
+    orderBy: { createdAt: 'desc' },
+    include: {
+      _count: {
+        select: { students: true }
+      }
+    }
   });
 };

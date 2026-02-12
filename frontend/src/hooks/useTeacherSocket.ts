@@ -13,6 +13,8 @@ export interface StudentStatus {
   studentId: string;
   name?: string;
   isOnline: boolean;
+  joinedAt?: string;
+  lastSeenAt?: string;
   violations: Violation[];
 }
 
@@ -22,6 +24,7 @@ export interface Session {
   isActive: boolean;
   createdAt: string;
   endedAt?: string;
+  studentCount?: number;
 }
 
 export const useTeacherSocket = (sessionCode?: string | null) => {
@@ -63,6 +66,8 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
               studentId: s.studentId,
               name: s.name,
               isOnline: s.isOnline,
+              joinedAt: s.joinedAt,
+              lastSeenAt: s.lastSeenAt,
               violations: s.violations || []
             };
           });

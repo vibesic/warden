@@ -162,7 +162,12 @@ export const initializeSocket = (io: Server) => {
         const history = await getSessionHistory();
         const active = await getActiveSession();
         socket.emit('dashboard:overview', {
-          history: history.map(h => ({ ...h, createdAt: h.createdAt.toISOString(), endedAt: h.endedAt?.toISOString() })),
+          history: history.map(h => ({
+            ...h,
+            createdAt: h.createdAt.toISOString(),
+            endedAt: h.endedAt?.toISOString(),
+            studentCount: h._count.students
+          })),
           activeSession: active ? { ...active, createdAt: active.createdAt.toISOString() } : null
         });
       } catch (e) { console.error(e); }
@@ -201,6 +206,8 @@ export const initializeSocket = (io: Server) => {
             studentId: s.studentId, // Text ID
             name: s.name,
             isOnline: s.isOnline,
+            joinedAt: s.createdAt.toISOString(),
+            lastSeenAt: s.lastHeartbeat?.toISOString(),
             violations: s.violations.map((v) => ({
               type: v.type,
               details: v.details,
