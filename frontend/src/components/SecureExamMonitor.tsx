@@ -120,17 +120,32 @@ export const SecureExamMonitor: React.FC<Props> = ({ studentId, studentName, ses
   }
 
   return (
-    <div className="fixed top-0 right-0 p-2 m-2 bg-gray-900 bg-opacity-80 rounded text-white text-xs z-40">
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-          <span>Server: {isConnected ? 'Connected' : 'Disconnected'}</span>
+    <FullScreenAlert
+        title="NO VIOLATION"
+        subtitle="EXAM SESSION IN PROGRESS"
+        message="Carry on you can do you things..."
+        variant="success"
+    >
+        <div className="flex flex-col items-center gap-2 mb-8">
+            <div className="text-sm opacity-75">Student ID: {studentId}</div>
+            <div className="text-xs opacity-50">Connection Status: {isConnected ? 'Server Connected' : 'Server Disconnected'}</div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className={`w-3 h-3 rounded-full ${isSecure ? 'bg-green-500' : 'bg-red-500'}`} />
-          <span>Status: {isSecure ? 'Secure' : 'VIOLATION'}</span>
+
+        <div className="flex flex-col gap-4 w-64 mx-auto">
+            <Button 
+                onClick={() => alert('Upload feature coming soon')} 
+                className="bg-white text-green-600 hover:bg-gray-100 font-bold"
+            >
+                Upload File
+            </Button>
+            
+            <button 
+                onClick={onLogout}
+                className="px-6 py-2 bg-transparent border-2 border-white text-white font-bold rounded hover:bg-white/10 transition-colors"
+            >
+                Logout
+            </button>
         </div>
-      </div>
-    </div>
+    </FullScreenAlert>
   );
 };
