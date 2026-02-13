@@ -45,3 +45,10 @@ model Violation {
   student   Student  @relation(fields: [studentId], references: [id])
   studentId String
 }
+
+model CheckTarget {
+  id        String   @id @default(uuid())
+  url       String   @unique
+  isEnabled Boolean  @default(true)
+  createdAt DateTime @default(now())
+}

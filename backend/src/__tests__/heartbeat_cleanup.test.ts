@@ -47,7 +47,10 @@ describe('Heartbeat Cleanup Service', () => {
       id: 'internal_id_1',
       studentId: 'public_id_1',
       isOnline: true,
-      lastHeartbeat: new Date(Date.now() - 40000), // 40s ago
+      lastHeartbeat: new Date(Date.now() - 60000),
+      session: {
+        code: '123456'
+      }
     };
 
     prismaMock.student.findMany.mockResolvedValue([deadStudent] as any);

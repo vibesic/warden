@@ -21,7 +21,7 @@ const prismaMock = vi.hoisted(() => ({
     findFirst: vi.fn().mockResolvedValue({ id: 's1', code: '123456', isActive: true, createdAt: new Date() }),
     findMany: vi.fn(),
     create: vi.fn().mockResolvedValue({ id: 's2', code: '654321', isActive: true, createdAt: new Date() }),
-    update: vi.fn().mockResolvedValue({ id: 's1', code: '123456', isActive: false, endedAt: new Date() }),
+    update: vi.fn().mockResolvedValue({ id: 's1', code: '123456', isActive: false, createdAt: new Date(), endedAt: new Date() }),
     updateMany: vi.fn(),
     count: vi.fn()
   }
@@ -194,5 +194,42 @@ describe('Socket Gateway', () => {
     });
 
     teacherSocket.close();
+  });
+
+  it('should create new session when teacher requests', async () => {
+    // Override the mock to return null so createSession loop terminates (no collision)
+    prismaMock.session.findUnique.mockResolvedValueOnce(null);
+
+    return new Promise<void>((resolve) => {
+      clientSocket.on('dashboard:session_created', (data) => {
+        expect(data).toHaveProperty('code');
+        resolve();
+      });
+      clientSocket.emit('teacher:create_session');
+    });
+  });
+
+  it('should end session when teacher requests', async () => {
+    return new Promise<void>((resolve) => {
+      clientSocket.on('dashboard:session_ended', () => {
+        resolve();
+      });
+      clientSocket.emit('teacher:end_session');
+    });
+  });
+
+  it('should return registration error if session invalid', async () => {
+    // Mock validation failure - force return null for this specific call
+    // The current mock implementation returns valid session by default (see top of file)
+    const sessionMock = prismaMock.session.findUnique;
+    sessionMock.mockResolvedValueOnce(null);
+
+    return new Promise<void>((resolve) => {
+      clientSocket.once('registration_error', (msg) => {
+        expect(msg).toBe('Invalid session code');
+        resolve();
+      });
+      clientSocket.emit('register', { studentId: 'invalid', name: 'Invalid', sessionCode: '999999' });
+    });
   });
 });

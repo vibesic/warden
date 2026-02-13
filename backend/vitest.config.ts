@@ -1,9 +1,16 @@
 import { defineConfig } from 'vitest/config';
 
+process.env.DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/secure_exam?schema=public';
+
 export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
+    setupFiles: ['./vitest.setup.ts'],
+    env: {
+      DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/secure_exam?schema=public',
+      NODE_ENV: 'test'
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
