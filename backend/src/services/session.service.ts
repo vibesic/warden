@@ -1,6 +1,6 @@
 import prisma from '../utils/prisma';
 
-export const createSession = async () => {
+export const createSession = async (durationMinutes?: number) => {
   // End any currently active sessions first
   await prisma.session.updateMany({
     where: { isActive: true },
@@ -23,6 +23,7 @@ export const createSession = async () => {
     data: {
       code,
       isActive: true,
+      durationMinutes: durationMinutes ?? null,
     }
   });
 
@@ -77,5 +78,36 @@ export const getSessionHistory = async () => {
         select: { students: true }
       }
     }
+  });
+};
+
+/**
+ * Returns active sessions whose timer has expired.
+ */
+export const getExpiredSessions = async () => {
+  const activeSessions = await prisma.session.findMany({
+    where: {
+      isActive: true,
+      durationMinutes: { not: null },
+    },
+  });
+
+  const now = Date.now();
+  return activeSessions.filter((session) => {
+    const endsAt = session.createdAt.getTime() + (session.durationMinutes as number) * 60_000;
+    return now >= endsAt;
+  });
+};
+
+/**
+ * End a specific session by ID.
+ */
+export const endSessionById = async (sessionId: string) => {
+  return prisma.session.update({
+    where: { id: sessionId },
+    data: {
+      isActive: false,
+      endedAt: new Date(),
+    },
   });
 };

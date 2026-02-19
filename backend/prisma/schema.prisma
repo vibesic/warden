@@ -18,7 +18,8 @@ model Student {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
-  violations Violation[]
+  violations  Violation[]
+  submissions Submission[]
   
   session   Session  @relation(fields: [sessionId], references: [id])
   sessionId String
@@ -27,13 +28,15 @@ model Student {
 }
 
 model Session {
-  id        String   @id @default(uuid())
-  code      String   @unique
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  endedAt   DateTime?
+  id              String   @id @default(uuid())
+  code            String   @unique
+  isActive        Boolean  @default(true)
+  durationMinutes Int?
+  createdAt       DateTime @default(now())
+  endedAt         DateTime?
   
-  students  Student[]
+  students    Student[]
+  submissions Submission[]
 }
 
 model Violation {
@@ -51,4 +54,19 @@ model CheckTarget {
   url       String   @unique
   isEnabled Boolean  @default(true)
   createdAt DateTime @default(now())
+}
+
+model Submission {
+  id           String   @id @default(uuid())
+  originalName String
+  storedName   String
+  mimeType     String?
+  sizeBytes    Int
+  createdAt    DateTime @default(now())
+
+  student   Student @relation(fields: [studentId], references: [id])
+  studentId String
+
+  session   Session @relation(fields: [sessionId], references: [id])
+  sessionId String
 }

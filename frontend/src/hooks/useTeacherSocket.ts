@@ -22,9 +22,31 @@ export interface Session {
   id: string;
   code: string;
   isActive: boolean;
+  durationMinutes?: number | null;
   createdAt: string;
   endedAt?: string;
   studentCount?: number;
+}
+
+interface SessionStateStudent {
+  studentId: string;
+  name: string;
+  isOnline: boolean;
+  joinedAt: string;
+  lastSeenAt?: string;
+  violations: Violation[];
+}
+
+interface DashboardUpdatePayload {
+  type: 'STUDENT_JOINED' | 'STUDENT_LEFT';
+  studentId: string;
+  name?: string;
+  isOnline?: boolean;
+}
+
+interface DashboardAlertPayload {
+  studentId: string;
+  violation: Violation;
 }
 
 export const useTeacherSocket = (sessionCode?: string | null) => {
@@ -38,12 +60,14 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    socketRef.current = io(SOCKET_URL);
+    const token = localStorage.getItem('teacherToken') || '';
+    socketRef.current = io(SOCKET_URL, {
+      auth: { token },
+    });
     const socket = socketRef.current;
 
     const setupListeners = () => {
       socket.on('connect', () => {
-        console.log('Teacher Dashboard connected');
         setIsConnected(true);
         if (sessionCode) {
           socket.emit('dashboard:join_session', { sessionCode });
@@ -57,11 +81,11 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
         setHistory(data.history || []);
       });
 
-      socket.on('dashboard:session_state', (data: { session: Session, students: any[] }) => {
+      socket.on('dashboard:session_state', (data: { session: Session, students: SessionStateStudent[] }) => {
         setActiveSession(data.session);
         const studentMap: Record<string, StudentStatus> = {};
         if (data.students) {
-          data.students.forEach((s: any) => {
+          data.students.forEach((s) => {
             studentMap[s.studentId] = {
               studentId: s.studentId,
               name: s.name,
@@ -88,7 +112,7 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
         setActiveSession(prev => prev && prev.code === session.code ? session : prev);
       });
 
-      socket.on('dashboard:update', (data: { type: string, studentId: string, name?: string, isOnline?: boolean }) => {
+      socket.on('dashboard:update', (data: DashboardUpdatePayload) => {
         if (!sessionCode) return;
 
         setStudents(prev => {
@@ -120,7 +144,7 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
         });
       });
 
-      socket.on('dashboard:alert', (data: { studentId: string, violation: Violation }) => {
+      socket.on('dashboard:alert', (data: DashboardAlertPayload) => {
         if (!sessionCode) return;
 
         setStudents(prev => {
@@ -149,8 +173,8 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
     };
   }, [sessionCode]);
 
-  const createSession = useCallback(() => {
-    socketRef.current?.emit('teacher:create_session');
+  const createSession = useCallback((durationMinutes?: number) => {
+    socketRef.current?.emit('teacher:create_session', durationMinutes ? { durationMinutes } : {});
   }, []);
 
   const endSession = useCallback(() => {

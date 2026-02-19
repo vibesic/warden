@@ -3,10 +3,16 @@ import { io, Socket } from 'socket.io-client';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+export interface SessionTimerInfo {
+  createdAt: string;
+  durationMinutes: number | null;
+}
+
 export const useExamSocket = (studentId: string, name: string, sessionCode: string, onSessionEnded?: () => void) => {
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState('');
+  const [sessionTimer, setSessionTimer] = useState<SessionTimerInfo | null>(null);
   const isRegisteredRef = useRef(false);
   const violationQueue = useRef<{ type: string, details?: string }[]>([]);
 
@@ -24,7 +30,6 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
     const socket = socketRef.current;
 
     socket.on('connect', () => {
-      console.log('Connected to exam server');
       setIsConnected(true);
       setError('');
       // Don't set isRegisteredRef true yet, wait for ack
@@ -33,24 +38,24 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
     });
 
     socket.on('registration_error', (msg: string) => {
-      console.error('Registration failed:', msg);
       setError(msg);
       socket.disconnect(); // Disconnect if invalid
     });
 
     socket.on('session:ended', () => {
-      console.log('Session ended by teacher');
       if (onSessionEnded) onSessionEnded();
     });
 
-    socket.on('registered', () => {
-      console.log('Registration confirmed, flushing queue. Queue length:', violationQueue.current.length);
+    socket.on('registered', (data: { studentId: string; session?: SessionTimerInfo }) => {
       isRegisteredRef.current = true;
-      setError(''); // Clear error if any (e.g. from retry)
+      setError('');
+
+      if (data.session) {
+        setSessionTimer(data.session);
+      }
 
       if (violationQueue.current.length > 0) {
         violationQueue.current.forEach(v => {
-          console.log('Flushing violation:', v);
           socket.emit('report_violation', { studentId, type: v.type, details: v.details });
         });
         violationQueue.current = [];
@@ -58,9 +63,37 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
     });
 
     socket.on('disconnect', () => {
-      console.log('Disconnected from exam server');
       setIsConnected(false);
       isRegisteredRef.current = false;
+    });
+
+    // Server-side sniffer challenge handler
+    socket.on('sniffer:challenge', async (data: { challengeId: string; targetUrl: string }) => {
+      const { challengeId, targetUrl } = data;
+      try {
+        const probeUrl = `${targetUrl}/favicon.ico?t=${Date.now()}`;
+        const reachable = await new Promise<boolean>((resolve) => {
+          const img = new Image();
+          const timer = setTimeout(() => {
+            img.onload = null;
+            img.onerror = null;
+            img.src = '';
+            resolve(false);
+          }, 4000);
+          img.onload = () => {
+            clearTimeout(timer);
+            resolve(true);
+          };
+          img.onerror = () => {
+            clearTimeout(timer);
+            resolve(false);
+          };
+          img.src = probeUrl;
+        });
+        socket.emit('sniffer:response', { challengeId, reachable });
+      } catch {
+        socket.emit('sniffer:response', { challengeId, reachable: false });
+      }
     });
 
     return () => {
@@ -78,11 +111,10 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
     if (socketRef.current?.connected && isRegisteredRef.current) {
       socketRef.current.emit('report_violation', { studentId, type, details });
     } else {
-      console.warn('Socket offline or not registered, queuing violation report');
       violationQueue.current.push({ type, details });
     }
   }, [studentId]);
 
-  return { isConnected, sendHeartbeat, reportViolation, error };
+  return { isConnected, sendHeartbeat, reportViolation, error, sessionTimer };
 };
 
