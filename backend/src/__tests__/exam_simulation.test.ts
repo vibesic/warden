@@ -3,6 +3,7 @@ import { Server } from 'socket.io';
 import Client, { Socket as ClientSocket } from 'socket.io-client';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { initializeSocket } from '../gateway/socket';
+import { generateTeacherToken } from '../services/auth.service';
 
 // 1. Mock Prisma (Simulation of DB)
 const prismaMock = vi.hoisted(() => ({
@@ -77,7 +78,10 @@ describe('Exam Simulation (E2E Flow)', () => {
       } as any);
 
       // 1. Connect Clients
-      const teacherSocket = Client(`http://localhost:${port}`);
+      const token = generateTeacherToken();
+      const teacherSocket = Client(`http://localhost:${port}`, {
+        auth: { token },
+      });
       const studentSocket = Client(`http://localhost:${port}`);
 
       const teardown = () => {
@@ -89,7 +93,7 @@ describe('Exam Simulation (E2E Flow)', () => {
       const timeout = setTimeout(() => {
         teardown();
         reject(new Error('Simulation timed out: Alert not received'));
-      }, 3000);
+      }, 5000);
 
       // 2. Teacher Logic
       teacherSocket.on('connect', () => {

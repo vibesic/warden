@@ -4,26 +4,25 @@ node_modules/
 .pnp.js
 
 # Testing
-coverage/
+**/coverage/
 
 # Production builds
-dist/
-build/
-out/
+**/dist/
+**/build/
+**/out/
 
-# Misc
-.DS_Store
-*.pem
+# Uploaded files (user data, not source code)
+**/uploads/
 
 # Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 *.log
-simulation.log
 
 # Environment Variables
 .env
+**/.env
 .env.*.local
 .env.local
 
@@ -56,3 +55,7 @@ docker-compose.override.yml
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Misc
+*.pem
+*.tmp

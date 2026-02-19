@@ -3,6 +3,7 @@ import { Server } from 'socket.io';
 import Client, { Socket as ClientSocket } from 'socket.io-client';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { initializeSocket } from '../gateway/socket';
+import { generateTeacherToken } from '../services/auth.service';
 
 // Mock Prisma
 // We must mock '../utils/prisma' BEFORE importing the module that uses it
@@ -36,16 +37,23 @@ describe('Socket Gateway', () => {
   let io: Server;
   let clientSocket: ClientSocket;
   let httpServer: any;
-  const port = 3001; // Use different port for tests
+  let cleanup: { clearIntervals: () => void };
+  let port: number;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     httpServer = createServer();
     io = new Server(httpServer);
-    initializeSocket(io);
-    httpServer.listen(port);
+    cleanup = initializeSocket(io);
+    await new Promise<void>((resolve) => {
+      httpServer.listen(0, () => {
+        port = (httpServer.address() as any).port;
+        resolve();
+      });
+    });
   });
 
   afterAll(() => {
+    cleanup.clearIntervals();
     io.close();
     httpServer.close();
   });
@@ -175,8 +183,11 @@ describe('Socket Gateway', () => {
     ];
     prismaMock.session.findMany.mockResolvedValue(historyMock);
 
-    // Create new client to test dashboard events
-    const teacherSocket = Client(`http://localhost:${3001}`);
+    // Create teacher client with valid token
+    const token = generateTeacherToken();
+    const teacherSocket = Client(`http://localhost:${port}`, {
+      auth: { token },
+    });
     await new Promise<void>((resolve) => teacherSocket.on('connect', resolve));
 
     await new Promise<void>((resolve, reject) => {
@@ -196,26 +207,89 @@ describe('Socket Gateway', () => {
     teacherSocket.close();
   });
 
+  it('should reject dashboard:join_overview without auth token', async () => {
+    // Create client without a token
+    const unauthSocket = Client(`http://localhost:${port}`);
+    await new Promise<void>((resolve) => unauthSocket.on('connect', resolve));
+
+    await new Promise<void>((resolve) => {
+      unauthSocket.on('dashboard:error', (data: any) => {
+        expect(data.message).toContain('Unauthorized');
+        resolve();
+      });
+      unauthSocket.emit('dashboard:join_overview');
+    });
+
+    unauthSocket.close();
+  });
+
   it('should create new session when teacher requests', async () => {
     // Override the mock to return null so createSession loop terminates (no collision)
     prismaMock.session.findUnique.mockResolvedValueOnce(null);
 
-    return new Promise<void>((resolve) => {
-      clientSocket.on('dashboard:session_created', (data) => {
+    // Create teacher client with auth
+    const token = generateTeacherToken();
+    const teacherSocket = Client(`http://localhost:${port}`, {
+      auth: { token },
+    });
+    await new Promise<void>((resolve) => teacherSocket.on('connect', resolve));
+
+    await new Promise<void>((resolve) => {
+      teacherSocket.on('dashboard:session_created', (data) => {
         expect(data).toHaveProperty('code');
         resolve();
       });
-      clientSocket.emit('teacher:create_session');
+      teacherSocket.emit('teacher:create_session');
     });
+
+    teacherSocket.close();
+  });
+
+  it('should reject teacher:create_session without auth token', async () => {
+    const unauthSocket = Client(`http://localhost:${port}`);
+    await new Promise<void>((resolve) => unauthSocket.on('connect', resolve));
+
+    await new Promise<void>((resolve) => {
+      unauthSocket.on('dashboard:error', (data: any) => {
+        expect(data.message).toContain('Unauthorized');
+        resolve();
+      });
+      unauthSocket.emit('teacher:create_session');
+    });
+
+    unauthSocket.close();
   });
 
   it('should end session when teacher requests', async () => {
-    return new Promise<void>((resolve) => {
-      clientSocket.on('dashboard:session_ended', () => {
+    const token = generateTeacherToken();
+    const teacherSocket = Client(`http://localhost:${port}`, {
+      auth: { token },
+    });
+    await new Promise<void>((resolve) => teacherSocket.on('connect', resolve));
+
+    await new Promise<void>((resolve) => {
+      teacherSocket.on('dashboard:session_ended', () => {
         resolve();
       });
-      clientSocket.emit('teacher:end_session');
+      teacherSocket.emit('teacher:end_session');
     });
+
+    teacherSocket.close();
+  });
+
+  it('should reject teacher:end_session without auth token', async () => {
+    const unauthSocket = Client(`http://localhost:${port}`);
+    await new Promise<void>((resolve) => unauthSocket.on('connect', resolve));
+
+    await new Promise<void>((resolve) => {
+      unauthSocket.on('dashboard:error', (data: any) => {
+        expect(data.message).toContain('Unauthorized');
+        resolve();
+      });
+      unauthSocket.emit('teacher:end_session');
+    });
+
+    unauthSocket.close();
   });
 
   it('should return registration error if session invalid', async () => {
@@ -231,5 +305,69 @@ describe('Socket Gateway', () => {
       });
       clientSocket.emit('register', { studentId: 'invalid', name: 'Invalid', sessionCode: '999999' });
     });
+  });
+
+  it('should process sniffer:response and create violation when reachable is true', async () => {
+    const registerData = { studentId: 'sniffer_student', name: 'Sniffer Test', sessionCode: '123456' };
+    prismaMock.student.upsert.mockResolvedValue({ id: 'uuid-sniffer', ...registerData } as any);
+    prismaMock.violation.create.mockResolvedValue({ timestamp: new Date(), type: 'INTERNET_ACCESS' } as any);
+
+    // Register the student
+    await new Promise<void>(resolve => {
+      clientSocket.emit('register', registerData);
+      clientSocket.once('registered', () => resolve());
+    });
+
+    // Manually set the pending challenge on the server socket
+    // We do this by emitting a sniffer:response that matches what we'll set
+    const sockets = await io.fetchSockets();
+    const targetSocket = sockets.find(s => s.data.studentUuid === 'uuid-sniffer');
+    expect(targetSocket).toBeDefined();
+
+    const challengeId = 'test-challenge-123';
+    targetSocket!.data.pendingChallenge = {
+      challengeId,
+      targetUrl: 'https://www.google.com',
+      issuedAt: Date.now(),
+    };
+
+    // Student responds that the target is reachable (violation)
+    clientSocket.emit('sniffer:response', { challengeId, reachable: true });
+
+    await new Promise(r => setTimeout(r, 100));
+
+    expect(prismaMock.violation.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        studentId: 'uuid-sniffer',
+        type: 'INTERNET_ACCESS',
+      })
+    });
+  });
+
+  it('should NOT create violation when sniffer:response reachable is false', async () => {
+    const registerData = { studentId: 'sniffer_safe', name: 'Safe Student', sessionCode: '123456' };
+    prismaMock.student.upsert.mockResolvedValue({ id: 'uuid-safe', ...registerData } as any);
+
+    await new Promise<void>(resolve => {
+      clientSocket.emit('register', registerData);
+      clientSocket.once('registered', () => resolve());
+    });
+
+    const sockets = await io.fetchSockets();
+    const targetSocket = sockets.find(s => s.data.studentUuid === 'uuid-safe');
+    expect(targetSocket).toBeDefined();
+
+    const challengeId = 'test-challenge-safe';
+    targetSocket!.data.pendingChallenge = {
+      challengeId,
+      targetUrl: 'https://www.google.com',
+      issuedAt: Date.now(),
+    };
+
+    clientSocket.emit('sniffer:response', { challengeId, reachable: false });
+
+    await new Promise(r => setTimeout(r, 100));
+
+    expect(prismaMock.violation.create).not.toHaveBeenCalled();
   });
 });

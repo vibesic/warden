@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createSession, endSession, getActiveSession, validateSession, getSessionHistory, getSessionByCode } from '../services/session.service';
+import { createSession, endSession, getActiveSession, validateSession, getSessionHistory, getSessionByCode, getExpiredSessions, endSessionById } from '../services/session.service';
 import prisma from '../utils/prisma';
 
 // Mock prisma
@@ -132,6 +132,92 @@ describe('Session Service', () => {
       expect(prisma.session.findMany).toHaveBeenCalledWith(expect.objectContaining({
         orderBy: { createdAt: 'desc' }
       }));
+    });
+  });
+
+  describe('createSession with duration', () => {
+    it('should create a session with durationMinutes', async () => {
+      (prisma.session.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 0 });
+      (prisma.session.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      (prisma.session.create as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 'timed-session',
+        code: '111111',
+        isActive: true,
+        durationMinutes: 90,
+      });
+
+      const session = await createSession(90);
+
+      expect(prisma.session.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          isActive: true,
+          durationMinutes: 90,
+        }),
+      });
+      expect(session.durationMinutes).toBe(90);
+    });
+
+    it('should store null when no duration provided', async () => {
+      (prisma.session.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 0 });
+      (prisma.session.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      (prisma.session.create as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 'untimed',
+        code: '222222',
+        isActive: true,
+        durationMinutes: null,
+      });
+
+      const session = await createSession();
+
+      expect(prisma.session.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          durationMinutes: null,
+        }),
+      });
+      expect(session.durationMinutes).toBeNull();
+    });
+  });
+
+  describe('getExpiredSessions', () => {
+    it('should return sessions whose timer has expired', async () => {
+      const oldDate = new Date(Date.now() - 120 * 60_000); // 2 hours ago
+      (prisma.session.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { id: 's1', isActive: true, durationMinutes: 60, createdAt: oldDate },
+      ]);
+
+      const expired = await getExpiredSessions();
+
+      expect(expired).toHaveLength(1);
+      expect(expired[0].id).toBe('s1');
+    });
+
+    it('should not return sessions that still have time left', async () => {
+      const recentDate = new Date(); // just now
+      (prisma.session.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { id: 's2', isActive: true, durationMinutes: 60, createdAt: recentDate },
+      ]);
+
+      const expired = await getExpiredSessions();
+
+      expect(expired).toHaveLength(0);
+    });
+  });
+
+  describe('endSessionById', () => {
+    it('should end a specific session by ID', async () => {
+      (prisma.session.update as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 's1',
+        isActive: false,
+        endedAt: new Date(),
+      });
+
+      const result = await endSessionById('s1');
+
+      expect(prisma.session.update).toHaveBeenCalledWith({
+        where: { id: 's1' },
+        data: expect.objectContaining({ isActive: false }),
+      });
+      expect(result.isActive).toBe(false);
     });
   });
 });
