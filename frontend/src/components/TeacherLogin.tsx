@@ -11,13 +11,32 @@ interface TeacherLoginProps {
 export const TeacherLogin: React.FC<TeacherLoginProps> = ({ onLogin, onSwitchToStudent }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === 'admin' || password === 'teacher') {
+    setLoading(true);
+    setError('');
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const res = await fetch(`${API_URL}/api/auth/teacher`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json();
+
+      if (data.success && data.token) {
+        localStorage.setItem('teacherToken', data.token);
         onLogin();
-    } else {
-        setError('Invalid password');
+      } else {
+        setError(data.message || 'Invalid password');
+      }
+    } catch {
+      setError('Failed to connect to server');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -36,8 +55,8 @@ export const TeacherLogin: React.FC<TeacherLoginProps> = ({ onLogin, onSwitchToS
               error={error}
           />
 
-          <Button type="submit" className="w-full">
-            Access Dashboard
+          <Button type="submit" className="w-full" isLoading={loading}>
+            {loading ? 'Authenticating...' : 'Access Dashboard'}
           </Button>
         </form>
 

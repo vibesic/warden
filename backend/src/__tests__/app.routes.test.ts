@@ -21,6 +21,48 @@ describe('App Routes', () => {
     vi.clearAllMocks();
   });
 
+  describe('POST /api/auth/teacher', () => {
+    it('should return token with correct password', async () => {
+      const res = await request(app)
+        .post('/api/auth/teacher')
+        .send({ password: 'admin' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.token).toBeDefined();
+      expect(typeof res.body.token).toBe('string');
+      expect(res.body.token.split('.')).toHaveLength(2);
+    });
+
+    it('should reject invalid password', async () => {
+      const res = await request(app)
+        .post('/api/auth/teacher')
+        .send({ password: 'wrongpass' });
+
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toBe('Invalid password');
+    });
+
+    it('should reject empty password', async () => {
+      const res = await request(app)
+        .post('/api/auth/teacher')
+        .send({ password: '' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('should reject missing password field', async () => {
+      const res = await request(app)
+        .post('/api/auth/teacher')
+        .send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+  });
+
   describe('GET /api/session/:code', () => {
     it('should return valid true for active session', async () => {
       (prisma.session.findUnique as any).mockResolvedValue({

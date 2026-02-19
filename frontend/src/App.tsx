@@ -87,6 +87,7 @@ const AppContent = () => {
 
     const teacherLogout = () => {
         localStorage.removeItem('teacherMode');
+        localStorage.removeItem('teacherToken');
         navigate('/teacher/login');
     };
 
