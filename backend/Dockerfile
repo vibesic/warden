@@ -10,6 +10,9 @@ RUN apk add --no-cache openssl && \
 
 COPY . .
 
+# Generate Prisma client
+RUN npx prisma generate
+
 EXPOSE 3000
 
 CMD ["npm", "run", "dev"]
