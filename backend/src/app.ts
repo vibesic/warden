@@ -20,10 +20,9 @@ const seedDomains = async () => {
     const count = await prisma.checkTarget.count();
     if (count === 0) {
       logger.info('Seeding check targets...');
-      await prisma.checkTarget.createMany({
-        data: PUBLIC_DOMAINS.map(url => ({ url })),
-        skipDuplicates: true
-      });
+      for (const url of PUBLIC_DOMAINS) {
+        await prisma.checkTarget.create({ data: { url } }).catch(() => { /* skip duplicates */ });
+      }
       logger.info({ count: PUBLIC_DOMAINS.length }, 'Check targets seeded');
     }
   } catch (error) {
@@ -35,10 +34,17 @@ seedDomains();
 
 app.use(helmet());
 
+const isDesktopMode = (): boolean => {
+  return process.env.ELECTRON === 'true' || process.env.NODE_ENV === 'production';
+};
+
 const getAllowedOrigins = (): string[] => {
   const envOrigins = process.env.CORS_ORIGINS;
   if (envOrigins) {
     return envOrigins.split(',').map(o => o.trim());
+  }
+  if (isDesktopMode()) {
+    return ['*'];
   }
   return ['http://localhost:5173', 'http://127.0.0.1:5173'];
 };
@@ -46,7 +52,7 @@ const getAllowedOrigins = (): string[] => {
 app.use(cors({
   origin: (origin, callback) => {
     const allowed = getAllowedOrigins();
-    if (!origin || allowed.includes(origin) || allowed.includes('*')) {
+    if (!origin || allowed.includes('*') || allowed.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error(`Origin ${origin} not allowed by CORS`));
@@ -83,16 +89,12 @@ app.post('/api/auth/teacher', (req, res) => {
 // Domain Check Endpoint (Random 3)
 app.get('/api/check-targets', async (req, res) => {
   try {
-    // Determine random strategy based on DB type (PostgreSQL uses RANDOM(), MySQL uses RAND())
-    // Since we are using PostgreSQL:
-    const targets = await prisma.$queryRaw<Array<{ url: string }>>`
-      SELECT url FROM "CheckTarget" 
-      WHERE "isEnabled" = true 
-      ORDER BY RANDOM() 
-      LIMIT 3
-    `;
-
-    const urls = targets.map((t) => t.url);
+    const allTargets = await prisma.checkTarget.findMany({
+      where: { isEnabled: true },
+      select: { url: true },
+    });
+    const shuffled = allTargets.sort(() => 0.5 - Math.random());
+    const urls = shuffled.slice(0, 3).map((t) => t.url);
     res.json({ domains: urls });
   } catch (error) {
     logger.error({ error }, 'Error fetching check targets');
@@ -258,6 +260,18 @@ app.get('/api/submissions/:sessionCode/download/:storedName', async (req, res) =
     res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
+
+// Serve static frontend in production / desktop mode
+if (isDesktopMode()) {
+  const frontendPath = process.env.FRONTEND_PATH || path.join(__dirname, '..', '..', 'frontend', 'dist');
+  app.use(express.static(frontendPath));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/') || req.path.startsWith('/socket.io/') || req.path === '/health') {
+      return next();
+    }
+    res.sendFile(path.join(frontendPath, 'index.html'));
+  });
+}
 
 // Error handling
 app.use(notFoundHandler);

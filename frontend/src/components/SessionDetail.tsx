@@ -8,8 +8,7 @@ import { Button } from './common/Button';
 import { Header } from './layout/Header';
 import { Table, TableColumn } from './common/Table';
 import { Card } from './common/Card';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+import { API_BASE_URL } from '../config/api';
 
 interface SubmissionItem {
     id: string;
@@ -54,7 +53,7 @@ export const SessionDetail: React.FC = () => {
         if (!sessionCode) return;
         try {
             const token = localStorage.getItem('teacherToken') || '';
-            const res = await fetch(`${API_URL}/api/submissions/${sessionCode}`, {
+            const res = await fetch(`${API_BASE_URL}/api/submissions/${sessionCode}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const data = await res.json();
@@ -105,7 +104,7 @@ export const SessionDetail: React.FC = () => {
 
     const handleDownload = (storedName: string) => {
         const token = localStorage.getItem('teacherToken') || '';
-        window.open(`${API_URL}/api/submissions/${sessionCode}/download/${storedName}?token=${token}`, '_blank');
+        window.open(`${API_BASE_URL}/api/submissions/${sessionCode}/download/${storedName}?token=${token}`, '_blank');
     };
 
     const sortedStudents = Object.values(students).sort((a, b) => a.studentId.localeCompare(b.studentId));
@@ -247,8 +246,8 @@ export const SessionDetail: React.FC = () => {
                                     <div>
                                         <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Time Remaining</h2>
                                         <div className={`text-2xl font-mono font-bold tabular-nums ${getRemainingMs(activeSession.createdAt, activeSession.durationMinutes) <= 300_000
-                                                ? 'text-rose-500'
-                                                : 'text-emerald-500'
+                                            ? 'text-rose-500'
+                                            : 'text-emerald-500'
                                             }`}>
                                             {formatRemainingTime(activeSession.createdAt, activeSession.durationMinutes)}
                                         </div>

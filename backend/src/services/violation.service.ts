@@ -22,13 +22,12 @@ export const createViolation = async (params: CreateViolationParams) => {
 };
 
 export const getRandomCheckTarget = async (): Promise<string | null> => {
-  const targets = await prisma.$queryRaw<Array<{ url: string }>>`
-    SELECT url FROM "CheckTarget"
-    WHERE "isEnabled" = true
-    ORDER BY RANDOM()
-    LIMIT 1
-  `;
-
-  if (targets.length === 0) return null;
-  return targets[0].url;
+  const count = await prisma.checkTarget.count({ where: { isEnabled: true } });
+  if (count === 0) return null;
+  const skip = Math.floor(Math.random() * count);
+  const target = await prisma.checkTarget.findFirst({
+    where: { isEnabled: true },
+    skip,
+  });
+  return target?.url ?? null;
 };

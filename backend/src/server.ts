@@ -8,9 +8,15 @@ const PORT = process.env.PORT || 3000;
 
 const httpServer = createServer(app);
 
+const isDesktopMode = process.env.ELECTRON === 'true' || process.env.NODE_ENV === 'production';
+
 const io = new Server(httpServer, {
   cors: {
     origin: (origin, callback) => {
+      if (isDesktopMode) {
+        callback(null, true);
+        return;
+      }
       const envOrigins = process.env.CORS_ORIGINS;
       const allowedOrigins = envOrigins
         ? envOrigins.split(',').map(o => o.trim())

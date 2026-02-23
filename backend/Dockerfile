@@ -4,15 +4,16 @@ WORKDIR /app
 
 COPY package*.json ./
 
-# Install dependencies (System + Node)
-RUN apk add --no-cache openssl && \
-    npm install
+RUN npm install
 
 COPY . .
 
-# Generate Prisma client
+# Generate Prisma client and push schema to SQLite
 RUN npx prisma generate
+
+# Create data directory for SQLite
+RUN mkdir -p /app/data
 
 EXPOSE 3000
 
-CMD ["npm", "run", "dev"]
+CMD ["sh", "-c", "npx prisma db push --skip-generate && npm run dev"]

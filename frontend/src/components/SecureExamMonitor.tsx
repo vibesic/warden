@@ -4,8 +4,7 @@ import { useExamSocket } from '../hooks/useExamSocket';
 import { Modal } from './common/Modal';
 import { Button } from './common/Button';
 import { FullScreenAlert } from './common/FullScreenAlert';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+import { API_BASE_URL } from '../config/api';
 
 interface UploadedFile {
     id: string;
@@ -69,7 +68,7 @@ export const SecureExamMonitor: React.FC<Props> = ({ studentId, studentName, ses
             formData.append('sessionCode', sessionCode);
             formData.append('studentId', studentId);
 
-            const res = await fetch(`${API_URL}/api/upload`, {
+            const res = await fetch(`${API_BASE_URL}/api/upload`, {
                 method: 'POST',
                 body: formData,
             });

@@ -1,0 +1,84 @@
+{
+  "name": "proctor-app",
+  "version": "1.0.0",
+  "description": "Secure Exam Proctoring Application",
+  "main": "electron/dist/main.js",
+  "private": true,
+  "scripts": {
+    "dev": "docker compose -f docker-compose.dev.yml up --build",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npx prisma generate && npx tsc",
+    "build:electron": "cd electron && npx tsc",
+    "build": "npm run build:frontend && npm run build:backend && npm run build:electron",
+    "start:electron": "npm run build && electron .",
+    "dist": "npm run build && electron-builder --win",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "postinstall": "cd backend && npm install && cd ../frontend && npm install"
+  },
+  "build": {
+    "appId": "com.proctor.app",
+    "productName": "Proctor App",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/dist/**",
+      "backend/dist/**",
+      "backend/prisma/**",
+      "backend/node_modules/**",
+      "backend/package.json",
+      "frontend/dist/**",
+      "!**/node_modules/.cache/**"
+    ],
+    "extraResources": [
+      {
+        "from": "backend/prisma",
+        "to": "prisma"
+      },
+      {
+        "from": "assets",
+        "to": "assets",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Proctor App"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "assets/icon.png"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "assets/icon.icns"
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
+    "typescript": "^5.3.3"
+  }
+}

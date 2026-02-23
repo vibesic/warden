@@ -8,13 +8,10 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
+      - backend_data:/app/data
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/secure_exam?schema=public
-      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=file:./data/dev.db
       - NODE_ENV=development
-    depends_on:
-      - db
-      - redis
     networks:
       - exam-network
 
@@ -32,30 +29,9 @@ services:
     networks:
       - exam-network
 
-  db:
-    image: postgres:15-alpine
-    restart: always
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=secure_exam
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - exam-network
-
-  redis:
-    image: redis:alpine
-    ports:
-      - "6379:6379"
-    networks:
-      - exam-network
-
 networks:
   exam-network:
     driver: bridge
 
 volumes:
-  postgres_data:
+  backend_data:
