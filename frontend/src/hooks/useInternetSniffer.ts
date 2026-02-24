@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { API_BASE_URL } from '../config/api';
 
 /**
  * Probes a URL by loading it as an image.
@@ -33,27 +32,26 @@ const probeWithImage = (url: string, timeoutMs: number = 4000): Promise<boolean>
   });
 };
 
+/**
+ * Hardcoded probe targets — NOT fetched from API to prevent students
+ * from discovering which domains are monitored via network inspection.
+ * These are common CDN / connectivity-check endpoints.
+ */
+const PROBE_TARGETS = [
+  'https://www.google.com',
+  'https://www.microsoft.com',
+  'https://www.apple.com',
+  'https://www.cloudflare.com',
+  'https://www.amazon.com',
+];
+
 export const useInternetSniffer = (checkIntervalMs: number = 5000) => {
   const [isSecure, setIsSecure] = useState<boolean>(true);
 
   const checkConnection = useCallback(async () => {
-    let targets: string[] = [];
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/check-targets`);
-
-      if (!res.ok) {
-        throw new Error('Server unreachable');
-      }
-
-      const data = await res.json();
-      targets = data.domains || [];
-    } catch {
-      // If server unreachable, use hardcoded fallbacks
-      targets = ['https://www.google.com', 'https://www.microsoft.com', 'https://www.apple.com'];
-    }
-
-    if (targets.length === 0) return;
+    // Pick 3 random targets from hardcoded list
+    const shuffled = [...PROBE_TARGETS].sort(() => 0.5 - Math.random());
+    const targets = shuffled.slice(0, 3);
 
     // Use favicon.ico with cache-busting for each target
     const targetUrls = targets.map(d => `${d}/favicon.ico?t=${Date.now()}`);

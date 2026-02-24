@@ -46,5 +46,15 @@ export const verifyTeacherToken = (token: string): boolean => {
 };
 
 export const getTeacherPassword = (): string => {
-  return process.env.TEACHER_PASSWORD || 'admin';
+  const password = process.env.TEACHER_PASSWORD || 'admin';
+  if (password === 'admin') {
+    // Log warning only once via module-level flag
+    if (!getTeacherPassword._warned) {
+      getTeacherPassword._warned = true;
+      // eslint-disable-next-line no-console
+      console.warn('[SECURITY] Using default teacher password "admin". Set TEACHER_PASSWORD environment variable for production use.');
+    }
+  }
+  return password;
 };
+getTeacherPassword._warned = false;

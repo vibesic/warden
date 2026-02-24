@@ -2,6 +2,7 @@ import request from 'supertest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import app from '../app';
 import prisma from '../utils/prisma';
+import { generateTeacherToken } from '../services/auth.service';
 
 vi.mock('../utils/prisma', () => ({
   default: {
@@ -98,7 +99,10 @@ describe('App Routes', () => {
       // Mock $queryRaw to throw
       (prisma.$queryRaw as any).mockRejectedValue(new Error('DB Failed'));
 
-      const res = await request(app).get('/api/check-targets');
+      const token = generateTeacherToken();
+      const res = await request(app)
+        .get('/api/check-targets')
+        .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
       expect(res.body.domains).toHaveLength(3);

@@ -11,9 +11,17 @@ const RegisterSchema = z.object({
   sessionCode: z.string().length(6),
 });
 
+const VALID_VIOLATION_TYPES = [
+  'INTERNET_ACCESS',
+  'DISCONNECTION',
+  'TAB_SWITCH',
+  'CONNECTION_LOST',
+  'SNIFFER_TIMEOUT',
+] as const;
+
 const ViolationSchema = z.object({
-  type: z.string(),
-  details: z.string().optional(),
+  type: z.enum(VALID_VIOLATION_TYPES),
+  details: z.string().max(500).optional(),
 });
 
 const SnifferResponseSchema = z.object({
@@ -50,10 +58,11 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
       socket.data.sessionCode = sessionCode;
 
       socket.join(`session:${sessionCode}`);
+      socket.join(`student:session:${sessionCode}`);
 
       logger.info({ studentId, name, sessionCode }, 'Student registered');
 
-      io.to(`session:${sessionCode}`).emit('dashboard:update', {
+      io.to(`teacher:session:${sessionCode}`).emit('dashboard:update', {
         type: 'STUDENT_JOINED',
         studentId,
         name,
@@ -109,7 +118,7 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
         details,
       });
 
-      io.to(`session:${sessionCode}`).emit('dashboard:alert', {
+      io.to(`teacher:session:${sessionCode}`).emit('dashboard:alert', {
         studentId: studentTxId,
         violation: {
           ...violation,
@@ -138,6 +147,9 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
 
       delete socket.data.pendingChallenge;
 
+      // Reset timeout counter on any valid response
+      socket.data.snifferTimeoutCount = 0;
+
       if (reachable) {
         const violation = await createViolation({
           studentUuid,
@@ -145,13 +157,18 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
           details: `Server-side sniffer challenge confirmed: student reached ${pending.targetUrl}`,
         });
 
-        io.to(`session:${sessionCode}`).emit('dashboard:alert', {
+        // Notify teacher dashboard
+        io.to(`teacher:session:${sessionCode}`).emit('dashboard:alert', {
           studentId: studentTxId,
           violation: {
             ...violation,
             timestamp: violation.timestamp.toISOString(),
           },
         });
+
+        // Push violation to student — forces their UI into violation state
+        // even if client-side sniffer was bypassed
+        socket.emit('violation:detected', { type: 'INTERNET_ACCESS' });
       }
     } catch (error) {
       logger.error({ error }, 'Sniffer response error');
@@ -173,12 +190,12 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
         details: 'Student disconnected from server (closed tab or lost connection)',
       });
 
-      io.to(`session:${sessionCode}`).emit('dashboard:update', {
+      io.to(`teacher:session:${sessionCode}`).emit('dashboard:update', {
         type: 'STUDENT_LEFT',
         studentId: studentTxId,
       });
 
-      io.to(`session:${sessionCode}`).emit('dashboard:alert', {
+      io.to(`teacher:session:${sessionCode}`).emit('dashboard:alert', {
         studentId: studentTxId,
         violation: {
           ...violation,

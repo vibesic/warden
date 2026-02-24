@@ -7,7 +7,7 @@ export interface SessionTimerInfo {
   durationMinutes: number | null;
 }
 
-export const useExamSocket = (studentId: string, name: string, sessionCode: string, onSessionEnded?: () => void) => {
+export const useExamSocket = (studentId: string, name: string, sessionCode: string, onSessionEnded?: () => void, onServerViolation?: (type: string) => void) => {
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState('');
@@ -43,6 +43,11 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
 
     socket.on('session:ended', () => {
       if (onSessionEnded) onSessionEnded();
+    });
+
+    // Server-pushed violation — sniffer detected internet access server-side
+    socket.on('violation:detected', (data: { type: string }) => {
+      if (onServerViolation) onServerViolation(data.type);
     });
 
     socket.on('registered', (data: { studentId: string; session?: SessionTimerInfo }) => {
@@ -98,7 +103,7 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
     return () => {
       socket.disconnect();
     };
-  }, [studentId, name, sessionCode, onSessionEnded]);
+  }, [studentId, name, sessionCode, onSessionEnded, onServerViolation]);
 
   const sendHeartbeat = useCallback(() => {
     if (socketRef.current?.connected && isRegisteredRef.current) {

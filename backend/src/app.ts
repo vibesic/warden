@@ -95,9 +95,15 @@ app.post('/api/auth/teacher', (req, res) => {
   res.json({ success: true, token });
 });
 
-// Domain Check Endpoint (Random 3)
+// Domain Check Endpoint (Teacher-only — prevents students from learning which domains are monitored)
 app.get('/api/check-targets', async (req, res) => {
   try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token || !verifyTeacherToken(token)) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
     const allTargets = await prisma.checkTarget.findMany({
       where: { isEnabled: true },
       select: { url: true },

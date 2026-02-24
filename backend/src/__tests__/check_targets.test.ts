@@ -1,5 +1,6 @@
 import request from 'supertest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { generateTeacherToken } from '../services/auth.service';
 
 const prismaMock = vi.hoisted(() => ({
   checkTarget: {
@@ -16,6 +17,7 @@ vi.mock('../utils/prisma', () => ({
 import app from '../app';
 
 describe('Check Targets API', () => {
+  const token = generateTeacherToken();
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -28,7 +30,9 @@ describe('Check Targets API', () => {
       { url: 'https://www.stackoverflow.com' },
     ]);
 
-    const response = await request(app).get('/api/check-targets');
+    const response = await request(app)
+      .get('/api/check-targets')
+      .set('Authorization', `Bearer ${token}`);
 
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty('domains');
@@ -44,7 +48,9 @@ describe('Check Targets API', () => {
   it('GET /api/check-targets should fallback to PUBLIC_DOMAINS when DB query fails', async () => {
     prismaMock.$queryRaw.mockRejectedValue(new Error('DB connection failed'));
 
-    const response = await request(app).get('/api/check-targets');
+    const response = await request(app)
+      .get('/api/check-targets')
+      .set('Authorization', `Bearer ${token}`);
 
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty('domains');

@@ -27,6 +27,8 @@ vi.mock('../utils/prisma', () => ({
 }));
 
 describe('App API - Extended Coverage', () => {
+  const teacherToken = generateTeacherToken();
+
   beforeEach(() => {
     vi.clearAllMocks();
     (prisma.checkTarget.count as ReturnType<typeof vi.fn>).mockResolvedValue(5);
@@ -42,7 +44,9 @@ describe('App API - Extended Coverage', () => {
         { url: 'https://www.netflix.com' },
       ]);
 
-      const res = await request(app).get('/api/check-targets');
+      const res = await request(app)
+        .get('/api/check-targets')
+        .set('Authorization', `Bearer ${teacherToken}`);
 
       expect(res.status).toBe(200);
       expect(res.body.domains).toHaveLength(3);
@@ -56,7 +60,9 @@ describe('App API - Extended Coverage', () => {
         { url: 'https://www.google.com' },
       ]);
 
-      const res = await request(app).get('/api/check-targets');
+      const res = await request(app)
+        .get('/api/check-targets')
+        .set('Authorization', `Bearer ${teacherToken}`);
 
       expect(res.status).toBe(200);
       expect(res.body.domains.length).toBeLessThanOrEqual(3);

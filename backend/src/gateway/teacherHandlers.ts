@@ -57,6 +57,7 @@ export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
       }
 
       socket.join(`session:${sessionCode}`);
+      socket.join(`teacher:session:${sessionCode}`);
 
       const students = await getStudentsForSession(session.id);
 
@@ -116,7 +117,7 @@ export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
       const session = await endSession();
       if (session) {
         logger.info({ sessionCode: session.code }, 'Session ended');
-        io.to(`session:${session.code}`).emit('session:ended', {
+        io.to(`student:session:${session.code}`).emit('session:ended', {
           message: 'The exam session has been ended by the teacher.',
         });
         io.emit('dashboard:session_ended', {

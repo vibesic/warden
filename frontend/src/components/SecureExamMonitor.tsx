@@ -23,12 +23,21 @@ interface Props {
 export const SecureExamMonitor: React.FC<Props> = ({ studentId, studentName, sessionCode, onLogout }) => {
     const [showEndModal, setShowEndModal] = useState(false);
     const { isSecure } = useInternetSniffer(2000); // Check every 2s
+    const [serverViolation, setServerViolation] = useState(false);
 
     const handleSessionEnded = useCallback(() => {
         setShowEndModal(true);
     }, []);
 
-    const { isConnected, sendHeartbeat, reportViolation, error, sessionTimer } = useExamSocket(studentId, studentName, sessionCode, handleSessionEnded);
+    const handleServerViolation = useCallback((type: string) => {
+        if (type === 'INTERNET_ACCESS') {
+            setServerViolation(true);
+        }
+    }, []);
+
+    const isViolating = !isSecure || serverViolation;
+
+    const { isConnected, sendHeartbeat, reportViolation, error, sessionTimer } = useExamSocket(studentId, studentName, sessionCode, handleSessionEnded, handleServerViolation);
     const [violationReported, setViolationReported] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
     const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -129,20 +138,23 @@ export const SecureExamMonitor: React.FC<Props> = ({ studentId, studentName, ses
         }
     }, [isConnected, lastDisconnectTime, reportViolation]);
 
-    // Handle Internet Violation
+    // Handle Internet Violation (client-side or server-side)
     useEffect(() => {
-        if (!isSecure) {
+        if (isViolating) {
             // Internet detected!
             if (!violationReported) {
-                reportViolation('INTERNET_ACCESS', 'Access to google.com detected');
+                reportViolation('INTERNET_ACCESS', 'Internet access detected by client-side probe');
                 setViolationReported(true); // Don't spam
 
-                // Reset spam block after some time or keep it persistent?
-                // Maybe keep reporting periodically?
                 setTimeout(() => setViolationReported(false), 10000);
             }
+        } else {
+            // Reset server violation when client-side says secure again
+            if (serverViolation && isSecure) {
+                setServerViolation(false);
+            }
         }
-    }, [isSecure, reportViolation, violationReported]);
+    }, [isViolating, isSecure, serverViolation, reportViolation, violationReported]);
 
     if (showEndModal) {
         return (
@@ -164,7 +176,7 @@ export const SecureExamMonitor: React.FC<Props> = ({ studentId, studentName, ses
         );
     }
 
-    if (!isSecure) {
+    if (isViolating) {
         return (
             <FullScreenAlert
                 title="VIOLATION DETECTED"
