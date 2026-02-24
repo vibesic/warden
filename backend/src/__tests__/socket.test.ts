@@ -15,7 +15,7 @@ const prismaMock = vi.hoisted(() => ({
     findMany: vi.fn(),
   },
   violation: {
-    create: vi.fn(),
+    create: vi.fn().mockResolvedValue({ id: 'v-default', timestamp: new Date(), type: 'DISCONNECTION', details: '' }),
   },
   session: {
     findUnique: vi.fn().mockResolvedValue({ id: 's1', code: '123456', isActive: true, createdAt: new Date() }),
@@ -368,6 +368,47 @@ describe('Socket Gateway', () => {
 
     await new Promise(r => setTimeout(r, 100));
 
-    expect(prismaMock.violation.create).not.toHaveBeenCalled();
+    // Should not create an INTERNET_ACCESS violation (disconnect violations are expected)
+    const internetViolationCalls = prismaMock.violation.create.mock.calls.filter(
+      (args: any[]) => args[0]?.data?.type === 'INTERNET_ACCESS'
+    );
+    expect(internetViolationCalls).toHaveLength(0);
+  });
+
+  it('should create DISCONNECTION violation when student disconnects', async () => {
+    const registerData = { studentId: 'disconnect_student', name: 'Disconnect Test', sessionCode: '123456' };
+    prismaMock.student.upsert.mockResolvedValue({ id: 'uuid-disconnect', ...registerData } as any);
+    prismaMock.student.update.mockResolvedValue({} as any);
+    prismaMock.violation.create.mockResolvedValue({
+      timestamp: new Date(),
+      type: 'DISCONNECTION',
+      details: 'Student disconnected from server (closed tab or lost connection)',
+      studentId: 'uuid-disconnect',
+    } as any);
+
+    // Register the student first
+    await new Promise<void>(resolve => {
+      clientSocket.emit('register', registerData);
+      clientSocket.once('registered', () => resolve());
+    });
+
+    // Disconnect the student (simulates closing tab)
+    clientSocket.disconnect();
+
+    // Wait for async processing of the disconnect event
+    await new Promise(r => setTimeout(r, 300));
+
+    // Verify student marked offline
+    const offlineCalls = prismaMock.student.update.mock.calls.filter(
+      (args: any[]) => args[0]?.where?.id === 'uuid-disconnect' && args[0]?.data?.isOnline === false
+    );
+    expect(offlineCalls.length).toBeGreaterThanOrEqual(1);
+
+    // Verify DISCONNECTION violation was created
+    const violationCalls = prismaMock.violation.create.mock.calls.filter(
+      (args: any[]) => args[0]?.data?.studentId === 'uuid-disconnect' && args[0]?.data?.type === 'DISCONNECTION'
+    );
+    expect(violationCalls.length).toBe(1);
+    expect(violationCalls[0][0].data.details).toContain('disconnected from server');
   });
 });

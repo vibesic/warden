@@ -19,6 +19,7 @@
   "build": {
     "appId": "com.proctor.app",
     "productName": "Proctor App",
+    "asar": false,
     "directories": {
       "output": "release"
     },
@@ -26,10 +27,16 @@
       "electron/dist/**",
       "backend/dist/**",
       "backend/prisma/**",
-      "backend/node_modules/**",
       "backend/package.json",
       "frontend/dist/**",
-      "!**/node_modules/.cache/**"
+      {
+        "from": "backend/node_modules",
+        "to": "backend/node_modules",
+        "filter": [
+          "**/*",
+          "!.cache/**"
+        ]
+      }
     ],
     "extraResources": [
       {
@@ -44,7 +51,18 @@
         ]
       }
     ],
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Proctor App",
+      "uninstallDisplayName": "Proctor App",
+      "include": "installer/nsis-hooks.nsh"
+    },
     "win": {
+      "requestedExecutionLevel": "requireAdministrator",
       "target": [
         {
           "target": "nsis",
@@ -53,14 +71,6 @@
           ]
         }
       ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Proctor App"
     },
     "linux": {
       "target": [

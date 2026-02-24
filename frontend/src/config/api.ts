@@ -1,6 +1,6 @@
 /**
  * Resolves the API base URL.
- * - In development: uses VITE_API_URL env var or falls back to localhost:3000
+ * - In development: uses VITE_API_URL env var or falls back to localhost:3333
  * - In production / Electron desktop: uses the same origin (relative URL)
  */
 export const getApiBaseUrl = (): string => {
@@ -12,7 +12,7 @@ export const getApiBaseUrl = (): string => {
     return '';
   }
 
-  return 'http://localhost:3000';
+  return 'http://localhost:3333';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
@@ -30,7 +30,7 @@ export const getSocketUrl = (): string => {
     return window.location.origin;
   }
 
-  return 'http://localhost:3000';
+  return 'http://localhost:3333';
 };
 
 export const SOCKET_URL = getSocketUrl();

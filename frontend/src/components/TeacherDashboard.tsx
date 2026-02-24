@@ -6,7 +6,6 @@ import { Header } from './layout/Header';
 import { Table, TableColumn } from './common/Table';
 import { Button } from './common/Button';
 import { Card } from './common/Card';
-import { StatusBadge } from './common/StatusBadge';
 
 interface Props {
     onLogout: () => void;

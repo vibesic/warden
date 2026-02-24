@@ -167,9 +167,23 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
       logger.info({ studentId: studentTxId }, 'Student disconnected');
       await markStudentOffline(studentUuid);
 
+      const violation = await createViolation({
+        studentUuid,
+        type: 'DISCONNECTION',
+        details: 'Student disconnected from server (closed tab or lost connection)',
+      });
+
       io.to(`session:${sessionCode}`).emit('dashboard:update', {
         type: 'STUDENT_LEFT',
         studentId: studentTxId,
+      });
+
+      io.to(`session:${sessionCode}`).emit('dashboard:alert', {
+        studentId: studentTxId,
+        violation: {
+          ...violation,
+          timestamp: violation.timestamp.toISOString(),
+        },
       });
     }
   });

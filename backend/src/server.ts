@@ -4,7 +4,7 @@ import app from './app';
 import { initializeSocket } from './gateway/socket';
 import { logger } from './utils/logger';
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3333;
 
 const httpServer = createServer(app);
 
@@ -34,6 +34,8 @@ const io = new Server(httpServer, {
 
 initializeSocket(io);
 
-httpServer.listen(PORT, () => {
-  logger.info({ port: PORT }, 'Server running');
+const HOST = process.env.HOST || '0.0.0.0';
+
+httpServer.listen(Number(PORT), HOST, () => {
+  logger.info({ port: PORT, host: HOST }, 'Server running');
 });

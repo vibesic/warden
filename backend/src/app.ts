@@ -32,11 +32,20 @@ const seedDomains = async () => {
 // Run seed (non-blocking)
 seedDomains();
 
-app.use(helmet());
-
 const isDesktopMode = (): boolean => {
   return process.env.ELECTRON === 'true' || process.env.NODE_ENV === 'production';
 };
+
+if (isDesktopMode()) {
+  app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: false,
+  }));
+} else {
+  app.use(helmet());
+}
 
 const getAllowedOrigins = (): string[] => {
   const envOrigins = process.env.CORS_ORIGINS;

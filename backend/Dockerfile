@@ -14,6 +14,6 @@ RUN npx prisma generate
 # Create data directory for SQLite
 RUN mkdir -p /app/data
 
-EXPOSE 3000
+EXPOSE 3333
 
 CMD ["sh", "-c", "npx prisma db push --skip-generate && npm run dev"]

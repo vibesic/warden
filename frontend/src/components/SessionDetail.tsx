@@ -4,7 +4,6 @@ import { useTeacherSocket, Violation, StudentStatus } from '../hooks/useTeacherS
 import { AlertTriangle, Wifi, WifiOff, Download } from 'lucide-react';
 import { ConfirmationModal } from './common/ConfirmationModal';
 import { Modal } from './common/Modal';
-import { Button } from './common/Button';
 import { Header } from './layout/Header';
 import { Table, TableColumn } from './common/Table';
 import { Card } from './common/Card';
