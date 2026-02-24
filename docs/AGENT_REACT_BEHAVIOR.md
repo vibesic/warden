@@ -1,6 +1,6 @@
 # AI Agent React Behavior - Quick Reference
 
-**Project**: Quiz Application (cert-app)  
+**Project**: Proctor App (proctor-app)  
 **Framework**: React 18 + TypeScript + React Router  
 **Style**: Functional components, hooks, type-safe props
 
@@ -12,56 +12,45 @@
 // 1. Imports (external → internal → types → styles)
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { examService } from '@/services/exam.service';
-import { Button } from '@/components/common/Button';
-import type { Exam } from '@/types';
+import { useTeacherSocket } from '@/hooks/useTeacherSocket';
+import { Card } from '@/components/common/Card';
+import type { StudentStatus } from '@/types';
 
 // 2. Types/Interfaces
-interface ExamListProps {
-  teacherId: string;
-  onExamSelect?: (exam: Exam) => void;
+interface SessionDetailProps {
+  sessionCode: string;
+  onEndSession?: () => void;
 }
 
 // 3. Constants
-const ITEMS_PER_PAGE = 10;
+const POLL_INTERVAL_MS = 15000;
 
 // 4. Component
-export const ExamList: React.FC<ExamListProps> = ({ teacherId, onExamSelect }) => {
+export const SessionDetail: React.FC<SessionDetailProps> = ({ sessionCode, onEndSession }) => {
   // 4a. Hooks (useState, useContext, custom hooks)
   const navigate = useNavigate();
-  const [exams, setExams] = useState<Exam[]>([]);
+  const { students, isConnected } = useTeacherSocket(sessionCode);
   const [loading, setLoading] = useState(true);
 
   // 4b. Effects
   useEffect(() => {
-    loadExams();
-  }, [teacherId]);
+    // Setup and cleanup
+  }, [sessionCode]);
 
   // 4c. Event Handlers (useCallback for optimization)
-  const handleClick = useCallback((exam: Exam): void => {
-    onExamSelect?.(exam) ?? navigate(`/exams/${exam.id}`);
-  }, [onExamSelect, navigate]);
+  const handleEndSession = useCallback((): void => {
+    onEndSession?.();
+    navigate('/teacher');
+  }, [onEndSession, navigate]);
 
-  // 4d. Helper Functions
-  const loadExams = async (): Promise<void> => {
-    try {
-      setLoading(true);
-      const data = await examService.getAll(teacherId);
-      setExams(data);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 4e. Early Returns
+  // 4d. Early Returns
   if (loading) return <LoadingSpinner />;
-  if (exams.length === 0) return <EmptyState />;
 
-  // 4f. Main Render
+  // 4e. Main Render
   return (
-    <div className="exam-list">
-      {exams.map(exam => (
-        <ExamCard key={exam.id} exam={exam} onClick={() => handleClick(exam)} />
+    <div className="session-detail">
+      {Object.values(students).map(student => (
+        <StudentCard key={student.studentId} student={student} />
       ))}
     </div>
   );
@@ -70,7 +59,7 @@ export const ExamList: React.FC<ExamListProps> = ({ teacherId, onExamSelect }) =
 
 ## Component Rules
 
-**✅ DO:**
+**DO:**
 
 - Use functional components with `React.FC<Props>`
 - Destructure props in function signature
@@ -80,12 +69,12 @@ export const ExamList: React.FC<ExamListProps> = ({ teacherId, onExamSelect }) =
 - Use `useMemo` for expensive computations
 - Add TypeScript types for all props
 
-**❌ DON'T:**
+**DON'T:**
 
 - Use class components
-- Use inline functions in JSX: `onClick={() => doSomething()}` (causes re-renders)
-- Mutate state directly: `state.items.push(item)`
-- Use index as key: `key={index}`
+- Use inline functions in JSX for child components
+- Mutate state directly
+- Use index as key (use unique identifiers)
 - Forget cleanup in useEffect
 - Create components inside components
 
@@ -94,139 +83,74 @@ export const ExamList: React.FC<ExamListProps> = ({ teacherId, onExamSelect }) =
 ### Local State (useState)
 
 ```typescript
-// ✅ Simple state
-const [count, setCount] = useState(0);
-const [user, setUser] = useState<User | null>(null);
-
-// ✅ Object state (immutable updates)
-const [form, setForm] = useState({ title: '', duration: 60 });
-setForm(prev => ({ ...prev, title: 'New' }));
-
-// ✅ Array state (immutable updates)
-setItems(prev => [...prev, newItem]); // Add
-setItems(prev => prev.filter(item => item.id !== id)); // Remove
-setItems(prev => prev.map(item => (item.id === id ? { ...item, ...updates } : item))); // Update
+const [students, setStudents] = useState<Record<string, StudentStatus>>({});
+const [isConnected, setIsConnected] = useState(false);
+const [selectedStudent, setSelectedStudent] = useState<StudentStatus | null>(null);
 ```
 
 ### Complex State (useReducer)
 
 ```typescript
-// Use when you have related state values
-interface State {
-  exams: Exam[];
-  loading: boolean;
-  error: string | null;
-}
-
 type Action =
-  | { type: 'FETCH_START' }
-  | { type: 'FETCH_SUCCESS'; payload: Exam[] }
-  | { type: 'FETCH_ERROR'; payload: string };
+  | { type: 'STUDENT_JOINED'; payload: StudentStatus }
+  | { type: 'STUDENT_LEFT'; payload: string }
+  | { type: 'VIOLATION_ADDED'; payload: { studentId: string; violation: Violation } };
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
-    case 'FETCH_START':
-      return { ...state, loading: true, error: null };
-    case 'FETCH_SUCCESS':
-      return { ...state, loading: false, exams: action.payload };
-    case 'FETCH_ERROR':
-      return { ...state, loading: false, error: action.payload };
+    case 'STUDENT_JOINED':
+      return { ...state, students: { ...state.students, [action.payload.studentId]: action.payload } };
+    case 'VIOLATION_ADDED':
+      // Immutable update
+      return state;
     default:
       return state;
   }
 }
-
-const [state, dispatch] = useReducer(reducer, initialState);
-dispatch({ type: 'FETCH_SUCCESS', payload: exams });
 ```
 
 ## Custom Hooks Pattern
 
-### Extract Reusable Logic
+### Socket.io Hooks (Core Pattern)
 
 ```typescript
-// hooks/useTimer.ts
-interface UseTimerOptions {
-  endTime: Date;
-  onExpire?: () => void;
-}
-
-interface UseTimerReturn {
-  timeRemaining: number;
-  isExpired: boolean;
-  formattedTime: string;
-}
-
-export const useTimer = ({ endTime, onExpire }: UseTimerOptions): UseTimerReturn => {
-  const [timeRemaining, setTimeRemaining] = useState(0);
+// hooks/useTeacherSocket.ts
+export const useTeacherSocket = (sessionCode: string) => {
+  const [students, setStudents] = useState<Record<string, StudentStatus>>({});
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const remaining = Math.floor((endTime.getTime() - Date.now()) / 1000);
-      setTimeRemaining(Math.max(0, remaining));
+    const socket = io(API_BASE_URL);
 
-      if (remaining <= 0) {
-        clearInterval(interval);
-        onExpire?.();
-      }
-    }, 1000);
+    socket.on('connect', () => setIsConnected(true));
+    socket.on('disconnect', () => setIsConnected(false));
+    socket.on('student:joined', (data) => {
+      setStudents(prev => ({ ...prev, [data.studentId]: data }));
+    });
 
-    return () => clearInterval(interval);
-  }, [endTime, onExpire]);
+    return () => { socket.disconnect(); };
+  }, [sessionCode]);
 
-  const formattedTime = `${Math.floor(timeRemaining / 60)}:${(timeRemaining % 60).toString().padStart(2, '0')}`;
-
-  return { timeRemaining, isExpired: timeRemaining === 0, formattedTime };
+  return { students, isConnected };
 };
-
-// Usage
-const { formattedTime, isExpired } = useTimer({
-  endTime: session.endTime,
-  onExpire: handleSubmit,
-});
 ```
 
-### Data Fetching Hook
+### Internet Sniffer Hook
 
 ```typescript
-// hooks/useFetch.ts
-interface UseFetchReturn<T> {
-  data: T | null;
-  loading: boolean;
-  error: string | null;
-  refetch: () => Promise<void>;
-}
-
-export const useFetch = <T>(
-  fetchFn: () => Promise<T>,
-  deps: React.DependencyList = []
-): UseFetchReturn<T> => {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const result = await fetchFn();
-      setData(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error');
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchFn]);
+// hooks/useInternetSniffer.ts
+export const useInternetSniffer = () => {
+  const [isSecure, setIsSecure] = useState(true);
 
   useEffect(() => {
-    fetchData();
-  }, deps);
+    const probeTargets = HARDCODED_PROBE_TARGETS;
+    // Periodically probe targets to detect internet access
+    const interval = setInterval(() => checkProbes(probeTargets), 10000);
+    return () => clearInterval(interval);
+  }, []);
 
-  return { data, loading, error, refetch: fetchData };
+  return { isSecure };
 };
-
-// Usage
-const { data: exams, loading, error, refetch } = useFetch(() => examService.getAll(), [userId]);
 ```
 
 ## Context Pattern
@@ -234,50 +158,26 @@ const { data: exams, loading, error, refetch } = useFetch(() => examService.getA
 ### Create Context with Hook
 
 ```typescript
-// contexts/AuthContext.tsx
 interface AuthContextValue {
-  user: User | null;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
   isAuthenticated: boolean;
+  token: string | null;
+  login: (password: string) => Promise<void>;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-
-  const login = useCallback(async (email: string, password: string): Promise<void> => {
-    const { user: userData, token } = await authService.login(email, password);
-    localStorage.setItem('token', token);
-    setUser(userData);
-  }, []);
-
-  const logout = useCallback(async (): Promise<void> => {
-    await authService.logout();
-    localStorage.removeItem('token');
-    setUser(null);
-  }, []);
-
-  const value: AuthContextValue = {
-    user,
-    login,
-    logout,
-    isAuthenticated: user !== null
-  };
-
+  const [token, setToken] = useState<string | null>(null);
+  // ...
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// Custom hook (required pattern)
 export const useAuth = (): AuthContextValue => {
   const context = useContext(AuthContext);
   if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };
-
-// Usage
-const { user, logout } = useAuth();
 ```
 
 ## Performance Optimization
@@ -285,236 +185,41 @@ const { user, logout } = useAuth();
 ### React.memo (Prevent Re-renders)
 
 ```typescript
-interface ExamCardProps {
-  exam: Exam;
-  onClick: (exam: Exam) => void;
-}
-
-// ✅ Memoize component
-export const ExamCard = React.memo<ExamCardProps>(({ exam, onClick }) => {
+export const StudentCard = React.memo<StudentCardProps>(({ student, onSelect }) => {
   return (
-    <div onClick={() => onClick(exam)}>
-      <h3>{exam.title}</h3>
+    <div onClick={() => onSelect(student)}>
+      <h3>{student.name}</h3>
+      <span>{student.violations.length} violations</span>
     </div>
   );
 });
-
-// ✅ Custom comparison
-export const ExamCard = React.memo<ExamCardProps>(
-  ({ exam, onClick }) => { /* ... */ },
-  (prev, next) => prev.exam.id === next.exam.id
-);
 ```
 
-### useCallback (Memoize Functions)
+### useCallback / useMemo
 
 ```typescript
-// ❌ Creates new function on every render
-const handleClick = () => console.log('click');
+const handleEndSession = useCallback(() => {
+  endSession();
+  navigate('/teacher');
+}, [endSession, navigate]);
 
-// ✅ Same function reference
-const handleClick = useCallback(() => {
-  console.log('click');
-}, []);
-
-const handleDelete = useCallback((id: string) => {
-  deleteItem(id);
-}, []); // Empty if deleteItem is stable
+const sortedStudents = useMemo(() => {
+  return Object.values(students).sort((a, b) => a.studentId.localeCompare(b.studentId));
+}, [students]);
 ```
 
-### useMemo (Memoize Computations)
-
-```typescript
-// ❌ Recalculates every render
-const filtered = exams.filter(e => e.status === filter);
-
-// ✅ Only recalculates when dependencies change
-const filtered = useMemo(() => {
-  return exams.filter(e => e.status === filter);
-}, [exams, filter]);
-
-const stats = useMemo(() => {
-  return calculateStatistics(exams);
-}, [exams]);
-```
-
-### Code Splitting (Lazy Loading)
+### Code Splitting
 
 ```typescript
 import { lazy, Suspense } from 'react';
 
-// ✅ Lazy load heavy components
-const ExamEditor = lazy(() => import('./components/ExamEditor'));
-const ResultsChart = lazy(() => import('./components/ResultsChart'));
+const SessionDetail = lazy(() => import('./components/SessionDetail'));
 
-const Dashboard = () => (
-  <div>
-    <Suspense fallback={<LoadingSpinner />}>
-      <ExamEditor />
-    </Suspense>
-
-    <Suspense fallback={<div>Loading charts...</div>}>
-      <ResultsChart />
-    </Suspense>
-  </div>
+const App = () => (
+  <Suspense fallback={<LoadingSpinner />}>
+    <SessionDetail />
+  </Suspense>
 );
-```
-
-## Form Handling
-
-### Controlled Components
-
-```typescript
-const ExamForm: React.FC<{ onSubmit: (data: FormData) => void }> = ({ onSubmit }) => {
-  const [form, setForm] = useState({ title: '', duration: 60 });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
-
-    // Clear error when user types
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
-  };
-
-  const validate = (): boolean => {
-    const newErrors: Record<string, string> = {};
-    if (!form.title.trim()) newErrors.title = 'Title required';
-    if (form.duration < 1) newErrors.duration = 'Invalid duration';
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-
-    try {
-      await onSubmit(form);
-    } catch (err) {
-      setErrors({ submit: 'Failed to submit' });
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <div>
-        <label htmlFor="title">Title</label>
-        <input
-          id="title"
-          name="title"
-          value={form.title}
-          onChange={handleChange}
-          aria-invalid={!!errors.title}
-        />
-        {errors.title && <span className="error">{errors.title}</span>}
-      </div>
-
-      <button type="submit">Submit</button>
-    </form>
-  );
-};
-```
-
-## Error Boundary
-
-```typescript
-// components/ErrorBoundary.tsx
-interface Props {
-  children: React.ReactNode;
-  fallback?: React.ReactNode;
-}
-
-interface State {
-  hasError: boolean;
-  error: Error | null;
-}
-
-export class ErrorBoundary extends React.Component<Props, State> {
-  constructor(props: Props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Error:', error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return this.props.fallback || (
-        <div className="error-boundary">
-          <h2>Something went wrong</h2>
-          <button onClick={() => window.location.reload()}>Reload</button>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
-// Usage
-<ErrorBoundary fallback={<ErrorPage />}>
-  <App />
-</ErrorBoundary>
-```
-
-## Component Patterns
-
-### Compound Components
-
-```typescript
-// Tab.tsx
-interface TabsContextValue {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
-}
-
-const TabsContext = createContext<TabsContextValue | undefined>(undefined);
-
-export const Tabs: React.FC<{ children: React.ReactNode; defaultTab: string }> = ({
-  children,
-  defaultTab
-}) => {
-  const [activeTab, setActiveTab] = useState(defaultTab);
-  return (
-    <TabsContext.Provider value={{ activeTab, setActiveTab }}>
-      {children}
-    </TabsContext.Provider>
-  );
-};
-
-export const Tab: React.FC<{ value: string; children: React.ReactNode }> = ({ value, children }) => {
-  const { activeTab, setActiveTab } = useContext(TabsContext)!;
-  return (
-    <button
-      className={activeTab === value ? 'active' : ''}
-      onClick={() => setActiveTab(value)}
-    >
-      {children}
-    </button>
-  );
-};
-
-export const TabPanel: React.FC<{ value: string; children: React.ReactNode }> = ({ value, children }) => {
-  const { activeTab } = useContext(TabsContext)!;
-  return activeTab === value ? <div>{children}</div> : null;
-};
-
-// Usage
-<Tabs defaultTab="details">
-  <Tab value="details">Details</Tab>
-  <Tab value="questions">Questions</Tab>
-  <TabPanel value="details"><ExamDetails /></TabPanel>
-  <TabPanel value="questions"><QuestionsList /></TabPanel>
-</Tabs>
 ```
 
 ## File Organization
@@ -522,64 +227,29 @@ export const TabPanel: React.FC<{ value: string; children: React.ReactNode }> = 
 ```
 src/
 ├── components/
-│   ├── common/        # Reusable (Button, Input, Modal)
-│   ├── layout/        # Layout (Header, Sidebar, Footer)
-│   └── exam/          # Feature-specific
-├── pages/             # Route-level components
-│   ├── auth/
-│   ├── student/
-│   └── teacher/
-├── hooks/             # Custom hooks
-├── contexts/          # React contexts
-├── services/          # API services
-├── types/             # TypeScript types
-└── utils/             # Utility functions
+│   ├── common/             # Reusable (Button, Card, Modal, Table, StatusBadge)
+│   ├── layout/             # Layout (Header)
+│   ├── TeacherLogin.tsx    # Teacher authentication
+│   ├── TeacherDashboard.tsx # Session management
+│   ├── SessionDetail.tsx   # Real-time student monitoring
+│   ├── SecureExamMonitor.tsx # Student exam view
+│   └── StudentLogin.tsx    # Student registration
+├── hooks/
+│   ├── useTeacherSocket.ts  # Teacher Socket.io connection
+│   ├── useExamSocket.ts     # Student Socket.io connection
+│   └── useInternetSniffer.ts # Internet detection probes
+├── context/                # React contexts
+├── config/                 # App configuration
+├── App.tsx                 # Root component + routes
+└── main.tsx                # Entry point
 ```
 
 ## Critical Rules
 
-1. **Structure**: Follow template order (imports → types → constants → component → hooks → effects → handlers → helpers → early returns → render)
+1. **Structure**: Follow template order (imports → types → constants → hooks → effects → handlers → render)
 2. **Types**: Always use `React.FC<Props>` with explicit prop types
 3. **Performance**: Use `React.memo`, `useCallback`, `useMemo` appropriately
-4. **State**: Keep local when possible, use Context for global, never mutate
-5. **Hooks**: Extract reusable logic into custom hooks
-6. **Forms**: Use controlled components with validation
-7. **Errors**: Wrap app in ErrorBoundary
-8. **Loading**: Always show loading states, use Suspense for lazy loading
-
-## Quick Decision Tree
-
-**Need reusable logic?**
-→ Create custom hook in `hooks/`
-
-**Need global state?**
-→ Create Context with Provider and custom hook
-
-**Component re-rendering too much?**
-→ Use `React.memo` + `useCallback` + `useMemo`
-
-**Need expensive computation?**
-→ Use `useMemo`
-
-**Passing function to child?**
-→ Use `useCallback`
-
-**Heavy component?**
-→ Use `lazy()` + `Suspense`
-
-**Form with validation?**
-→ Controlled components + error state
-
-## Summary
-
-**Write modern React:**
-
-- Functional components with hooks
-- TypeScript for all props
-- Custom hooks for reusable logic
-- Context for global state
-- Performance optimization (memo, useCallback, useMemo)
-- Code splitting for heavy components
-- Error boundaries for error handling
-
-**Every component should be type-safe, performant, and maintainable.**
+4. **State**: Keep local when possible, Context for global, never mutate
+5. **Hooks**: Extract reusable logic into custom hooks (especially Socket.io)
+6. **Cleanup**: Always clean up Socket.io connections and intervals in useEffect
+7. **Loading**: Always show loading states, use Suspense for lazy loading

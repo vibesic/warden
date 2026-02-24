@@ -452,7 +452,7 @@ export const SessionDetail: React.FC = () => {
                         headerClassName="bg-red-50 text-red-800"
                     >
                         <Table
-                            data={selectedStudent.violations.filter(v => v.type !== 'TAB_SWITCH')}
+                            data={selectedStudent.violations}
                             columns={violationColumns}
                             keyExtractor={(_, index) => index}
                             emptyMessage="No violations recorded."

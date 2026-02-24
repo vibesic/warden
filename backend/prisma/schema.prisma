@@ -41,7 +41,7 @@ model Session {
 
 model Violation {
   id        String   @id @default(uuid())
-  type      String   // INTERNET_ACCESS | DISCONNECTION | TAB_SWITCH
+  type      String   // INTERNET_ACCESS | DISCONNECTION | CONNECTION_LOST | SNIFFER_TIMEOUT
   timestamp DateTime @default(now())
   details   String?
   

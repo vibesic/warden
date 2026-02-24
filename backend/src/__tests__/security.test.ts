@@ -262,13 +262,13 @@ describe('Security - Socket Layer', () => {
       const socket = await connectStudent();
       await registerStudent(socket, { studentId: 'stu-enum-2' });
 
-      socket.emit('report_violation', { type: 'TAB_SWITCH', details: 'Switched tab' });
+      socket.emit('report_violation', { type: 'CONNECTION_LOST', details: 'Lost connection' });
 
       await new Promise((r) => setTimeout(r, 200));
 
       expect(prismaMock.violation.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ type: 'TAB_SWITCH' }),
+          data: expect.objectContaining({ type: 'CONNECTION_LOST' }),
         })
       );
 

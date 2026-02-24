@@ -14,7 +14,6 @@ const RegisterSchema = z.object({
 const VALID_VIOLATION_TYPES = [
   'INTERNET_ACCESS',
   'DISCONNECTION',
-  'TAB_SWITCH',
   'CONNECTION_LOST',
   'SNIFFER_TIMEOUT',
 ] as const;

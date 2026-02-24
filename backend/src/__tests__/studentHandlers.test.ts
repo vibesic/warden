@@ -184,14 +184,14 @@ describe('Student Handlers - Edge Cases', () => {
     it('should handle violation with details', async () => {
       const registerData = { studentId: 'violation_detail', name: 'Detail', sessionCode: '123456' };
       prismaMock.student.upsert.mockResolvedValue({ id: 'uuid-vd', ...registerData } as never);
-      prismaMock.violation.create.mockResolvedValue({ timestamp: new Date(), type: 'TAB_SWITCH' } as never);
+      prismaMock.violation.create.mockResolvedValue({ timestamp: new Date(), type: 'INTERNET_ACCESS' } as never);
 
       await new Promise<void>((resolve) => {
         clientSocket.emit('register', registerData);
         clientSocket.once('registered', () => resolve());
       });
 
-      clientSocket.emit('report_violation', { type: 'TAB_SWITCH', details: 'Switched to Chrome' });
+      clientSocket.emit('report_violation', { type: 'INTERNET_ACCESS', details: 'Detected internet access' });
 
       await new Promise((r) => setTimeout(r, 100));
 
@@ -199,7 +199,7 @@ describe('Student Handlers - Edge Cases', () => {
         (args: unknown[]) => (args[0] as { data: { studentId: string } }).data.studentId === 'uuid-vd'
       );
       expect(call).toBeDefined();
-      expect((call![0] as { data: { details: string } }).data.details).toBe('Switched to Chrome');
+      expect((call![0] as { data: { details: string } }).data.details).toBe('Detected internet access');
     });
   });
 
