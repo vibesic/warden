@@ -8,6 +8,9 @@ import { generateTeacherToken } from '../services/auth.service';
 const prismaMock = vi.hoisted(() => ({
   student: {
     upsert: vi.fn(),
+  },
+  sessionStudent: {
+    upsert: vi.fn(),
     update: vi.fn(),
     findMany: vi.fn(),
   },
@@ -199,19 +202,12 @@ describe('Teacher Handlers - Extended', () => {
       socket.close();
     });
 
-    it('should create session without duration when not provided', async () => {
-      prismaMock.session.findUnique.mockResolvedValue(null);
-      prismaMock.session.updateMany.mockResolvedValue({ count: 0 });
-      prismaMock.session.create.mockResolvedValue({
-        id: 's-new2', code: '111222', isActive: true,
-        durationMinutes: null, createdAt: new Date(),
-      });
-
+    it('should emit error when duration not provided', async () => {
       const socket = await connectTeacher();
 
       await new Promise<void>((resolve) => {
-        socket.on('dashboard:session_created', (data: { code: string }) => {
-          expect(data.code).toBe('111222');
+        socket.on('dashboard:error', (data: { message: string }) => {
+          expect(data.message).toBe('Duration is required (1-480 minutes)');
           resolve();
         });
         socket.emit('teacher:create_session');
@@ -246,7 +242,8 @@ describe('Teacher Handlers - Extended', () => {
       const studentSocket = await connectStudent();
 
       // Register student first
-      prismaMock.student.upsert.mockResolvedValue({ id: 'uuid-1', studentId: 'stu1', name: 'Test' } as never);
+      prismaMock.student.upsert.mockResolvedValue({ id: 'stu-1', studentId: 'stu1', name: 'Test' } as never);
+      prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-1', student: { studentId: 'stu1', name: 'Test' } } as never);
       await new Promise<void>((resolve) => {
         studentSocket.emit('register', { studentId: 'stu1', name: 'Test', sessionCode: '123456' });
         studentSocket.once('registered', () => resolve());
@@ -275,7 +272,7 @@ describe('Teacher Handlers - Extended', () => {
           createdAt: new Date(),
           endedAt: new Date(),
           durationMinutes: 60,
-          _count: { students: 10 },
+          _count: { sessionStudents: 10 },
         },
         {
           id: 'h2',
@@ -284,7 +281,7 @@ describe('Teacher Handlers - Extended', () => {
           createdAt: new Date(),
           endedAt: null,
           durationMinutes: null,
-          _count: { students: 0 },
+          _count: { sessionStudents: 0 },
         },
       ];
       prismaMock.session.findMany.mockResolvedValue(historyMock);

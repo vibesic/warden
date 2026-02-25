@@ -3,8 +3,8 @@
   nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="Proctor App Server"'
   nsExec::ExecToLog 'netsh advfirewall firewall add rule name="Proctor App Server" dir=in action=allow protocol=TCP localport=3333'
   
-  ; Reserve port 3333 so the app can bind to 0.0.0.0 without admin
-  nsExec::ExecToLog 'netsh http add urlacl url=http://+:3333/ user=Everyone'
+  ; Remove any stale HTTP URL ACL reservation (not needed for Node.js, can cause EACCES)
+  nsExec::ExecToLog 'netsh http delete urlacl url=http://+:3333/'
 !macroend
 
 !macro customUnInstall

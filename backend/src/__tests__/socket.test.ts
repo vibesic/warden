@@ -11,6 +11,9 @@ import { generateTeacherToken } from '../services/auth.service';
 const prismaMock = vi.hoisted(() => ({
   student: {
     upsert: vi.fn(),
+  },
+  sessionStudent: {
+    upsert: vi.fn(),
     update: vi.fn(),
     findMany: vi.fn(),
   },
@@ -84,7 +87,8 @@ describe('Socket Gateway', () => {
     // However, if we look at socket.ts, it likely validates the session exists via validateSession OR creates it?
     // Let's assume validation passes or mock whatever is needed. 
     // Wait, existing code might need session validation mockery if it does that.
-    prismaMock.student.upsert.mockResolvedValue({ id: 'uuid-1', ...studentData } as any);
+    prismaMock.student.upsert.mockResolvedValue({ id: 'stu-1', studentId: 'test_student_1', name: 'Test Student' } as any);
+    prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-1', student: { studentId: 'test_student_1', name: 'Test Student' } } as any);
 
     return new Promise<void>((resolve, reject) => {
       clientSocket.emit('register', studentData);
@@ -105,8 +109,9 @@ describe('Socket Gateway', () => {
     const heartbeatData = { studentId: 'test_student_2' };
     const registerData = { studentId: 'test_student_2', name: 'Test', sessionCode: '123456' };
 
-    prismaMock.student.upsert.mockResolvedValue({ id: 'uuid-2', ...registerData } as any);
-    prismaMock.student.update.mockResolvedValue({} as any);
+    prismaMock.student.upsert.mockResolvedValue({ id: 'stu-2', studentId: 'test_student_2', name: 'Test' } as any);
+    prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-2', student: { studentId: 'test_student_2', name: 'Test' } } as any);
+    prismaMock.sessionStudent.update.mockResolvedValue({} as any);
 
     await new Promise<void>(resolve => {
       clientSocket.emit('register', registerData);
@@ -120,9 +125,9 @@ describe('Socket Gateway', () => {
 
     // The disconnect handler from previous tests might interfere if we don't look specifically
     // We expect at least one call with isOnline: true AND matching the UUID from upsert return
-    const calls = prismaMock.student.update.mock.calls;
-    // Note: socket.data.studentUuid will be 'uuid-2' from the upsert mock return above
-    const heartbeatCall = calls.find(args => args[0].where.id === 'uuid-2' && args[0].data.isOnline === true);
+    const calls = prismaMock.sessionStudent.update.mock.calls;
+    // Note: socket.data.sessionStudentId will be 'ss-2' from the sessionStudent upsert mock return above
+    const heartbeatCall = calls.find(args => args[0].where.id === 'ss-2' && args[0].data.isOnline === true);
     expect(heartbeatCall).toBeDefined();
   });
 
@@ -133,7 +138,8 @@ describe('Socket Gateway', () => {
       details: 'Google detected'
     };
 
-    prismaMock.student.upsert.mockResolvedValue({ id: 'uuid-3', ...registerData } as any);
+    prismaMock.student.upsert.mockResolvedValue({ id: 'stu-3', studentId: 'test_student_3', name: 'Violator' } as any);
+    prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-3', student: { studentId: 'test_student_3', name: 'Violator' } } as any);
     prismaMock.violation.create.mockResolvedValue({ timestamp: new Date() } as any);
 
     await new Promise<void>(resolve => {
@@ -145,13 +151,13 @@ describe('Socket Gateway', () => {
       clientSocket.emit('report_violation', violationData);
 
       setTimeout(() => {
-        // Find the call for this specific student
+        // Find the call for this specific session student
         const calls = prismaMock.violation.create.mock.calls;
-        const callArgs = calls.find(c => c[0].data.studentId === 'uuid-3'); // Used UUID
+        const callArgs = calls.find(c => c[0].data.sessionStudentId === 'ss-3');
 
         expect(callArgs).toBeDefined();
         expect(callArgs![0].data).toMatchObject({
-          studentId: 'uuid-3',
+          sessionStudentId: 'ss-3',
           type: violationData.type,
           details: violationData.details,
         });
@@ -179,7 +185,7 @@ describe('Socket Gateway', () => {
   it('should return dashboard overview', async () => {
     // Mock prisma.session.findMany
     const historyMock = [
-      { id: 'h1', code: '111111', createdAt: new Date(), endedAt: null, isActive: false, _count: { students: 5 } }
+      { id: 'h1', code: '111111', createdAt: new Date(), endedAt: null, isActive: false, _count: { sessionStudents: 5 } }
     ];
     prismaMock.session.findMany.mockResolvedValue(historyMock);
 
@@ -309,7 +315,8 @@ describe('Socket Gateway', () => {
 
   it('should process sniffer:response and create violation when reachable is true', async () => {
     const registerData = { studentId: 'sniffer_student', name: 'Sniffer Test', sessionCode: '123456' };
-    prismaMock.student.upsert.mockResolvedValue({ id: 'uuid-sniffer', ...registerData } as any);
+    prismaMock.student.upsert.mockResolvedValue({ id: 'stu-sniffer', studentId: 'sniffer_student', name: 'Sniffer Test' } as any);
+    prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-sniffer', student: { studentId: 'sniffer_student', name: 'Sniffer Test' } } as any);
     prismaMock.violation.create.mockResolvedValue({ timestamp: new Date(), type: 'INTERNET_ACCESS' } as any);
 
     // Register the student
@@ -321,7 +328,7 @@ describe('Socket Gateway', () => {
     // Manually set the pending challenge on the server socket
     // We do this by emitting a sniffer:response that matches what we'll set
     const sockets = await io.fetchSockets();
-    const targetSocket = sockets.find(s => s.data.studentUuid === 'uuid-sniffer');
+    const targetSocket = sockets.find(s => s.data.sessionStudentId === 'ss-sniffer');
     expect(targetSocket).toBeDefined();
 
     const challengeId = 'test-challenge-123';
@@ -338,7 +345,7 @@ describe('Socket Gateway', () => {
 
     expect(prismaMock.violation.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        studentId: 'uuid-sniffer',
+        sessionStudentId: 'ss-sniffer',
         type: 'INTERNET_ACCESS',
       })
     });
@@ -346,7 +353,8 @@ describe('Socket Gateway', () => {
 
   it('should NOT create violation when sniffer:response reachable is false', async () => {
     const registerData = { studentId: 'sniffer_safe', name: 'Safe Student', sessionCode: '123456' };
-    prismaMock.student.upsert.mockResolvedValue({ id: 'uuid-safe', ...registerData } as any);
+    prismaMock.student.upsert.mockResolvedValue({ id: 'stu-safe', studentId: 'sniffer_safe', name: 'Safe Student' } as any);
+    prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-safe', student: { studentId: 'sniffer_safe', name: 'Safe Student' } } as any);
 
     await new Promise<void>(resolve => {
       clientSocket.emit('register', registerData);
@@ -354,7 +362,7 @@ describe('Socket Gateway', () => {
     });
 
     const sockets = await io.fetchSockets();
-    const targetSocket = sockets.find(s => s.data.studentUuid === 'uuid-safe');
+    const targetSocket = sockets.find(s => s.data.sessionStudentId === 'ss-safe');
     expect(targetSocket).toBeDefined();
 
     const challengeId = 'test-challenge-safe';
@@ -377,13 +385,14 @@ describe('Socket Gateway', () => {
 
   it('should create DISCONNECTION violation when student disconnects', async () => {
     const registerData = { studentId: 'disconnect_student', name: 'Disconnect Test', sessionCode: '123456' };
-    prismaMock.student.upsert.mockResolvedValue({ id: 'uuid-disconnect', ...registerData } as any);
-    prismaMock.student.update.mockResolvedValue({} as any);
+    prismaMock.student.upsert.mockResolvedValue({ id: 'stu-disconnect', studentId: 'disconnect_student', name: 'Disconnect Test' } as any);
+    prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-disconnect', student: { studentId: 'disconnect_student', name: 'Disconnect Test' } } as any);
+    prismaMock.sessionStudent.update.mockResolvedValue({} as any);
     prismaMock.violation.create.mockResolvedValue({
       timestamp: new Date(),
       type: 'DISCONNECTION',
       details: 'Student disconnected from server (closed tab or lost connection)',
-      studentId: 'uuid-disconnect',
+      sessionStudentId: 'ss-disconnect',
     } as any);
 
     // Register the student first
@@ -398,15 +407,15 @@ describe('Socket Gateway', () => {
     // Wait for async processing of the disconnect event
     await new Promise(r => setTimeout(r, 300));
 
-    // Verify student marked offline
-    const offlineCalls = prismaMock.student.update.mock.calls.filter(
-      (args: any[]) => args[0]?.where?.id === 'uuid-disconnect' && args[0]?.data?.isOnline === false
+    // Verify session student marked offline
+    const offlineCalls = prismaMock.sessionStudent.update.mock.calls.filter(
+      (args: any[]) => args[0]?.where?.id === 'ss-disconnect' && args[0]?.data?.isOnline === false
     );
     expect(offlineCalls.length).toBeGreaterThanOrEqual(1);
 
     // Verify DISCONNECTION violation was created
     const violationCalls = prismaMock.violation.create.mock.calls.filter(
-      (args: any[]) => args[0]?.data?.studentId === 'uuid-disconnect' && args[0]?.data?.type === 'DISCONNECTION'
+      (args: any[]) => args[0]?.data?.sessionStudentId === 'ss-disconnect' && args[0]?.data?.type === 'DISCONNECTION'
     );
     expect(violationCalls.length).toBe(1);
     expect(violationCalls[0][0].data.details).toContain('disconnected from server');

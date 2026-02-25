@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog } from 'electron';
 import { ChildProcess, execSync, fork } from 'child_process';
+import http from 'http';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
@@ -7,7 +8,8 @@ import os from 'os';
 let mainWindow: BrowserWindow | null = null;
 let backendProcess: ChildProcess | null = null;
 
-const PORT = 3333;
+const DEFAULT_PORT = 3333;
+let activePort = DEFAULT_PORT;
 const FIREWALL_RULE_NAME = 'Proctor App Server';
 
 // electron/dist/main.js → go up two levels to reach the app root
@@ -73,7 +75,7 @@ const startBackend = (): Promise<void> => {
       ...process.env as Record<string, string>,
       NODE_ENV: 'production',
       ELECTRON: 'true',
-      PORT: String(PORT),
+      PORT: String(activePort),
       HOST: '0.0.0.0',
       DATABASE_URL: `file:${DB_PATH}`,
       UPLOADS_DIR: UPLOADS_PATH,
@@ -83,48 +85,94 @@ const startBackend = (): Promise<void> => {
 
     backendProcess = fork(BACKEND_ENTRY, [], {
       env,
-      stdio: 'pipe',
+      stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
     });
 
-    let started = false;
+    let settled = false;
+    let stdoutOutput = '';
     let stderrOutput = '';
+
+    const settle = (action: 'resolve' | 'reject', error?: Error): void => {
+      if (settled) return;
+      settled = true;
+      if (action === 'resolve') resolve();
+      else reject(error);
+    };
+
+    const parsePort = (output: string): void => {
+      // The backend writes "Server running on <host>:<port>" to stdout
+      const match = output.match(/Server running on [^:]+:(\d+)/);
+      if (match) {
+        activePort = Number(match[1]);
+      }
+    };
 
     backendProcess.stdout?.on('data', (data: Buffer) => {
       const output = data.toString();
-      if (!started && output.includes('Server running')) {
-        started = true;
-        resolve();
+      stdoutOutput += output;
+      if (output.includes('Server running')) {
+        parsePort(output);
+        settle('resolve');
       }
     });
 
     backendProcess.stderr?.on('data', (data: Buffer) => {
       const output = data.toString();
       stderrOutput += output;
-      if (!started && output.includes('Server running')) {
-        started = true;
-        resolve();
+      if (output.includes('Server running')) {
+        parsePort(output);
+        settle('resolve');
       }
     });
 
     backendProcess.on('error', (err: Error) => {
-      if (!started) {
-        reject(new Error(`Backend process error: ${err.message}\n${stderrOutput}`));
-      }
+      settle('reject', new Error(
+        `Backend process error: ${err.message}\nstdout: ${stdoutOutput.slice(0, 300)}\nstderr: ${stderrOutput.slice(0, 500)}`
+      ));
     });
 
     backendProcess.on('exit', (code: number | null) => {
-      if (!started) {
-        reject(new Error(`Backend exited with code ${code}\n${stderrOutput}`));
-      }
+      // Small delay to allow stdio buffers to flush before reading them
+      setTimeout(() => {
+        settle('reject', new Error(
+          `Backend exited with code ${code}\nstdout: ${stdoutOutput.slice(0, 300)}\nstderr: ${stderrOutput.slice(0, 500)}`
+        ));
+      }, 200);
     });
 
-    // Fallback: resolve after timeout and attempt to connect anyway
+    // Fallback: do NOT resolve blindly — reject after 30s so the error is visible
     setTimeout(() => {
-      if (!started) {
-        started = true;
-        resolve();
-      }
-    }, 5000);
+      settle('reject', new Error(
+        `Backend did not start within 30 seconds.\nstdout: ${stdoutOutput.slice(0, 300)}\nstderr: ${stderrOutput.slice(0, 500)}`
+      ));
+    }, 30000);
+  });
+};
+
+/** Polls the backend /health endpoint until it responds 200. */
+const waitForBackend = (port: number, maxMs: number = 15000): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    const check = (): void => {
+      const req = http.get(`http://127.0.0.1:${port}/health`, (res) => {
+        if (res.statusCode === 200) {
+          resolve();
+        } else if (Date.now() - start > maxMs) {
+          reject(new Error(`Backend /health returned ${res.statusCode}`));
+        } else {
+          setTimeout(check, 300);
+        }
+      });
+      req.on('error', () => {
+        if (Date.now() - start > maxMs) {
+          reject(new Error('Backend /health not reachable'));
+        } else {
+          setTimeout(check, 300);
+        }
+      });
+      req.end();
+    };
+    check();
   });
 };
 
@@ -150,7 +198,7 @@ const killProcessOnPort = (): void => {
   if (os.platform() !== 'win32') return;
   try {
     const result = execSync(
-      `netstat -ano | findstr :${PORT} | findstr LISTENING`,
+      `netstat -ano | findstr :${activePort} | findstr LISTENING`,
       { stdio: 'pipe', encoding: 'utf-8' }
     );
     const lines = result.trim().split('\n');
@@ -187,38 +235,76 @@ const createWindow = (): void => {
       contextIsolation: true,
     },
     autoHideMenuBar: true,
+    show: false,
+    backgroundColor: '#f9fafb',
   });
 
-  mainWindow.loadURL(`http://localhost:${PORT}`);
+  let loadRetries = 0;
+  const MAX_LOAD_RETRIES = 5;
+
+  // Show window once content is painted
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show();
+  });
+
+  // Retry on load failures (e.g., backend not ready yet)
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, _errorDescription) => {
+    if (errorCode === -3) return; // Navigation aborted — ignore
+    if (loadRetries < MAX_LOAD_RETRIES) {
+      loadRetries++;
+      setTimeout(() => {
+        mainWindow?.loadURL(`http://127.0.0.1:${activePort}`);
+      }, 1000);
+    }
+  });
+
+  // Open DevTools in dev builds for debugging
+  if (!app.isPackaged) {
+    mainWindow.webContents.openDevTools();
+  }
+
+  // Use 127.0.0.1 to avoid IPv6 resolution issues on Windows
+  mainWindow.loadURL(`http://127.0.0.1:${activePort}`);
 
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 };
 
-const reservePort = (): void => {
-  if (os.platform() !== 'win32') return;
+const findAvailablePort = (startPort: number): number => {
+  if (os.platform() !== 'win32') return startPort;
+
+  // Check Windows TCP excluded port ranges to avoid EACCES
   try {
-    // Remove existing reservation if any
-    execSync(
-      `netsh http delete urlacl url=http://+:${PORT}/`,
-      { stdio: 'pipe' }
+    const result = execSync(
+      'netsh int ipv4 show excludedportrange protocol=tcp',
+      { stdio: 'pipe', encoding: 'utf-8' }
     );
+    const lines = result.split('\n');
+    const excludedRanges: Array<{ start: number; end: number }> = [];
+    for (const line of lines) {
+      const match = line.match(/^\s*(\d+)\s+(\d+)/);
+      if (match) {
+        excludedRanges.push({ start: Number(match[1]), end: Number(match[2]) });
+      }
+    }
+
+    let port = startPort;
+    const maxAttempts = 20;
+    for (let i = 0; i < maxAttempts; i++) {
+      const isExcluded = excludedRanges.some(
+        (range) => port >= range.start && port <= range.end
+      );
+      if (!isExcluded) return port;
+      port++;
+    }
   } catch {
-    // May not exist
+    // If check fails, proceed with the original port
   }
-  try {
-    // Reserve port for all users to avoid EACCES
-    execSync(
-      `netsh http add urlacl url=http://+:${PORT}/ user=Everyone`,
-      { stdio: 'pipe' }
-    );
-  } catch {
-    // May fail without admin — firewall rule via installer should suffice
-  }
+  return startPort;
 };
 
-const ensureFirewallRule = (): void => {
+const ensureFirewallRule = (port: number): void => {
   if (os.platform() !== 'win32') return;
 
   try {
@@ -229,16 +315,8 @@ const ensureFirewallRule = (): void => {
     );
     if (checkResult.includes(FIREWALL_RULE_NAME)) return;
   } catch {
-    // Rule doesn't exist, create it
-  }
-
-  try {
-    execSync(
-      `netsh advfirewall firewall add rule name="${FIREWALL_RULE_NAME}" dir=in action=allow protocol=TCP localport=${PORT}`,
-      { stdio: 'pipe' }
-    );
-  } catch {
-    // Non-fatal: firewall rule should be added by installer
+    // Rule doesn't exist — installer should have created it.
+    // Without admin we cannot add it here, so just return.
   }
 };
 
@@ -246,10 +324,11 @@ app.on('ready', async () => {
   try {
     ensureDirectories();
     ensureDatabase();
+    activePort = findAvailablePort(DEFAULT_PORT);
     killProcessOnPort();
-    reservePort();
-    ensureFirewallRule();
+    ensureFirewallRule(activePort);
     await startBackend();
+    await waitForBackend(activePort);
     createWindow();
   } catch (err) {
     dialog.showErrorBox(

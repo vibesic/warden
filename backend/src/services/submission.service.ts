@@ -2,7 +2,7 @@ import prisma from '../utils/prisma';
 import { logger } from '../utils/logger';
 
 interface CreateSubmissionParams {
-  studentUuid: string;
+  sessionStudentId: string;
   sessionId: string;
   originalName: string;
   storedName: string;
@@ -11,13 +11,13 @@ interface CreateSubmissionParams {
 }
 
 export const createSubmission = async (params: CreateSubmissionParams) => {
-  const { studentUuid, sessionId, originalName, storedName, mimeType, sizeBytes } = params;
+  const { sessionStudentId, sessionId, originalName, storedName, mimeType, sizeBytes } = params;
 
-  logger.info({ studentUuid, originalName, sizeBytes }, 'File submission created');
+  logger.info({ sessionStudentId, originalName, sizeBytes }, 'File submission created');
 
   return prisma.submission.create({
     data: {
-      studentId: studentUuid,
+      sessionStudentId,
       sessionId,
       originalName,
       storedName,
@@ -31,18 +31,22 @@ export const getSubmissionsForSession = async (sessionId: string) => {
   return prisma.submission.findMany({
     where: { sessionId },
     include: {
-      student: {
-        select: { studentId: true, name: true },
+      sessionStudent: {
+        include: {
+          student: {
+            select: { studentId: true, name: true },
+          },
+        },
       },
     },
     orderBy: { createdAt: 'desc' },
   });
 };
 
-export const getSubmissionsForStudent = async (studentUuid: string, sessionId: string) => {
+export const getSubmissionsForStudent = async (sessionStudentId: string, sessionId: string) => {
   return prisma.submission.findMany({
     where: {
-      studentId: studentUuid,
+      sessionStudentId,
       sessionId,
     },
     orderBy: { createdAt: 'desc' },

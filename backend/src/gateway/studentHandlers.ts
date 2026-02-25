@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { z } from 'zod';
 import { logger } from '../utils/logger';
-import { validateSession } from '../services/session.service';
+import { validateSession, getSessionByCode } from '../services/session.service';
 import { registerStudent, updateHeartbeat, markStudentOffline } from '../services/student.service';
 import { createViolation } from '../services/violation.service';
 
@@ -37,7 +37,8 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
         socket.emit('registration_error', 'Invalid data format');
         return;
       }
-      const { studentId, name, sessionCode } = result.data;
+      const { studentId, sessionCode } = result.data;
+      const name = result.data.name.trim();
 
       const sessionCheck = await validateSession(sessionCode);
       if (!sessionCheck.valid || !sessionCheck.session) {
@@ -45,14 +46,14 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
         return;
       }
 
-      const student = await registerStudent({
+      const sessionStudent = await registerStudent({
         studentId,
         sessionId: sessionCheck.session.id,
         name,
         ipAddress: socket.handshake.address,
       });
 
-      socket.data.studentUuid = student.id;
+      socket.data.sessionStudentId = sessionStudent.id;
       socket.data.studentId = studentId;
       socket.data.sessionCode = sessionCode;
 
@@ -83,24 +84,32 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
 
   socket.on('heartbeat', async () => {
     try {
-      const studentUuid = socket.data.studentUuid;
-      if (!studentUuid) return;
-      await updateHeartbeat(studentUuid);
+      const sessionStudentId = socket.data.sessionStudentId;
+      const sessionCode = socket.data.sessionCode;
+      if (!sessionStudentId || !sessionCode) return;
+
+      const session = await getSessionByCode(sessionCode);
+      if (!session?.isActive) return;
+
+      await updateHeartbeat(sessionStudentId);
     } catch (error) {
-      logger.error({ error, studentUuid: socket.data.studentUuid }, 'Heartbeat update error');
+      logger.error({ error, sessionStudentId: socket.data.sessionStudentId }, 'Heartbeat update error');
     }
   });
 
   socket.on('report_violation', async (data: unknown) => {
     try {
-      const studentUuid = socket.data.studentUuid;
+      const sessionStudentId = socket.data.sessionStudentId;
       const sessionCode = socket.data.sessionCode;
       const studentTxId = socket.data.studentId;
 
-      if (!studentUuid || !sessionCode) {
-        logger.warn({ studentUuid, sessionCode }, 'Violation reported but socket not fully registered');
+      if (!sessionStudentId || !sessionCode) {
+        logger.warn({ sessionStudentId, sessionCode }, 'Violation reported but socket not fully registered');
         return;
       }
+
+      const session = await getSessionByCode(sessionCode);
+      if (!session?.isActive) return;
 
       const result = ViolationSchema.safeParse(data);
       if (!result.success) {
@@ -112,7 +121,7 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
       logger.warn({ studentId: studentTxId, type }, 'VIOLATION DETECTED');
 
       const violation = await createViolation({
-        studentUuid,
+        sessionStudentId,
         type,
         details,
       });
@@ -131,10 +140,10 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
 
   socket.on('sniffer:response', async (data: unknown) => {
     try {
-      const studentUuid = socket.data.studentUuid;
+      const sessionStudentId = socket.data.sessionStudentId;
       const sessionCode = socket.data.sessionCode;
       const studentTxId = socket.data.studentId;
-      if (!studentUuid || !sessionCode) return;
+      if (!sessionStudentId || !sessionCode) return;
 
       const result = SnifferResponseSchema.safeParse(data);
       if (!result.success) return;
@@ -151,7 +160,7 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
 
       if (reachable) {
         const violation = await createViolation({
-          studentUuid,
+          sessionStudentId,
           type: 'INTERNET_ACCESS',
           details: `Server-side sniffer challenge confirmed: student reached ${pending.targetUrl}`,
         });
@@ -175,16 +184,20 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
   });
 
   socket.on('disconnect', async () => {
-    const studentUuid = socket.data.studentUuid;
+    const sessionStudentId = socket.data.sessionStudentId;
     const sessionCode = socket.data.sessionCode;
     const studentTxId = socket.data.studentId;
 
-    if (studentUuid && sessionCode) {
+    if (sessionStudentId && sessionCode) {
       logger.info({ studentId: studentTxId }, 'Student disconnected');
-      await markStudentOffline(studentUuid);
+      await markStudentOffline(sessionStudentId);
+
+      // Only record a DISCONNECTION violation if the session is still active
+      const session = await getSessionByCode(sessionCode);
+      if (!session?.isActive) return;
 
       const violation = await createViolation({
-        studentUuid,
+        sessionStudentId,
         type: 'DISCONNECTION',
         details: 'Student disconnected from server (closed tab or lost connection)',
       });

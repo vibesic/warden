@@ -24,14 +24,14 @@ describe('Submission Service', () => {
         storedName: '1708300000-abc123.pdf',
         mimeType: 'application/pdf',
         sizeBytes: 1024,
-        studentId: 'uuid-1',
+        sessionStudentId: 'ss-1',
         sessionId: 'sess-1',
         createdAt: new Date(),
       };
       (prisma.submission.create as ReturnType<typeof vi.fn>).mockResolvedValue(mockSubmission);
 
       const result = await createSubmission({
-        studentUuid: 'uuid-1',
+        sessionStudentId: 'ss-1',
         sessionId: 'sess-1',
         originalName: 'homework.pdf',
         storedName: '1708300000-abc123.pdf',
@@ -41,7 +41,7 @@ describe('Submission Service', () => {
 
       expect(prisma.submission.create).toHaveBeenCalledWith({
         data: {
-          studentId: 'uuid-1',
+          sessionStudentId: 'ss-1',
           sessionId: 'sess-1',
           originalName: 'homework.pdf',
           storedName: '1708300000-abc123.pdf',
@@ -59,7 +59,7 @@ describe('Submission Service', () => {
         {
           id: 'sub1',
           originalName: 'file.zip',
-          student: { studentId: 'stu1', name: 'Alice' },
+          sessionStudent: { student: { studentId: 'stu1', name: 'Alice' } },
         },
       ];
       (prisma.submission.findMany as ReturnType<typeof vi.fn>).mockResolvedValue(mockSubs);
@@ -69,7 +69,11 @@ describe('Submission Service', () => {
       expect(prisma.submission.findMany).toHaveBeenCalledWith({
         where: { sessionId: 'sess-1' },
         include: {
-          student: { select: { studentId: true, name: true } },
+          sessionStudent: {
+            include: {
+              student: { select: { studentId: true, name: true } },
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
       });
@@ -78,13 +82,13 @@ describe('Submission Service', () => {
   });
 
   describe('getSubmissionsForStudent', () => {
-    it('should return submissions for a specific student in a session', async () => {
+    it('should return submissions for a specific session student', async () => {
       (prisma.submission.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
-      const result = await getSubmissionsForStudent('uuid-1', 'sess-1');
+      const result = await getSubmissionsForStudent('ss-1', 'sess-1');
 
       expect(prisma.submission.findMany).toHaveBeenCalledWith({
-        where: { studentId: 'uuid-1', sessionId: 'sess-1' },
+        where: { sessionStudentId: 'ss-1', sessionId: 'sess-1' },
         orderBy: { createdAt: 'desc' },
       });
       expect(result).toEqual([]);

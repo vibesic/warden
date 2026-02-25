@@ -42,6 +42,8 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
     });
 
     socket.on('session:ended', () => {
+      isRegisteredRef.current = false;
+      socket.disconnect();
       if (onSessionEnded) onSessionEnded();
     });
 

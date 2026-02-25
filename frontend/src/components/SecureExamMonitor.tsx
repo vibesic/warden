@@ -25,7 +25,10 @@ export const SecureExamMonitor: React.FC<Props> = ({ studentId, studentName, ses
     const { isSecure } = useInternetSniffer(2000); // Check every 2s
     const [serverViolation, setServerViolation] = useState(false);
 
+    const [sessionEnded, setSessionEnded] = useState(false);
+
     const handleSessionEnded = useCallback(() => {
+        setSessionEnded(true);
         setShowEndModal(true);
     }, []);
 
@@ -112,13 +115,14 @@ export const SecureExamMonitor: React.FC<Props> = ({ studentId, studentName, ses
 
     // Heartbeat loop
     useEffect(() => {
+        if (sessionEnded) return;
         // Immediate heartbeat
         sendHeartbeat();
         const timer = setInterval(() => {
             sendHeartbeat();
         }, 2000); // Check every 2s
         return () => clearInterval(timer);
-    }, [sendHeartbeat]);
+    }, [sendHeartbeat, sessionEnded]);
 
     // Track Disconnection (Logic: If we lose server connection, they might have switched networks)
     const [lastDisconnectTime, setLastDisconnectTime] = useState<number | null>(null);
@@ -140,6 +144,7 @@ export const SecureExamMonitor: React.FC<Props> = ({ studentId, studentName, ses
 
     // Handle Internet Violation (client-side or server-side)
     useEffect(() => {
+        if (sessionEnded) return;
         if (isViolating) {
             // Internet detected!
             if (!violationReported) {
@@ -154,7 +159,7 @@ export const SecureExamMonitor: React.FC<Props> = ({ studentId, studentName, ses
                 setServerViolation(false);
             }
         }
-    }, [isViolating, isSecure, serverViolation, reportViolation, violationReported]);
+    }, [isViolating, isSecure, serverViolation, reportViolation, violationReported, sessionEnded]);
 
     if (showEndModal) {
         return (

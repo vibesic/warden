@@ -4,7 +4,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "3333:3333"
+      - "4444:4444"
     volumes:
       - ./backend:/app
       - /app/node_modules
@@ -12,6 +12,9 @@ services:
     environment:
       - DATABASE_URL=file:./data/dev.db
       - NODE_ENV=development
+      - PORT=4444
+      - CORS_ORIGINS=http://localhost:5174
+      - TOKEN_SECRET=dev-secret-do-not-use-in-production
     networks:
       - exam-network
 
@@ -20,12 +23,12 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "5173:5173"
+      - "5174:5174"
     volumes:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - VITE_API_URL=http://localhost:3333
+      - VITE_API_URL=http://localhost:4444
     networks:
       - exam-network
 

@@ -2,19 +2,19 @@ import prisma from '../utils/prisma';
 import { logger } from '../utils/logger';
 
 interface CreateViolationParams {
-  studentUuid: string;
+  sessionStudentId: string;
   type: string;
   details?: string;
 }
 
 export const createViolation = async (params: CreateViolationParams) => {
-  const { studentUuid, type, details } = params;
+  const { sessionStudentId, type, details } = params;
 
-  logger.warn({ studentUuid, type, details }, 'Violation created');
+  logger.warn({ sessionStudentId, type, details }, 'Violation created');
 
   return prisma.violation.create({
     data: {
-      studentId: studentUuid,
+      sessionStudentId,
       type,
       details,
     },

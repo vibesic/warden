@@ -11,10 +11,18 @@ interface RegisterStudentParams {
 export const registerStudent = async (params: RegisterStudentParams) => {
   const { studentId, sessionId, name, ipAddress } = params;
 
-  return prisma.student.upsert({
+  // Upsert the Student identity record
+  const student = await prisma.student.upsert({
+    where: { studentId },
+    update: { name },
+    create: { studentId, name },
+  });
+
+  // Upsert the SessionStudent participation record
+  const sessionStudent = await prisma.sessionStudent.upsert({
     where: {
       studentId_sessionId: {
-        studentId,
+        studentId: student.id,
         sessionId,
       },
     },
@@ -24,19 +32,21 @@ export const registerStudent = async (params: RegisterStudentParams) => {
       ipAddress,
     },
     create: {
-      studentId,
+      studentId: student.id,
       sessionId,
-      name,
       isOnline: true,
       lastHeartbeat: new Date(),
       ipAddress,
     },
+    include: { student: true },
   });
+
+  return sessionStudent;
 };
 
-export const updateHeartbeat = async (studentUuid: string) => {
-  return prisma.student.update({
-    where: { id: studentUuid },
+export const updateHeartbeat = async (sessionStudentId: string) => {
+  return prisma.sessionStudent.update({
+    where: { id: sessionStudentId },
     data: {
       lastHeartbeat: new Date(),
       isOnline: true,
@@ -44,17 +54,18 @@ export const updateHeartbeat = async (studentUuid: string) => {
   });
 };
 
-export const markStudentOffline = async (studentUuid: string) => {
-  return prisma.student.update({
-    where: { id: studentUuid },
+export const markStudentOffline = async (sessionStudentId: string) => {
+  return prisma.sessionStudent.update({
+    where: { id: sessionStudentId },
     data: { isOnline: false },
   });
 };
 
-export const getStudentsForSession = async (sessionId: string) => {
-  return prisma.student.findMany({
+export const getSessionStudentsForSession = async (sessionId: string) => {
+  return prisma.sessionStudent.findMany({
     where: { sessionId },
     include: {
+      student: true,
       violations: {
         orderBy: { timestamp: 'desc' },
       },
@@ -65,13 +76,16 @@ export const getStudentsForSession = async (sessionId: string) => {
 export const findDeadHeartbeats = async (thresholdMs: number = 45000) => {
   const timeoutThreshold = new Date(Date.now() - thresholdMs);
 
-  return prisma.student.findMany({
+  return prisma.sessionStudent.findMany({
     where: {
       isOnline: true,
       lastHeartbeat: {
         lt: timeoutThreshold,
       },
     },
-    include: { session: true },
+    include: {
+      student: true,
+      session: true,
+    },
   });
 };

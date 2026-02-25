@@ -23,6 +23,12 @@ const prismaMock = vi.hoisted(() => ({
     findMany: vi.fn(),
     findFirst: vi.fn(),
   },
+  sessionStudent: {
+    upsert: vi.fn(),
+    update: vi.fn(),
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+  },
   violation: {
     create: vi.fn().mockResolvedValue({
       id: 'v-1',
@@ -106,6 +112,7 @@ describe('Security - Socket Layer', () => {
     });
     prismaMock.session.findMany.mockResolvedValue([]);
     prismaMock.student.findMany.mockResolvedValue([]);
+    prismaMock.sessionStudent.findMany.mockResolvedValue([]);
     prismaMock.violation.create.mockResolvedValue({
       id: 'v-1', timestamp: new Date(), type: 'INTERNET_ACCESS', details: '',
     });
@@ -124,8 +131,13 @@ describe('Security - Socket Layer', () => {
       sessionCode: overrides?.sessionCode || '123456',
     };
     prismaMock.student.upsert.mockResolvedValue({
-      id: `uuid-${data.studentId}`,
-      ...data,
+      id: `stu-${data.studentId}`,
+      studentId: data.studentId,
+      name: data.name,
+    } as never);
+    prismaMock.sessionStudent.upsert.mockResolvedValue({
+      id: `ss-${data.studentId}`,
+      student: { studentId: data.studentId, name: data.name },
     } as never);
 
     await new Promise<void>((resolve) => {
@@ -156,7 +168,7 @@ describe('Security - Socket Layer', () => {
 
       // Trigger a violation via sniffer:response
       const sockets = await io.fetchSockets();
-      const serverSocket = sockets.find((s) => s.data.studentUuid === 'uuid-stu1');
+      const serverSocket = sockets.find((s) => s.data.sessionStudentId === 'ss-stu1');
       expect(serverSocket).toBeDefined();
 
       serverSocket!.data.pendingChallenge = {
@@ -194,7 +206,7 @@ describe('Security - Socket Layer', () => {
 
       // Trigger a violation
       const sockets = await io.fetchSockets();
-      const serverSocket = sockets.find((s) => s.data.studentUuid === 'uuid-stu-teacher-test');
+      const serverSocket = sockets.find((s) => s.data.sessionStudentId === 'ss-stu-teacher-test');
       expect(serverSocket).toBeDefined();
 
       serverSocket!.data.pendingChallenge = {
@@ -304,7 +316,7 @@ describe('Security - Socket Layer', () => {
       await registerStudent(socket, { studentId: 'stu-push-1' });
 
       const sockets = await io.fetchSockets();
-      const serverSocket = sockets.find((s) => s.data.studentUuid === 'uuid-stu-push-1');
+      const serverSocket = sockets.find((s) => s.data.sessionStudentId === 'ss-stu-push-1');
       expect(serverSocket).toBeDefined();
 
       serverSocket!.data.pendingChallenge = {
@@ -330,7 +342,7 @@ describe('Security - Socket Layer', () => {
       await registerStudent(socket, { studentId: 'stu-push-2' });
 
       const sockets = await io.fetchSockets();
-      const serverSocket = sockets.find((s) => s.data.studentUuid === 'uuid-stu-push-2');
+      const serverSocket = sockets.find((s) => s.data.sessionStudentId === 'ss-stu-push-2');
       expect(serverSocket).toBeDefined();
 
       serverSocket!.data.pendingChallenge = {
@@ -437,7 +449,7 @@ describe('Security - HTTP Endpoints', () => {
       prismaMock.session.findUnique.mockResolvedValue({
         id: 'sess-1', code: '123456', isActive: true,
       });
-      prismaMock.student.findFirst.mockResolvedValue(null); // Student not found
+      prismaMock.sessionStudent.findFirst.mockResolvedValue(null); // Student not found
 
       const res = await request(app)
         .post('/api/upload')
@@ -516,6 +528,7 @@ describe('Security - Sniffer Challenge Timeout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prismaMock.student.findMany.mockResolvedValue([]);
+    prismaMock.sessionStudent.findMany.mockResolvedValue([]);
     prismaMock.session.findMany.mockResolvedValue([]);
   });
 
@@ -526,7 +539,7 @@ describe('Security - Sniffer Challenge Timeout', () => {
 
     const mockSockets = [{
       data: {
-        studentUuid: 'uuid-timeout-1',
+        sessionStudentId: 'ss-timeout-1',
         studentId: 'stu-timeout',
         sessionCode: '123456',
         pendingChallenge: {
@@ -551,7 +564,7 @@ describe('Security - Sniffer Challenge Timeout', () => {
       (args: unknown[]) => (args[0] as { data: { type: string } }).data.type === 'SNIFFER_TIMEOUT'
     );
     expect(timeoutCalls.length).toBeGreaterThanOrEqual(1);
-    expect(timeoutCalls[0][0].data.studentId).toBe('uuid-timeout-1');
+    expect(timeoutCalls[0][0].data.sessionStudentId).toBe('ss-timeout-1');
 
     emitSpy.mockRestore();
   });
@@ -561,7 +574,7 @@ describe('Security - Sniffer Challenge Timeout', () => {
     prismaMock.checkTarget.findFirst.mockResolvedValue({ url: 'https://www.google.com' });
 
     const socketData = {
-      studentUuid: 'uuid-timeout-2',
+      sessionStudentId: 'ss-timeout-2',
       studentId: 'stu-timeout-2',
       sessionCode: '123456',
       pendingChallenge: {

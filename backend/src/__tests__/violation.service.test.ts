@@ -24,7 +24,7 @@ describe('Violation Service', () => {
     it('should create a violation record', async () => {
       const mockViolation = {
         id: 'v1',
-        studentId: 'uuid-1',
+        sessionStudentId: 'ss-1',
         type: 'INTERNET_ACCESS',
         details: 'Google reached',
         timestamp: new Date(),
@@ -32,14 +32,14 @@ describe('Violation Service', () => {
       (prisma.violation.create as ReturnType<typeof vi.fn>).mockResolvedValue(mockViolation);
 
       const result = await createViolation({
-        studentUuid: 'uuid-1',
+        sessionStudentId: 'ss-1',
         type: 'INTERNET_ACCESS',
         details: 'Google reached',
       });
 
       expect(prisma.violation.create).toHaveBeenCalledWith({
         data: {
-          studentId: 'uuid-1',
+          sessionStudentId: 'ss-1',
           type: 'INTERNET_ACCESS',
           details: 'Google reached',
         },
@@ -54,13 +54,13 @@ describe('Violation Service', () => {
       });
 
       await createViolation({
-        studentUuid: 'uuid-2',
+        sessionStudentId: 'ss-2',
         type: 'DISCONNECTION',
       });
 
       expect(prisma.violation.create).toHaveBeenCalledWith({
         data: {
-          studentId: 'uuid-2',
+          sessionStudentId: 'ss-2',
           type: 'DISCONNECTION',
           details: undefined,
         },

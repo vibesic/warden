@@ -31,7 +31,7 @@ describe('Session Service', () => {
         isActive: true
       });
 
-      const session = await createSession();
+      const session = await createSession(60);
 
       expect(prisma.session.updateMany).toHaveBeenCalledWith({
         where: { isActive: true },
@@ -58,7 +58,7 @@ describe('Session Service', () => {
         isActive: true
       });
 
-      await createSession();
+      await createSession(60);
 
       expect(prisma.session.findUnique).toHaveBeenCalledTimes(2);
     });
@@ -157,24 +157,24 @@ describe('Session Service', () => {
       expect(session.durationMinutes).toBe(90);
     });
 
-    it('should store null when no duration provided', async () => {
+    it('should always store the provided duration', async () => {
       (prisma.session.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 0 });
       (prisma.session.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
       (prisma.session.create as ReturnType<typeof vi.fn>).mockResolvedValue({
-        id: 'untimed',
+        id: 'timed-30',
         code: '222222',
         isActive: true,
-        durationMinutes: null,
+        durationMinutes: 30,
       });
 
-      const session = await createSession();
+      const session = await createSession(30);
 
       expect(prisma.session.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          durationMinutes: null,
+          durationMinutes: 30,
         }),
       });
-      expect(session.durationMinutes).toBeNull();
+      expect(session.durationMinutes).toBe(30);
     });
   });
 

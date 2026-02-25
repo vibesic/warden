@@ -57,6 +57,9 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
   // But hook is re-initialized if sessionCode prop changes because of dependency array.
 
   const [isConnected, setIsConnected] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isAuthError, setIsAuthError] = useState(false);
+  const [serverTimeOffset, setServerTimeOffset] = useState(0);
 
   useEffect(() => {
     const token = localStorage.getItem('teacherToken') || '';
@@ -80,7 +83,10 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
         setHistory(data.history || []);
       });
 
-      socket.on('dashboard:session_state', (data: { session: Session, students: SessionStateStudent[] }) => {
+      socket.on('dashboard:session_state', (data: { session: Session, serverTime?: number, students: SessionStateStudent[] }) => {
+        if (data.serverTime) {
+          setServerTimeOffset(data.serverTime - Date.now());
+        }
         setActiveSession(data.session);
         const studentMap: Record<string, StudentStatus> = {};
         if (data.students) {
@@ -160,6 +166,14 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
         });
       });
 
+      socket.on('dashboard:error', (data: { message: string }) => {
+        const msg = data.message || 'An unknown error occurred';
+        setError(msg);
+        if (msg.toLowerCase().includes('unauthorized')) {
+          setIsAuthError(true);
+        }
+      });
+
       socket.on('disconnect', () => {
         setIsConnected(false);
       });
@@ -180,5 +194,5 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
     socketRef.current?.emit('teacher:end_session');
   }, []);
 
-  return { isConnected, students, activeSession, history, createSession, endSession };
+  return { isConnected, students, activeSession, history, error, isAuthError, serverTimeOffset, createSession, endSession };
 };

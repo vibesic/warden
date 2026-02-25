@@ -36,12 +36,20 @@ const formatDuration = (start?: string, end?: string) => {
 export const SessionDetail: React.FC = () => {
     const { sessionCode } = useParams<{ sessionCode: string }>();
     const navigate = useNavigate();
-    const { isConnected, students, activeSession, endSession } = useTeacherSocket(sessionCode);
+    const { isConnected, students, activeSession, isAuthError, serverTimeOffset, endSession } = useTeacherSocket(sessionCode);
     const [selectedStudent, setSelectedStudent] = useState<{ name: string, violations: Violation[] } | null>(null);
     const [showEndSessionModal, setShowEndSessionModal] = useState(false);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
     const [submissions, setSubmissions] = useState<SubmissionItem[]>([]);
+
+    useEffect(() => {
+        if (isAuthError) {
+            localStorage.removeItem('teacherMode');
+            localStorage.removeItem('teacherToken');
+            navigate('/teacher/login');
+        }
+    }, [isAuthError, navigate]);
 
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -72,7 +80,8 @@ export const SessionDetail: React.FC = () => {
     }, [fetchSubmissions]);
 
     const formatElapsedTime = (start: string) => {
-        const diff = currentTime.getTime() - new Date(start).getTime();
+        const serverNow = currentTime.getTime() + serverTimeOffset;
+        const diff = serverNow - new Date(start).getTime();
         if (diff < 0) return '00:00:00';
         const hours = Math.floor(diff / 3600000);
         const minutes = Math.floor((diff % 3600000) / 60000);
@@ -82,7 +91,8 @@ export const SessionDetail: React.FC = () => {
 
     const formatRemainingTime = (start: string, durationMin: number): string => {
         const endsAt = new Date(start).getTime() + durationMin * 60_000;
-        const diff = endsAt - currentTime.getTime();
+        const serverNow = currentTime.getTime() + serverTimeOffset;
+        const diff = endsAt - serverNow;
         if (diff <= 0) return '00:00:00';
         const hours = Math.floor(diff / 3600000);
         const minutes = Math.floor((diff % 3600000) / 60000);
@@ -92,7 +102,8 @@ export const SessionDetail: React.FC = () => {
 
     const getRemainingMs = (start: string, durationMin: number): number => {
         const endsAt = new Date(start).getTime() + durationMin * 60_000;
-        return endsAt - currentTime.getTime();
+        const serverNow = currentTime.getTime() + serverTimeOffset;
+        return endsAt - serverNow;
     };
 
     const formatFileSize = (bytes: number): string => {
@@ -244,12 +255,18 @@ export const SessionDetail: React.FC = () => {
                                 {activeSession.durationMinutes ? (
                                     <div>
                                         <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Time Remaining</h2>
-                                        <div className={`text-2xl font-mono font-bold tabular-nums ${getRemainingMs(activeSession.createdAt, activeSession.durationMinutes) <= 300_000
-                                            ? 'text-rose-500'
-                                            : 'text-emerald-500'
-                                            }`}>
-                                            {formatRemainingTime(activeSession.createdAt, activeSession.durationMinutes)}
-                                        </div>
+                                        {getRemainingMs(activeSession.createdAt, activeSession.durationMinutes) <= 0 ? (
+                                            <div className="text-lg font-bold text-rose-500 animate-pulse">
+                                                Ending session...
+                                            </div>
+                                        ) : (
+                                            <div className={`text-2xl font-mono font-bold tabular-nums ${getRemainingMs(activeSession.createdAt, activeSession.durationMinutes) <= 300_000
+                                                ? 'text-rose-500'
+                                                : 'text-emerald-500'
+                                                }`}>
+                                                {formatRemainingTime(activeSession.createdAt, activeSession.durationMinutes)}
+                                            </div>
+                                        )}
                                         <div className="text-xs text-gray-400 mt-0.5">
                                             of {activeSession.durationMinutes} min
                                         </div>

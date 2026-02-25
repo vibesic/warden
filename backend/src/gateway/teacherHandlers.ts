@@ -3,10 +3,10 @@ import { z } from 'zod';
 import { logger } from '../utils/logger';
 import { verifyTeacherToken } from '../services/auth.service';
 import { createSession, endSession, getActiveSession, getSessionHistory, getSessionByCode } from '../services/session.service';
-import { getStudentsForSession } from '../services/student.service';
+import { getSessionStudentsForSession } from '../services/student.service';
 
 const CreateSessionSchema = z.object({
-  durationMinutes: z.number().int().min(1).max(480).optional(),
+  durationMinutes: z.number().int().min(1).max(480),
 });
 
 const isTeacherAuthenticated = (socket: Socket): boolean => {
@@ -15,6 +15,7 @@ const isTeacherAuthenticated = (socket: Socket): boolean => {
 };
 
 const emitUnauthorized = (socket: Socket): void => {
+  logger.warn({ socketId: socket.id }, 'Unauthorized teacher socket request');
   socket.emit('dashboard:error', { message: 'Unauthorized: invalid or missing teacher token' });
 };
 
@@ -32,7 +33,7 @@ export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
           ...h,
           createdAt: h.createdAt.toISOString(),
           endedAt: h.endedAt?.toISOString(),
-          studentCount: h._count.students,
+          studentCount: h._count.sessionStudents,
         })),
         activeSession: active ? { ...active, createdAt: active.createdAt.toISOString() } : null,
       });
@@ -59,7 +60,7 @@ export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
       socket.join(`session:${sessionCode}`);
       socket.join(`teacher:session:${sessionCode}`);
 
-      const students = await getStudentsForSession(session.id);
+      const sessionStudents = await getSessionStudentsForSession(session.id);
 
       socket.emit('dashboard:session_state', {
         session: {
@@ -67,13 +68,14 @@ export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
           createdAt: session.createdAt.toISOString(),
           endedAt: session.endedAt?.toISOString(),
         },
-        students: students.map((s) => ({
-          studentId: s.studentId,
-          name: s.name,
-          isOnline: s.isOnline,
-          joinedAt: s.createdAt.toISOString(),
-          lastSeenAt: s.lastHeartbeat?.toISOString(),
-          violations: s.violations.map((v) => ({
+        serverTime: Date.now(),
+        students: sessionStudents.map((ss) => ({
+          studentId: ss.student.studentId,
+          name: ss.student.name,
+          isOnline: ss.isOnline,
+          joinedAt: ss.createdAt.toISOString(),
+          lastSeenAt: ss.lastHeartbeat?.toISOString(),
+          violations: ss.violations.map((v) => ({
             type: v.type,
             details: v.details,
             timestamp: v.timestamp.toISOString(),
@@ -92,7 +94,11 @@ export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
     }
     try {
       const parsed = CreateSessionSchema.safeParse(data ?? {});
-      const durationMinutes = parsed.success ? parsed.data.durationMinutes : undefined;
+      if (!parsed.success) {
+        socket.emit('dashboard:error', { message: 'Duration is required (1-480 minutes)' });
+        return;
+      }
+      const { durationMinutes } = parsed.data;
 
       const session = await createSession(durationMinutes);
       logger.info({ sessionCode: session.code, durationMinutes: session.durationMinutes }, 'Session created');

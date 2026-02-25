@@ -95,6 +95,16 @@ app.post('/api/auth/teacher', (req, res) => {
   res.json({ success: true, token });
 });
 
+// Token Verification Endpoint
+app.get('/api/auth/verify', (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (!token || !verifyTeacherToken(token)) {
+    res.status(401).json({ success: false, message: 'Invalid or expired token' });
+    return;
+  }
+  res.json({ success: true });
+});
+
 // Domain Check Endpoint (Teacher-only — prevents students from learning which domains are monitored)
 app.get('/api/check-targets', async (req, res) => {
   try {
@@ -177,17 +187,20 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       return;
     }
 
-    // Find the student record
-    const student = await prisma.student.findFirst({
-      where: { studentId: studentTxId, sessionId: session.id },
+    // Find the session student record
+    const sessionStudent = await prisma.sessionStudent.findFirst({
+      where: {
+        session: { id: session.id },
+        student: { studentId: studentTxId },
+      },
     });
-    if (!student) {
+    if (!sessionStudent) {
       res.status(400).json({ success: false, message: 'Student not found in session' });
       return;
     }
 
     const submission = await createSubmission({
-      studentUuid: student.id,
+      sessionStudentId: sessionStudent.id,
       sessionId: session.id,
       originalName: file.originalname,
       storedName: file.filename,
@@ -235,7 +248,7 @@ app.get('/api/submissions/:sessionCode', async (req, res) => {
         mimeType: s.mimeType,
         sizeBytes: s.sizeBytes,
         createdAt: s.createdAt.toISOString(),
-        student: s.student,
+        student: s.sessionStudent.student,
       })),
     });
   } catch (error) {

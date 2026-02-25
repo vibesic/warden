@@ -10,19 +10,30 @@ datasource db {
 
 model Student {
   id        String   @id @default(uuid())
+  studentId String   @unique
   name      String
-  studentId String
-  ipAddress String?
-  isOnline  Boolean  @default(false)
-  lastHeartbeat DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
+  sessionStudents SessionStudent[]
+}
+
+model SessionStudent {
+  id            String    @id @default(uuid())
+  ipAddress     String?
+  isOnline      Boolean   @default(false)
+  lastHeartbeat DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  student   Student @relation(fields: [studentId], references: [id])
+  studentId String
+
+  session   Session @relation(fields: [sessionId], references: [id])
+  sessionId String
+
   violations  Violation[]
   submissions Submission[]
-  
-  session   Session  @relation(fields: [sessionId], references: [id])
-  sessionId String
 
   @@unique([studentId, sessionId])
 }
@@ -34,9 +45,9 @@ model Session {
   durationMinutes Int?
   createdAt       DateTime @default(now())
   endedAt         DateTime?
-  
-  students    Student[]
-  submissions Submission[]
+
+  sessionStudents SessionStudent[]
+  submissions     Submission[]
 }
 
 model Violation {
@@ -44,9 +55,9 @@ model Violation {
   type      String   // INTERNET_ACCESS | DISCONNECTION | CONNECTION_LOST | SNIFFER_TIMEOUT
   timestamp DateTime @default(now())
   details   String?
-  
-  student   Student  @relation(fields: [studentId], references: [id])
-  studentId String
+
+  sessionStudent   SessionStudent @relation(fields: [sessionStudentId], references: [id])
+  sessionStudentId String
 }
 
 model CheckTarget {
@@ -64,8 +75,8 @@ model Submission {
   sizeBytes    Int
   createdAt    DateTime @default(now())
 
-  student   Student @relation(fields: [studentId], references: [id])
-  studentId String
+  sessionStudent   SessionStudent @relation(fields: [sessionStudentId], references: [id])
+  sessionStudentId String
 
   session   Session @relation(fields: [sessionId], references: [id])
   sessionId String

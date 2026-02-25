@@ -1,6 +1,6 @@
 import prisma from '../utils/prisma';
 
-export const createSession = async (durationMinutes?: number) => {
+export const createSession = async (durationMinutes: number) => {
   // End any currently active sessions first
   await prisma.session.updateMany({
     where: { isActive: true },
@@ -23,7 +23,7 @@ export const createSession = async (durationMinutes?: number) => {
     data: {
       code,
       isActive: true,
-      durationMinutes: durationMinutes ?? null,
+      durationMinutes,
     }
   });
 
@@ -75,7 +75,7 @@ export const getSessionHistory = async () => {
     orderBy: { createdAt: 'desc' },
     include: {
       _count: {
-        select: { students: true }
+        select: { sessionStudents: true }
       }
     }
   });

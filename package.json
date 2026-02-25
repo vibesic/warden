@@ -2,6 +2,11 @@
   "name": "proctor-app",
   "version": "1.0.0",
   "description": "Secure Exam Proctoring Application",
+  "author": {
+    "name": "Proctor App Team",
+    "email": "proctor@localhost"
+  },
+  "homepage": "https://github.com/proctor-app/proctor-app",
   "main": "electron/dist/main.js",
   "private": true,
   "scripts": {
@@ -62,7 +67,7 @@
       "include": "installer/nsis-hooks.nsh"
     },
     "win": {
-      "requestedExecutionLevel": "requireAdministrator",
+      "requestedExecutionLevel": "asInvoker",
       "target": [
         {
           "target": "nsis",
@@ -87,7 +92,7 @@
     }
   },
   "devDependencies": {
-    "electron": "^33.0.0",
+    "electron": "^33.4.11",
     "electron-builder": "^25.0.0",
     "typescript": "^5.3.3"
   }
