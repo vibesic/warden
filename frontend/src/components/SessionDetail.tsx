@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTeacherSocket, Violation, StudentStatus } from '../hooks/useTeacherSocket';
 import { useCurrentTime } from '../hooks/useCurrentTime';
-import { AlertTriangle, Wifi, WifiOff, Download } from 'lucide-react';
+import { AlertTriangle, Wifi, WifiOff, Download, Monitor, Smartphone, Tablet } from 'lucide-react';
 import { ConfirmationModal } from './common/ConfirmationModal';
 import { Modal } from './common/Modal';
 import { Header } from './layout/Header';
@@ -31,6 +31,7 @@ export const SessionDetail: React.FC = () => {
     const [showLogoutModal, setShowLogoutModal] = useState(false);
     const currentTime = useCurrentTime();
     const [submissions, setSubmissions] = useState<SubmissionItem[]>([]);
+    const [connectionFilter, setConnectionFilter] = useState<'all' | 'online' | 'offline'>('all');
 
     useEffect(() => {
         if (isAuthError) {
@@ -85,6 +86,14 @@ export const SessionDetail: React.FC = () => {
         window.open(`${API_BASE_URL}/api/submissions/${sessionCode}/download/${storedName}?token=${token}`, '_blank');
     };
 
+    const getDeviceIcon = (deviceType?: string) => {
+        switch (deviceType) {
+            case 'mobile': return <Smartphone size={14} />;
+            case 'tablet': return <Tablet size={14} />;
+            default: return <Monitor size={14} />;
+        }
+    };
+
     const sortedStudents = Object.values(students).sort((a, b) => a.studentId.localeCompare(b.studentId));
 
     const handleEndSessionClick = () => {
@@ -114,6 +123,12 @@ export const SessionDetail: React.FC = () => {
 
     const onlineCount = sortedStudents.filter(s => s.isOnline).length;
 
+    const filteredStudents = sortedStudents.filter((s) => {
+        if (connectionFilter === 'online') return s.isOnline;
+        if (connectionFilter === 'offline') return !s.isOnline;
+        return true;
+    });
+
     const violationColumns: TableColumn<Violation>[] = [
         {
             header: 'Time',
@@ -141,6 +156,15 @@ export const SessionDetail: React.FC = () => {
         {
             header: 'Student ID',
             cell: (s) => <span className="font-mono text-gray-600">{s.studentId}</span>
+        },
+        {
+            header: 'Device',
+            cell: (s) => (
+                <div className="flex items-center gap-1.5 text-gray-500" title={`${s.deviceOs || 'Unknown'} · ${s.deviceBrowser || 'Unknown'}`}>
+                    {getDeviceIcon(s.deviceType)}
+                    <span className="text-xs">{s.deviceOs || 'Unknown'}</span>
+                </div>
+            )
         },
         {
             header: 'Violations',
@@ -303,6 +327,16 @@ export const SessionDetail: React.FC = () => {
                                 Connected Students ({onlineCount} out of {sortedStudents.length})
                             </h2>
                             <div className="flex gap-4 text-sm items-center">
+                                <select
+                                    value={connectionFilter}
+                                    onChange={(e) => setConnectionFilter(e.target.value as 'all' | 'online' | 'offline')}
+                                    className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    aria-label="Filter by status"
+                                >
+                                    <option value="all">All Students</option>
+                                    <option value="online">Online Only</option>
+                                    <option value="offline">Offline Only</option>
+                                </select>
                                 <div className="flex items-center gap-1">
                                     <Wifi size={16} className="text-green-500" /> <span className="text-xs text-gray-500">Online</span>
                                 </div>
@@ -313,7 +347,7 @@ export const SessionDetail: React.FC = () => {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {sortedStudents.map(student => (
+                            {filteredStudents.map(student => (
                                 <div key={student.studentId} className={`relative p-5 rounded-lg border-2 transition-all ${student.isOnline ? 'bg-white border-green-100 shadow-sm' : 'bg-gray-50 border-gray-200 opacity-75'
                                     }`}>
                                     <div className="flex justify-between items-start">
@@ -324,6 +358,12 @@ export const SessionDetail: React.FC = () => {
                                         <div className={`${student.isOnline ? 'text-green-500' : 'text-gray-400'}`}>
                                             {student.isOnline ? <Wifi size={20} /> : <WifiOff size={20} />}
                                         </div>
+                                    </div>
+
+                                    {/* Device Info */}
+                                    <div className="flex items-center gap-1.5 mt-1 text-xs text-gray-400" title={`${student.deviceOs || 'Unknown OS'} · ${student.deviceBrowser || 'Unknown Browser'}`}>
+                                        {getDeviceIcon(student.deviceType)}
+                                        <span className="truncate">{student.deviceOs || 'Unknown'} · {student.deviceBrowser || 'Unknown'}</span>
                                     </div>
 
                                     <div className="flex items-end justify-between mt-1">
@@ -346,9 +386,12 @@ export const SessionDetail: React.FC = () => {
                                 </div>
                             ))}
 
-                            {sortedStudents.length === 0 && (
+                            {filteredStudents.length === 0 && (
                                 <div className="col-span-full py-12 text-center bg-white rounded border border-dashed border-gray-300 text-gray-400">
-                                    {activeSession?.isActive ? 'Waiting for students to join...' : 'No data recorded for this session.'}
+                                    {sortedStudents.length === 0
+                                        ? (activeSession?.isActive ? 'Waiting for students to join...' : 'No data recorded for this session.')
+                                        : `No ${connectionFilter} students.`
+                                    }
                                 </div>
                             )}
                         </div>

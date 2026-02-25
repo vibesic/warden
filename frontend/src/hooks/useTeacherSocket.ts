@@ -14,6 +14,9 @@ export interface StudentStatus {
   isOnline: boolean;
   joinedAt?: string;
   lastSeenAt?: string;
+  deviceType?: string;
+  deviceOs?: string;
+  deviceBrowser?: string;
   violations: Violation[];
 }
 
@@ -33,6 +36,9 @@ interface SessionStateStudent {
   isOnline: boolean;
   joinedAt: string;
   lastSeenAt?: string;
+  deviceType?: string;
+  deviceOs?: string;
+  deviceBrowser?: string;
   violations: Violation[];
 }
 
@@ -41,6 +47,9 @@ interface DashboardUpdatePayload {
   studentId: string;
   name?: string;
   isOnline?: boolean;
+  deviceType?: string;
+  deviceOs?: string;
+  deviceBrowser?: string;
 }
 
 interface DashboardAlertPayload {
@@ -97,6 +106,9 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
               isOnline: s.isOnline,
               joinedAt: s.joinedAt,
               lastSeenAt: s.lastSeenAt,
+              deviceType: s.deviceType,
+              deviceOs: s.deviceOs,
+              deviceBrowser: s.deviceBrowser,
               violations: s.violations || []
             };
           });
@@ -127,13 +139,19 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
               newState[data.studentId] = {
                 ...newState[data.studentId],
                 isOnline: true,
-                name: data.name || newState[data.studentId].name
+                name: data.name || newState[data.studentId].name,
+                deviceType: data.deviceType || newState[data.studentId].deviceType,
+                deviceOs: data.deviceOs || newState[data.studentId].deviceOs,
+                deviceBrowser: data.deviceBrowser || newState[data.studentId].deviceBrowser,
               };
             } else {
               newState[data.studentId] = {
                 studentId: data.studentId,
                 name: data.name,
                 isOnline: true,
+                deviceType: data.deviceType,
+                deviceOs: data.deviceOs,
+                deviceBrowser: data.deviceBrowser,
                 violations: []
               };
             }

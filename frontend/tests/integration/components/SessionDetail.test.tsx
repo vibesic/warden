@@ -110,6 +110,78 @@ describe('SessionDetail', () => {
     expect(screen.getByText(/Connected Students \(1 out of 2\)/)).toBeInTheDocument();
   });
 
+  it('should render filter dropdown with All Students selected by default', () => {
+    render(<SessionDetail />);
+    const filter = screen.getByLabelText('Filter by status') as HTMLSelectElement;
+    expect(filter).toBeInTheDocument();
+    expect(filter.value).toBe('all');
+  });
+
+  it('should filter to show only online students', async () => {
+    const user = userEvent.setup();
+    mockHookReturn.students = {
+      S001: {
+        studentId: 'S001',
+        name: 'Alice',
+        isOnline: true,
+        violations: [],
+      },
+      S002: {
+        studentId: 'S002',
+        name: 'Bob',
+        isOnline: false,
+        violations: [],
+      },
+    };
+
+    render(<SessionDetail />);
+    await user.selectOptions(screen.getByLabelText('Filter by status'), 'online');
+
+    expect(screen.getByText('Alice')).toBeInTheDocument();
+    expect(screen.queryByText('Bob')).not.toBeInTheDocument();
+  });
+
+  it('should filter to show only offline students', async () => {
+    const user = userEvent.setup();
+    mockHookReturn.students = {
+      S001: {
+        studentId: 'S001',
+        name: 'Alice',
+        isOnline: true,
+        violations: [],
+      },
+      S002: {
+        studentId: 'S002',
+        name: 'Bob',
+        isOnline: false,
+        violations: [],
+      },
+    };
+
+    render(<SessionDetail />);
+    await user.selectOptions(screen.getByLabelText('Filter by status'), 'offline');
+
+    expect(screen.queryByText('Alice')).not.toBeInTheDocument();
+    expect(screen.getByText('Bob')).toBeInTheDocument();
+  });
+
+  it('should show empty message when filter has no matches', async () => {
+    const user = userEvent.setup();
+    mockHookReturn.students = {
+      S001: {
+        studentId: 'S001',
+        name: 'Alice',
+        isOnline: true,
+        violations: [],
+      },
+    };
+
+    render(<SessionDetail />);
+    await user.selectOptions(screen.getByLabelText('Filter by status'), 'offline');
+
+    expect(screen.getByText('No offline students.')).toBeInTheDocument();
+  });
+
   it('should render student cards for active session', () => {
     mockHookReturn.students = {
       S001: {
