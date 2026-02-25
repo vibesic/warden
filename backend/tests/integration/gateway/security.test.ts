@@ -480,7 +480,7 @@ describe('Security - HTTP Endpoints', () => {
     it('should accept login with default password', async () => {
       const res = await request(app)
         .post('/api/auth/teacher')
-        .send({ password: 'admin' });
+        .send({ password: 'Proctor2026!' });
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);

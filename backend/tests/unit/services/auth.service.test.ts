@@ -96,7 +96,7 @@ describe('Auth Service', () => {
   describe('getTeacherPassword', () => {
     it('should return default password when env not set', () => {
       delete process.env.TEACHER_PASSWORD;
-      expect(getTeacherPassword()).toBe('admin');
+      expect(getTeacherPassword()).toBe('Proctor2026!');
     });
 
     it('should return env password when set', () => {

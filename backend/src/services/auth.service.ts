@@ -49,10 +49,10 @@ export const verifyTeacherToken = (token: string): boolean => {
 let defaultPasswordWarned = false;
 
 export const getTeacherPassword = (): string => {
-  const password = process.env.TEACHER_PASSWORD || 'admin';
-  if (password === 'admin' && !defaultPasswordWarned) {
+  const password = process.env.TEACHER_PASSWORD || 'Proctor2026!';
+  if (password === 'Proctor2026!' && !defaultPasswordWarned) {
     defaultPasswordWarned = true;
-    logger.warn('Using default teacher password "admin". Set TEACHER_PASSWORD environment variable for production use.');
+    logger.warn('Using default teacher password. Set TEACHER_PASSWORD environment variable for production use.');
   }
   return password;
 };

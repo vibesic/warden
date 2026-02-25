@@ -190,7 +190,7 @@ describe('App API - Extended Coverage', () => {
     it('should return token with correct structure', async () => {
       const res = await request(app)
         .post('/api/auth/teacher')
-        .send({ password: 'admin' });
+        .send({ password: 'Proctor2026!' });
 
       expect(res.status).toBe(200);
       const parts = res.body.token.split('.');
