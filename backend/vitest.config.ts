@@ -1,15 +1,22 @@
 import { defineConfig } from 'vitest/config';
+import path from 'path';
 
 process.env.DATABASE_URL = 'file:./data/test.db';
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@src': path.resolve(__dirname, 'src'),
+    },
+  },
   test: {
     environment: 'node',
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
+    include: ['tests/**/*.test.ts'],
     env: {
       DATABASE_URL: 'file:./data/test.db',
-      NODE_ENV: 'test'
+      NODE_ENV: 'test',
     },
     coverage: {
       provider: 'v8',
@@ -18,18 +25,19 @@ export default defineConfig({
         'node_modules/**',
         'dist/**',
         '**/*.d.ts',
-        '**/*.config.ts', // Exclude config files
-        'src/utils/prisma.ts', // Exclude prisma client instantiation
-        'src/server.ts', // Exclude entry point
+        '**/*.config.ts',
+        'src/utils/prisma.ts',
+        'src/server.ts',
         'coverage/**',
-        'src/types/**'
+        'src/types/**',
+        'tests/helpers/**',
       ],
       thresholds: {
         lines: 90,
         functions: 90,
         branches: 80,
-        statements: 90
-      }
+        statements: 90,
+      },
     },
   },
 });
