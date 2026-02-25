@@ -8,12 +8,16 @@ export const isDesktopMode = (): boolean => {
   return process.env.ELECTRON === 'true' || process.env.NODE_ENV === 'production';
 };
 
+export const isDevelopment = (): boolean => {
+  return process.env.NODE_ENV !== 'production';
+};
+
 export const getAllowedOrigins = (): string[] => {
   const envOrigins = process.env.CORS_ORIGINS;
   if (envOrigins) {
     return envOrigins.split(',').map((o) => o.trim());
   }
-  if (isDesktopMode()) {
+  if (isDesktopMode() || isDevelopment()) {
     return ['*'];
   }
   return ['http://localhost:5173', 'http://127.0.0.1:5173'];

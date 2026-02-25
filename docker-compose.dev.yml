@@ -13,7 +13,6 @@ services:
       - DATABASE_URL=file:./data/dev.db
       - NODE_ENV=development
       - PORT=4444
-      - CORS_ORIGINS=http://localhost:5174
       - TOKEN_SECRET=dev-secret-do-not-use-in-production
     networks:
       - exam-network
