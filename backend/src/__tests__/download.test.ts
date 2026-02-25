@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import path from 'path';
 import fs from 'fs';
-import app from '../app';
-import prisma from '../utils/prisma';
+import { app } from '../app';
+import { prisma } from '../utils/prisma';
 import { generateTeacherToken } from '../services/auth.service';
 
 vi.mock('../utils/prisma', () => ({
-  default: {
+  prisma: {
     checkTarget: {
       count: vi.fn().mockResolvedValue(5),
       createMany: vi.fn(),

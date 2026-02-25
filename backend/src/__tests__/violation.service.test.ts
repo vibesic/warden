@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createViolation, getRandomCheckTarget } from '../services/violation.service';
-import prisma from '../utils/prisma';
+import { prisma } from '../utils/prisma';
 
 vi.mock('../utils/prisma', () => ({
-  default: {
+  prisma: {
     violation: {
       create: vi.fn(),
     },

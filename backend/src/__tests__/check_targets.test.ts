@@ -11,10 +11,10 @@ const prismaMock = vi.hoisted(() => ({
 }));
 
 vi.mock('../utils/prisma', () => ({
-  default: prismaMock,
+  prisma: prismaMock,
 }));
 
-import app from '../app';
+import { app } from '../app';
 
 describe('Check Targets API', () => {
   const token = generateTeacherToken();

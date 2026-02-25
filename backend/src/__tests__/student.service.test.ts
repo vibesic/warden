@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { registerStudent, updateHeartbeat, markStudentOffline, getSessionStudentsForSession, findDeadHeartbeats } from '../services/student.service';
-import prisma from '../utils/prisma';
+import { prisma } from '../utils/prisma';
 
 vi.mock('../utils/prisma', () => ({
-  default: {
+  prisma: {
     student: {
       upsert: vi.fn(),
     },

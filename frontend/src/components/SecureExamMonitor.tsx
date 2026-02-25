@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useInternetSniffer } from '../hooks/useInternetSniffer';
 import { useExamSocket } from '../hooks/useExamSocket';
+import { useCurrentTime } from '../hooks/useCurrentTime';
 import { Modal } from './common/Modal';
 import { Button } from './common/Button';
 import { FullScreenAlert } from './common/FullScreenAlert';
 import { API_BASE_URL } from '../config/api';
+import { formatFileSize, formatHMS } from '../utils/format';
 
 interface UploadedFile {
     id: string;
@@ -42,28 +44,18 @@ export const SecureExamMonitor: React.FC<Props> = ({ studentId, studentName, ses
 
     const { isConnected, sendHeartbeat, reportViolation, error, sessionTimer } = useExamSocket(studentId, studentName, sessionCode, handleSessionEnded, handleServerViolation);
     const [violationReported, setViolationReported] = useState(false);
-    const [currentTime, setCurrentTime] = useState(new Date());
+    const currentTime = useCurrentTime();
     const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Tick every second for countdown
-    useEffect(() => {
-        const interval = setInterval(() => setCurrentTime(new Date()), 1000);
-        return () => clearInterval(interval);
-    }, []);
-
-    const formatRemainingTime = (): string | null => {
+    const formatRemainingTime = useCallback((): string | null => {
         if (!sessionTimer?.durationMinutes || !sessionTimer.createdAt) return null;
         const endsAt = new Date(sessionTimer.createdAt).getTime() + sessionTimer.durationMinutes * 60_000;
         const diff = endsAt - currentTime.getTime();
-        if (diff <= 0) return '00:00:00';
-        const hours = Math.floor(diff / 3600000);
-        const minutes = Math.floor((diff % 3600000) / 60000);
-        const seconds = Math.floor((diff % 60000) / 1000);
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    };
+        return formatHMS(diff);
+    }, [sessionTimer, currentTime]);
 
     const remainingTime = formatRemainingTime();
 
@@ -97,12 +89,6 @@ export const SecureExamMonitor: React.FC<Props> = ({ studentId, studentName, ses
             setUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
-    };
-
-    const formatFileSize = (bytes: number): string => {
-        if (bytes < 1024) return `${bytes} B`;
-        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     };
 
     // Show error if registration fails (e.g. invalid code)

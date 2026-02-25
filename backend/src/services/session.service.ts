@@ -1,6 +1,7 @@
-import prisma from '../utils/prisma';
+import { prisma } from '../utils/prisma';
+import type { Session } from '@prisma/client';
 
-export const createSession = async (durationMinutes: number) => {
+export const createSession = async (durationMinutes: number): Promise<Session> => {
   // End any currently active sessions first
   await prisma.session.updateMany({
     where: { isActive: true },
@@ -19,52 +20,62 @@ export const createSession = async (durationMinutes: number) => {
     if (!existing) unique = true;
   }
 
-  const session = await prisma.session.create({
+  return prisma.session.create({
     data: {
       code,
       isActive: true,
       durationMinutes,
     }
   });
-
-  return session;
 };
 
-export const getActiveSession = async () => {
+export const getActiveSession = async (): Promise<Session | null> => {
   return prisma.session.findFirst({
     where: { isActive: true }
   });
 };
 
-export const endSession = async () => {
-  // Find active session
-  const activeSession = await getActiveSession();
-  if (!activeSession) return null;
-
-  const ended = await prisma.session.update({
-    where: { id: activeSession.id },
+/**
+ * End a specific session by ID.
+ * Also used by `endActiveSession` after resolving the active session.
+ */
+export const endSessionById = async (sessionId: string): Promise<Session> => {
+  return prisma.session.update({
+    where: { id: sessionId },
     data: {
       isActive: false,
-      endedAt: new Date()
-    }
+      endedAt: new Date(),
+    },
   });
-  return ended;
 };
 
-export const validateSession = async (code: string) => {
+/**
+ * End the currently active session (convenience wrapper).
+ */
+export const endSession = async (): Promise<Session | null> => {
+  const activeSession = await getActiveSession();
+  if (!activeSession) return null;
+  return endSessionById(activeSession.id);
+};
+
+interface SessionValidationResult {
+  valid: boolean;
+  reason?: string;
+  session?: Session;
+}
+
+export const validateSession = async (code: string): Promise<SessionValidationResult> => {
   const session = await prisma.session.findUnique({
     where: { code }
   });
 
-  if (session && !session.isActive) return { valid: false, reason: 'Session has ended', session }; // Return session even if ended, but valid=false
-
   if (!session) return { valid: false, reason: 'Invalid session code' };
-  if (!session.isActive) return { valid: false, reason: 'Session has ended' };
+  if (!session.isActive) return { valid: false, reason: 'Session has ended', session };
 
   return { valid: true, session };
 };
 
-export const getSessionByCode = async (code: string) => {
+export const getSessionByCode = async (code: string): Promise<Session | null> => {
   return prisma.session.findUnique({
     where: { code }
   });
@@ -84,7 +95,7 @@ export const getSessionHistory = async () => {
 /**
  * Returns active sessions whose timer has expired.
  */
-export const getExpiredSessions = async () => {
+export const getExpiredSessions = async (): Promise<Session[]> => {
   const activeSessions = await prisma.session.findMany({
     where: {
       isActive: true,
@@ -96,18 +107,5 @@ export const getExpiredSessions = async () => {
   return activeSessions.filter((session) => {
     const endsAt = session.createdAt.getTime() + (session.durationMinutes as number) * 60_000;
     return now >= endsAt;
-  });
-};
-
-/**
- * End a specific session by ID.
- */
-export const endSessionById = async (sessionId: string) => {
-  return prisma.session.update({
-    where: { id: sessionId },
-    data: {
-      isActive: false,
-      endedAt: new Date(),
-    },
   });
 };

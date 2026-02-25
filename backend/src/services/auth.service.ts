@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { TeacherAuthPayload } from '../types/auth';
+import { logger } from '../utils/logger';
 
 const TOKEN_SECRET = process.env.TOKEN_SECRET || crypto.randomBytes(32).toString('hex');
 
@@ -45,16 +46,13 @@ export const verifyTeacherToken = (token: string): boolean => {
   }
 };
 
+let defaultPasswordWarned = false;
+
 export const getTeacherPassword = (): string => {
   const password = process.env.TEACHER_PASSWORD || 'admin';
-  if (password === 'admin') {
-    // Log warning only once via module-level flag
-    if (!getTeacherPassword._warned) {
-      getTeacherPassword._warned = true;
-      // eslint-disable-next-line no-console
-      console.warn('[SECURITY] Using default teacher password "admin". Set TEACHER_PASSWORD environment variable for production use.');
-    }
+  if (password === 'admin' && !defaultPasswordWarned) {
+    defaultPasswordWarned = true;
+    logger.warn('Using default teacher password "admin". Set TEACHER_PASSWORD environment variable for production use.');
   }
   return password;
 };
-getTeacherPassword._warned = false;

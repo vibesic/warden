@@ -1,32 +1,59 @@
 import { Server, Socket } from 'socket.io';
-import { z } from 'zod';
 import { logger } from '../utils/logger';
 import { validateSession, getSessionByCode } from '../services/session.service';
 import { registerStudent, updateHeartbeat, markStudentOffline } from '../services/student.service';
+import { RegisterSchema, ViolationSchema, SnifferResponseSchema } from '../types/schemas';
+import {
+  getSocketStudentData,
+  createAndBroadcastViolation,
+  broadcastStudentLeft,
+} from './helpers';
 import { createViolation } from '../services/violation.service';
 
-const RegisterSchema = z.object({
-  studentId: z.string().min(1),
-  name: z.string().min(1),
-  sessionCode: z.string().length(6),
-});
+/**
+ * Grace period (ms) before a disconnect is recorded as a violation.
+ * Allows students to refresh the page without triggering a false
+ * DISCONNECTION violation. If the same studentId re-registers within
+ * this window the pending violation is cancelled.
+ */
+let disconnectGraceMs = 5_000;
 
-const VALID_VIOLATION_TYPES = [
-  'INTERNET_ACCESS',
-  'DISCONNECTION',
-  'CONNECTION_LOST',
-  'SNIFFER_TIMEOUT',
-] as const;
+/**
+ * Override the grace period duration. Intended for tests so they do not
+ * have to wait the full 5 s.
+ */
+export const setDisconnectGraceMs = (ms: number): void => {
+  disconnectGraceMs = ms;
+};
 
-const ViolationSchema = z.object({
-  type: z.enum(VALID_VIOLATION_TYPES),
-  details: z.string().max(500).optional(),
-});
+/** Pending disconnect timers keyed by studentId. */
+const pendingDisconnects = new Map<string, NodeJS.Timeout>();
 
-const SnifferResponseSchema = z.object({
-  challengeId: z.string(),
-  reachable: z.boolean(),
-});
+/**
+ * Cancel a pending disconnect violation for a student.
+ * Called when the student re-registers within the grace window.
+ */
+export const cancelPendingDisconnect = (studentId: string): boolean => {
+  const timer = pendingDisconnects.get(studentId);
+  if (timer) {
+    clearTimeout(timer);
+    pendingDisconnects.delete(studentId);
+    logger.info({ studentId }, 'Reconnected within grace period — disconnect violation cancelled');
+    return true;
+  }
+  return false;
+};
+
+/**
+ * Cancel ALL pending disconnect timers.
+ * Intended for test teardown.
+ */
+export const clearAllPendingDisconnects = (): void => {
+  for (const timer of pendingDisconnects.values()) {
+    clearTimeout(timer);
+  }
+  pendingDisconnects.clear();
+};
 
 export const registerStudentHandlers = (io: Server, socket: Socket): void => {
   socket.on('register', async (data: unknown) => {
@@ -39,6 +66,9 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
       }
       const { studentId, sessionCode } = result.data;
       const name = result.data.name.trim();
+
+      // Cancel any pending disconnect violation from a previous socket
+      cancelPendingDisconnect(studentId);
 
       const sessionCheck = await validateSession(sessionCode);
       if (!sessionCheck.valid || !sessionCheck.session) {
@@ -84,14 +114,13 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
 
   socket.on('heartbeat', async () => {
     try {
-      const sessionStudentId = socket.data.sessionStudentId;
-      const sessionCode = socket.data.sessionCode;
-      if (!sessionStudentId || !sessionCode) return;
+      const studentData = getSocketStudentData(socket);
+      if (!studentData) return;
 
-      const session = await getSessionByCode(sessionCode);
+      const session = await getSessionByCode(studentData.sessionCode);
       if (!session?.isActive) return;
 
-      await updateHeartbeat(sessionStudentId);
+      await updateHeartbeat(studentData.sessionStudentId);
     } catch (error) {
       logger.error({ error, sessionStudentId: socket.data.sessionStudentId }, 'Heartbeat update error');
     }
@@ -99,16 +128,13 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
 
   socket.on('report_violation', async (data: unknown) => {
     try {
-      const sessionStudentId = socket.data.sessionStudentId;
-      const sessionCode = socket.data.sessionCode;
-      const studentTxId = socket.data.studentId;
-
-      if (!sessionStudentId || !sessionCode) {
-        logger.warn({ sessionStudentId, sessionCode }, 'Violation reported but socket not fully registered');
+      const studentData = getSocketStudentData(socket);
+      if (!studentData) {
+        logger.warn('Violation reported but socket not fully registered');
         return;
       }
 
-      const session = await getSessionByCode(sessionCode);
+      const session = await getSessionByCode(studentData.sessionCode);
       if (!session?.isActive) return;
 
       const result = ViolationSchema.safeParse(data);
@@ -116,22 +142,13 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
         logger.warn({ error: result.error.issues }, 'Invalid violation data');
         return;
       }
-      const { type, details } = result.data;
 
-      logger.warn({ studentId: studentTxId, type }, 'VIOLATION DETECTED');
+      logger.warn({ studentId: studentData.studentId, type: result.data.type }, 'VIOLATION DETECTED');
 
-      const violation = await createViolation({
-        sessionStudentId,
-        type,
-        details,
-      });
-
-      io.to(`teacher:session:${sessionCode}`).emit('dashboard:alert', {
-        studentId: studentTxId,
-        violation: {
-          ...violation,
-          timestamp: violation.timestamp.toISOString(),
-        },
+      await createAndBroadcastViolation(io, studentData.sessionCode, studentData.studentId, {
+        sessionStudentId: studentData.sessionStudentId,
+        type: result.data.type,
+        details: result.data.details,
       });
     } catch (error) {
       logger.error({ error }, 'Violation report error');
@@ -140,10 +157,8 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
 
   socket.on('sniffer:response', async (data: unknown) => {
     try {
-      const sessionStudentId = socket.data.sessionStudentId;
-      const sessionCode = socket.data.sessionCode;
-      const studentTxId = socket.data.studentId;
-      if (!sessionStudentId || !sessionCode) return;
+      const studentData = getSocketStudentData(socket);
+      if (!studentData) return;
 
       const result = SnifferResponseSchema.safeParse(data);
       if (!result.success) return;
@@ -160,14 +175,13 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
 
       if (reachable) {
         const violation = await createViolation({
-          sessionStudentId,
+          sessionStudentId: studentData.sessionStudentId,
           type: 'INTERNET_ACCESS',
           details: `Server-side sniffer challenge confirmed: student reached ${pending.targetUrl}`,
         });
 
-        // Notify teacher dashboard
-        io.to(`teacher:session:${sessionCode}`).emit('dashboard:alert', {
-          studentId: studentTxId,
+        io.to(`teacher:session:${studentData.sessionCode}`).emit('dashboard:alert', {
+          studentId: studentData.studentId,
           violation: {
             ...violation,
             timestamp: violation.timestamp.toISOString(),
@@ -175,7 +189,6 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
         });
 
         // Push violation to student — forces their UI into violation state
-        // even if client-side sniffer was bypassed
         socket.emit('violation:detected', { type: 'INTERNET_ACCESS' });
       }
     } catch (error) {
@@ -184,36 +197,33 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
   });
 
   socket.on('disconnect', async () => {
-    const sessionStudentId = socket.data.sessionStudentId;
-    const sessionCode = socket.data.sessionCode;
-    const studentTxId = socket.data.studentId;
+    const studentData = getSocketStudentData(socket);
+    if (!studentData) return;
 
-    if (sessionStudentId && sessionCode) {
-      logger.info({ studentId: studentTxId }, 'Student disconnected');
-      await markStudentOffline(sessionStudentId);
+    logger.info({ studentId: studentData.studentId }, 'Student disconnected');
+    await markStudentOffline(studentData.sessionStudentId);
 
-      // Only record a DISCONNECTION violation if the session is still active
-      const session = await getSessionByCode(sessionCode);
-      if (!session?.isActive) return;
+    // Only record a DISCONNECTION violation if the session is still active
+    const session = await getSessionByCode(studentData.sessionCode);
+    if (!session?.isActive) return;
 
-      const violation = await createViolation({
-        sessionStudentId,
+    broadcastStudentLeft(io, studentData.sessionCode, studentData.studentId);
+
+    // Delay the violation to allow page-refresh reconnects within the grace period
+    const timer = setTimeout(async () => {
+      pendingDisconnects.delete(studentData.studentId);
+
+      // Re-check session — it may have ended during the grace window
+      const currentSession = await getSessionByCode(studentData.sessionCode);
+      if (!currentSession?.isActive) return;
+
+      await createAndBroadcastViolation(io, studentData.sessionCode, studentData.studentId, {
+        sessionStudentId: studentData.sessionStudentId,
         type: 'DISCONNECTION',
         details: 'Student disconnected from server (closed tab or lost connection)',
       });
+    }, disconnectGraceMs);
 
-      io.to(`teacher:session:${sessionCode}`).emit('dashboard:update', {
-        type: 'STUDENT_LEFT',
-        studentId: studentTxId,
-      });
-
-      io.to(`teacher:session:${sessionCode}`).emit('dashboard:alert', {
-        studentId: studentTxId,
-        violation: {
-          ...violation,
-          timestamp: violation.timestamp.toISOString(),
-        },
-      });
-    }
+    pendingDisconnects.set(studentData.studentId, timer);
   });
 };

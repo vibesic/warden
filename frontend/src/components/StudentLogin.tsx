@@ -32,8 +32,7 @@ export const StudentLogin: React.FC<StudentLoginProps> = ({ onLogin, onSwitchToT
       } else {
         setError(data.reason || 'Invalid session code');
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
       setError('Failed to validate session. Please check connection.');
     } finally {
       setLoading(false);

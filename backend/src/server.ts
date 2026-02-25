@@ -14,7 +14,8 @@ process.on('unhandledRejection', (reason: unknown) => {
 import { createServer } from 'http';
 import { createServer as createNetServer } from 'net';
 import { Server } from 'socket.io';
-import app from './app';
+import { app } from './app';
+import { corsOriginCallback } from './utils/config';
 import { initializeSocket } from './gateway/socket';
 import { logger } from './utils/logger';
 
@@ -26,28 +27,12 @@ const httpServer = createServer(app);
 // Socket.io attaches many listeners; raise the limit to avoid spurious warnings
 httpServer.setMaxListeners(25);
 
-const isDesktopMode = process.env.ELECTRON === 'true' || process.env.NODE_ENV === 'production';
-
 const io = new Server(httpServer, {
   cors: {
-    origin: (origin, callback) => {
-      if (isDesktopMode) {
-        callback(null, true);
-        return;
-      }
-      const envOrigins = process.env.CORS_ORIGINS;
-      const allowedOrigins = envOrigins
-        ? envOrigins.split(',').map(o => o.trim())
-        : ['http://localhost:5173', 'http://127.0.0.1:5173'];
-      if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
+    origin: corsOriginCallback,
     methods: ['GET', 'POST'],
-    credentials: true
-  }
+    credentials: true,
+  },
 });
 
 initializeSocket(io);

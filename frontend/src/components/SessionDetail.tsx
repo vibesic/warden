@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTeacherSocket, Violation, StudentStatus } from '../hooks/useTeacherSocket';
+import { useCurrentTime } from '../hooks/useCurrentTime';
 import { AlertTriangle, Wifi, WifiOff, Download } from 'lucide-react';
 import { ConfirmationModal } from './common/ConfirmationModal';
 import { Modal } from './common/Modal';
@@ -8,6 +9,7 @@ import { Header } from './layout/Header';
 import { Table, TableColumn } from './common/Table';
 import { Card } from './common/Card';
 import { API_BASE_URL } from '../config/api';
+import { formatDuration, formatFileSize, formatHMS } from '../utils/format';
 
 interface SubmissionItem {
     id: string;
@@ -20,19 +22,6 @@ interface SubmissionItem {
 }
 import { StatusBadge } from './common/StatusBadge';
 
-const formatDuration = (start?: string, end?: string) => {
-    if (!start) return '-';
-    // If no end time (still active or just missing), use current time if online? 
-    // Currently relying on lastSeenAt for 'exit time' if not online.
-    if (!end) return '-';
-    const diff = new Date(end).getTime() - new Date(start).getTime();
-    if (diff < 0) return '-';
-
-    const minutes = Math.floor(diff / 60000);
-    const seconds = Math.floor((diff % 60000) / 1000);
-    return `${minutes}m ${seconds}s`;
-};
-
 export const SessionDetail: React.FC = () => {
     const { sessionCode } = useParams<{ sessionCode: string }>();
     const navigate = useNavigate();
@@ -40,7 +29,7 @@ export const SessionDetail: React.FC = () => {
     const [selectedStudent, setSelectedStudent] = useState<{ name: string, violations: Violation[] } | null>(null);
     const [showEndSessionModal, setShowEndSessionModal] = useState(false);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
-    const [currentTime, setCurrentTime] = useState(new Date());
+    const currentTime = useCurrentTime();
     const [submissions, setSubmissions] = useState<SubmissionItem[]>([]);
 
     useEffect(() => {
@@ -50,11 +39,6 @@ export const SessionDetail: React.FC = () => {
             navigate('/teacher/login');
         }
     }, [isAuthError, navigate]);
-
-    useEffect(() => {
-        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-        return () => clearInterval(timer);
-    }, []);
 
     const fetchSubmissions = useCallback(async () => {
         if (!sessionCode) return;
@@ -79,38 +63,22 @@ export const SessionDetail: React.FC = () => {
         return () => clearInterval(interval);
     }, [fetchSubmissions]);
 
-    const formatElapsedTime = (start: string) => {
+    const formatElapsedTime = useCallback((start: string): string => {
         const serverNow = currentTime.getTime() + serverTimeOffset;
-        const diff = serverNow - new Date(start).getTime();
-        if (diff < 0) return '00:00:00';
-        const hours = Math.floor(diff / 3600000);
-        const minutes = Math.floor((diff % 3600000) / 60000);
-        const seconds = Math.floor((diff % 60000) / 1000);
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    };
+        return formatHMS(serverNow - new Date(start).getTime());
+    }, [currentTime, serverTimeOffset]);
 
-    const formatRemainingTime = (start: string, durationMin: number): string => {
+    const formatRemainingTime = useCallback((start: string, durationMin: number): string => {
         const endsAt = new Date(start).getTime() + durationMin * 60_000;
         const serverNow = currentTime.getTime() + serverTimeOffset;
-        const diff = endsAt - serverNow;
-        if (diff <= 0) return '00:00:00';
-        const hours = Math.floor(diff / 3600000);
-        const minutes = Math.floor((diff % 3600000) / 60000);
-        const seconds = Math.floor((diff % 60000) / 1000);
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    };
+        return formatHMS(endsAt - serverNow);
+    }, [currentTime, serverTimeOffset]);
 
-    const getRemainingMs = (start: string, durationMin: number): number => {
+    const getRemainingMs = useCallback((start: string, durationMin: number): number => {
         const endsAt = new Date(start).getTime() + durationMin * 60_000;
         const serverNow = currentTime.getTime() + serverTimeOffset;
         return endsAt - serverNow;
-    };
-
-    const formatFileSize = (bytes: number): string => {
-        if (bytes < 1024) return `${bytes} B`;
-        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    };
+    }, [currentTime, serverTimeOffset]);
 
     const handleDownload = (storedName: string) => {
         const token = localStorage.getItem('teacherToken') || '';

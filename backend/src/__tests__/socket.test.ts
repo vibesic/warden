@@ -4,6 +4,7 @@ import Client, { Socket as ClientSocket } from 'socket.io-client';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { initializeSocket } from '../gateway/socket';
 import { generateTeacherToken } from '../services/auth.service';
+import { setDisconnectGraceMs, clearAllPendingDisconnects } from '../gateway/studentHandlers';
 
 // Mock Prisma
 // We must mock '../utils/prisma' BEFORE importing the module that uses it
@@ -32,7 +33,7 @@ const prismaMock = vi.hoisted(() => ({
 }));
 
 vi.mock('../utils/prisma', () => ({
-  default: prismaMock,
+  prisma: prismaMock,
 }));
 
 describe('Socket Gateway', () => {
@@ -44,6 +45,7 @@ describe('Socket Gateway', () => {
   let port: number;
 
   beforeAll(async () => {
+    setDisconnectGraceMs(100);
     httpServer = createServer();
     io = new Server(httpServer);
     cleanup = initializeSocket(io);
@@ -56,6 +58,7 @@ describe('Socket Gateway', () => {
   });
 
   afterAll(() => {
+    clearAllPendingDisconnects();
     cleanup.clearIntervals();
     io.close();
     httpServer.close();
@@ -73,6 +76,7 @@ describe('Socket Gateway', () => {
   });
 
   afterEach(() => {
+    clearAllPendingDisconnects();
     if (clientSocket.connected) {
       clientSocket.disconnect();
     }
@@ -419,5 +423,50 @@ describe('Socket Gateway', () => {
     );
     expect(violationCalls.length).toBe(1);
     expect(violationCalls[0][0].data.details).toContain('disconnected from server');
+  });
+
+  it('should NOT create DISCONNECTION violation when student reconnects within grace period', async () => {
+    const registerData = { studentId: 'refresh_student', name: 'Refresh Test', sessionCode: '123456' };
+    prismaMock.student.upsert.mockResolvedValue({ id: 'stu-refresh', studentId: 'refresh_student', name: 'Refresh Test' } as any);
+    prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-refresh', student: { studentId: 'refresh_student', name: 'Refresh Test' } } as any);
+    prismaMock.sessionStudent.update.mockResolvedValue({} as any);
+
+    // Register the student
+    await new Promise<void>(resolve => {
+      clientSocket.emit('register', registerData);
+      clientSocket.once('registered', () => resolve());
+    });
+
+    // Disconnect (simulates page refresh — old socket closes)
+    clientSocket.disconnect();
+
+    // Wait just a bit for the disconnect handler
+    await new Promise(r => setTimeout(r, 30));
+
+    // Clear mocks so we only see post-reconnect calls
+    prismaMock.violation.create.mockClear();
+
+    // Reconnect quickly (simulates page reload — new socket connects)
+    const reconnectedSocket = Client(`http://localhost:${port}`);
+    await new Promise<void>(r => reconnectedSocket.on('connect', r));
+
+    prismaMock.student.upsert.mockResolvedValue({ id: 'stu-refresh', studentId: 'refresh_student', name: 'Refresh Test' } as any);
+    prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-refresh', student: { studentId: 'refresh_student', name: 'Refresh Test' } } as any);
+
+    await new Promise<void>(resolve => {
+      reconnectedSocket.emit('register', registerData);
+      reconnectedSocket.once('registered', () => resolve());
+    });
+
+    // Wait beyond the grace period to confirm no violation fires
+    await new Promise(r => setTimeout(r, 200));
+
+    // No DISCONNECTION violation should have been created
+    const violationCalls = prismaMock.violation.create.mock.calls.filter(
+      (args: any[]) => args[0]?.data?.type === 'DISCONNECTION'
+    );
+    expect(violationCalls).toHaveLength(0);
+
+    reconnectedSocket.disconnect();
   });
 });

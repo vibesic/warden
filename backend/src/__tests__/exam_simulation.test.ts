@@ -4,6 +4,7 @@ import Client, { Socket as ClientSocket } from 'socket.io-client';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { initializeSocket } from '../gateway/socket';
 import { generateTeacherToken } from '../services/auth.service';
+import { clearAllPendingDisconnects } from '../gateway/studentHandlers';
 
 // 1. Mock Prisma (Simulation of DB)
 const prismaMock = vi.hoisted(() => ({
@@ -30,7 +31,7 @@ const prismaMock = vi.hoisted(() => ({
 }));
 
 vi.mock('../utils/prisma', () => ({
-  default: prismaMock,
+  prisma: prismaMock,
 }));
 
 describe('Exam Simulation (E2E Flow)', () => {
@@ -53,6 +54,7 @@ describe('Exam Simulation (E2E Flow)', () => {
   });
 
   afterAll(() => {
+    clearAllPendingDisconnects();
     cleanup.clearIntervals();
     io.close();
     httpServer.close();

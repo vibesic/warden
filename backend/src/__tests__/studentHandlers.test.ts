@@ -3,6 +3,7 @@ import { Server } from 'socket.io';
 import Client, { Socket as ClientSocket } from 'socket.io-client';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { initializeSocket } from '../gateway/socket';
+import { clearAllPendingDisconnects } from '../gateway/studentHandlers';
 
 const prismaMock = vi.hoisted(() => ({
   student: {
@@ -26,7 +27,7 @@ const prismaMock = vi.hoisted(() => ({
 }));
 
 vi.mock('../utils/prisma', () => ({
-  default: prismaMock,
+  prisma: prismaMock,
 }));
 
 describe('Student Handlers - Edge Cases', () => {
@@ -49,6 +50,7 @@ describe('Student Handlers - Edge Cases', () => {
   });
 
   afterAll(() => {
+    clearAllPendingDisconnects();
     cleanup.clearIntervals();
     io.close();
     httpServer.close();

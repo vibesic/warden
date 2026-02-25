@@ -1,5 +1,5 @@
-import prisma from '../utils/prisma';
-import { logger } from '../utils/logger';
+import { prisma } from '../utils/prisma';
+import type { SessionStudent } from '@prisma/client';
 
 interface RegisterStudentParams {
   studentId: string;
@@ -8,7 +8,7 @@ interface RegisterStudentParams {
   ipAddress: string;
 }
 
-export const registerStudent = async (params: RegisterStudentParams) => {
+export const registerStudent = async (params: RegisterStudentParams): Promise<SessionStudent & { student: { studentId: string; name: string } }> => {
   const { studentId, sessionId, name, ipAddress } = params;
 
   // Upsert the Student identity record
@@ -44,7 +44,7 @@ export const registerStudent = async (params: RegisterStudentParams) => {
   return sessionStudent;
 };
 
-export const updateHeartbeat = async (sessionStudentId: string) => {
+export const updateHeartbeat = async (sessionStudentId: string): Promise<SessionStudent> => {
   return prisma.sessionStudent.update({
     where: { id: sessionStudentId },
     data: {
@@ -54,14 +54,14 @@ export const updateHeartbeat = async (sessionStudentId: string) => {
   });
 };
 
-export const markStudentOffline = async (sessionStudentId: string) => {
+export const markStudentOffline = async (sessionStudentId: string): Promise<SessionStudent> => {
   return prisma.sessionStudent.update({
     where: { id: sessionStudentId },
     data: { isOnline: false },
   });
 };
 
-export const getSessionStudentsForSession = async (sessionId: string) => {
+export const getSessionStudentsForSession = async (sessionId: string): Promise<Array<SessionStudent & { student: { studentId: string; name: string }; violations: Array<{ type: string; details: string | null; timestamp: Date }> }>> => {
   return prisma.sessionStudent.findMany({
     where: { sessionId },
     include: {
@@ -73,7 +73,7 @@ export const getSessionStudentsForSession = async (sessionId: string) => {
   });
 };
 
-export const findDeadHeartbeats = async (thresholdMs: number = 45000) => {
+export const findDeadHeartbeats = async (thresholdMs: number = 45000): Promise<Array<SessionStudent & { student: { studentId: string; name: string }; session: { id: string; code: string; isActive: boolean } | null }>> => {
   const timeoutThreshold = new Date(Date.now() - thresholdMs);
 
   return prisma.sessionStudent.findMany({

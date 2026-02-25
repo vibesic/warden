@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createSubmission, getSubmissionsForSession, getSubmissionsForStudent } from '../services/submission.service';
-import prisma from '../utils/prisma';
+import { prisma } from '../utils/prisma';
 
 vi.mock('../utils/prisma', () => ({
-  default: {
+  prisma: {
     submission: {
       create: vi.fn(),
       findMany: vi.fn(),

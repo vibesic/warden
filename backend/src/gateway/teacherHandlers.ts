@@ -1,23 +1,9 @@
 import { Server, Socket } from 'socket.io';
-import { z } from 'zod';
 import { logger } from '../utils/logger';
-import { verifyTeacherToken } from '../services/auth.service';
 import { createSession, endSession, getActiveSession, getSessionHistory, getSessionByCode } from '../services/session.service';
 import { getSessionStudentsForSession } from '../services/student.service';
-
-const CreateSessionSchema = z.object({
-  durationMinutes: z.number().int().min(1).max(480),
-});
-
-const isTeacherAuthenticated = (socket: Socket): boolean => {
-  const token = socket.handshake.auth?.token;
-  return typeof token === 'string' && verifyTeacherToken(token);
-};
-
-const emitUnauthorized = (socket: Socket): void => {
-  logger.warn({ socketId: socket.id }, 'Unauthorized teacher socket request');
-  socket.emit('dashboard:error', { message: 'Unauthorized: invalid or missing teacher token' });
-};
+import { CreateSessionSchema, JoinSessionSchema } from '../types/schemas';
+import { isTeacherAuthenticated, emitUnauthorized } from './helpers';
 
 export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
   socket.on('dashboard:join_overview', async () => {
@@ -42,15 +28,16 @@ export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
     }
   });
 
-  socket.on('dashboard:join_session', async (data: { sessionCode: string }) => {
+  socket.on('dashboard:join_session', async (data: unknown) => {
     if (!isTeacherAuthenticated(socket)) {
       emitUnauthorized(socket);
       return;
     }
     try {
-      if (!data || !data.sessionCode) return;
-      const { sessionCode } = data;
+      const parsed = JoinSessionSchema.safeParse(data);
+      if (!parsed.success) return;
 
+      const { sessionCode } = parsed.data;
       const session = await getSessionByCode(sessionCode);
       if (!session) {
         socket.emit('dashboard:error', { message: 'Session not found' });

@@ -4,6 +4,7 @@ import Client, { Socket as ClientSocket } from 'socket.io-client';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { initializeSocket } from '../gateway/socket';
 import { generateTeacherToken } from '../services/auth.service';
+import { clearAllPendingDisconnects } from '../gateway/studentHandlers';
 
 /**
  * Security tests: race conditions, auth edge cases, input validation,
@@ -38,7 +39,7 @@ const prismaMock = vi.hoisted(() => ({
 }));
 
 vi.mock('../utils/prisma', () => ({
-  default: prismaMock,
+  prisma: prismaMock,
 }));
 
 describe('Security Tests', () => {
@@ -60,6 +61,7 @@ describe('Security Tests', () => {
   });
 
   afterAll(() => {
+    clearAllPendingDisconnects();
     cleanup.clearIntervals();
     io.close();
     httpServer.close();

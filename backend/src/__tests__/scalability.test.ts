@@ -4,6 +4,7 @@ import Client, { Socket as ClientSocket } from 'socket.io-client';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { initializeSocket } from '../gateway/socket';
 import { generateTeacherToken } from '../services/auth.service';
+import { setDisconnectGraceMs, clearAllPendingDisconnects } from '../gateway/studentHandlers';
 
 /**
  * Scalability tests: multiple concurrent students, rapid heartbeats,
@@ -38,7 +39,7 @@ const prismaMock = vi.hoisted(() => ({
 }));
 
 vi.mock('../utils/prisma', () => ({
-  default: prismaMock,
+  prisma: prismaMock,
 }));
 
 describe('Scalability Tests', () => {
@@ -48,6 +49,7 @@ describe('Scalability Tests', () => {
   let port: number;
 
   beforeAll(async () => {
+    setDisconnectGraceMs(100);
     httpServer = createServer();
     io = new Server(httpServer);
     cleanup = initializeSocket(io);
@@ -60,6 +62,7 @@ describe('Scalability Tests', () => {
   });
 
   afterAll(() => {
+    clearAllPendingDisconnects();
     cleanup.clearIntervals();
     io.close();
     httpServer.close();

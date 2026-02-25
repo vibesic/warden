@@ -6,18 +6,11 @@ import { Header } from './layout/Header';
 import { Table, TableColumn } from './common/Table';
 import { Button } from './common/Button';
 import { Card } from './common/Card';
+import { formatDuration } from '../utils/format';
 
 interface Props {
     onLogout: () => void;
 }
-
-const formatDuration = (start: string, end?: string) => {
-    if (!end) return '-';
-    const diff = new Date(end).getTime() - new Date(start).getTime();
-    const minutes = Math.floor(diff / 60000);
-    const seconds = Math.floor((diff % 60000) / 1000);
-    return `${minutes}m ${seconds}s`;
-};
 
 export const TeacherDashboard: React.FC<Props> = ({ onLogout }) => {
     const { isConnected, activeSession, history, error, isAuthError, createSession, endSession } = useTeacherSocket();

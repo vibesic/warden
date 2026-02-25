@@ -1,8 +1,9 @@
 import { Server } from 'socket.io';
 import { logger } from '../utils/logger';
 import { findDeadHeartbeats, markStudentOffline } from '../services/student.service';
-import { createViolation, getRandomCheckTarget } from '../services/violation.service';
+import { getRandomCheckTarget } from '../services/violation.service';
 import { getExpiredSessions, endSessionById } from '../services/session.service';
+import { createAndBroadcastViolation, broadcastStudentLeft } from './helpers';
 
 const HEARTBEAT_CHECK_INTERVAL_MS = 30000;
 const SNIFFER_CHALLENGE_INTERVAL_MS = 60000;
@@ -19,25 +20,19 @@ export const startHeartbeatChecker = (io: Server): NodeJS.Timeout => {
 
         await markStudentOffline(deadStudent.id);
 
-        const violation = await createViolation({
-          sessionStudentId: deadStudent.id,
-          type: 'DISCONNECTION',
-          details: 'Heartbeat timeout > 45s',
-        });
-
         if (deadStudent.session) {
-          io.to(`teacher:session:${deadStudent.session.code}`).emit('dashboard:update', {
-            type: 'STUDENT_LEFT',
-            studentId: deadStudent.student.studentId,
-          });
+          broadcastStudentLeft(io, deadStudent.session.code, deadStudent.student.studentId);
 
-          io.to(`teacher:session:${deadStudent.session.code}`).emit('dashboard:alert', {
-            studentId: deadStudent.student.studentId,
-            violation: {
-              ...violation,
-              timestamp: violation.timestamp.toISOString(),
+          await createAndBroadcastViolation(
+            io,
+            deadStudent.session.code,
+            deadStudent.student.studentId,
+            {
+              sessionStudentId: deadStudent.id,
+              type: 'DISCONNECTION',
+              details: 'Heartbeat timeout > 45s',
             },
-          });
+          );
         }
       }
     } catch (error) {
@@ -56,7 +51,6 @@ export const startSnifferChallenger = (io: Server): NodeJS.Timeout => {
         if (!s.data.sessionStudentId) continue;
         const pending = s.data.pendingChallenge;
         if (pending && (Date.now() - pending.issuedAt > SNIFFER_RESPONSE_TIMEOUT_MS)) {
-          // Student never responded — suspicious
           logger.warn(
             { studentId: s.data.studentId, challengeId: pending.challengeId },
             'Sniffer challenge timed out — no response from student'
@@ -64,20 +58,12 @@ export const startSnifferChallenger = (io: Server): NodeJS.Timeout => {
 
           s.data.snifferTimeoutCount = (s.data.snifferTimeoutCount || 0) + 1;
 
-          const violation = await createViolation({
-            sessionStudentId: s.data.sessionStudentId,
-            type: 'SNIFFER_TIMEOUT',
-            details: `No response to sniffer challenge within ${SNIFFER_RESPONSE_TIMEOUT_MS / 1000}s (target: ${pending.targetUrl}). Consecutive timeouts: ${s.data.snifferTimeoutCount}`,
-          });
-
-          const sessionCode = s.data.sessionCode;
+          const sessionCode = s.data.sessionCode as string | undefined;
           if (sessionCode) {
-            io.to(`teacher:session:${sessionCode}`).emit('dashboard:alert', {
-              studentId: s.data.studentId,
-              violation: {
-                ...violation,
-                timestamp: violation.timestamp.toISOString(),
-              },
+            await createAndBroadcastViolation(io, sessionCode, s.data.studentId as string, {
+              sessionStudentId: s.data.sessionStudentId as string,
+              type: 'SNIFFER_TIMEOUT',
+              details: `No response to sniffer challenge within ${SNIFFER_RESPONSE_TIMEOUT_MS / 1000}s (target: ${pending.targetUrl}). Consecutive timeouts: ${s.data.snifferTimeoutCount}`,
             });
           }
 

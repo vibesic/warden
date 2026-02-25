@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createSession, endSession, getActiveSession, validateSession, getSessionHistory, getSessionByCode, getExpiredSessions, endSessionById } from '../services/session.service';
-import prisma from '../utils/prisma';
+import { prisma } from '../utils/prisma';
 
 // Mock prisma
 vi.mock('../utils/prisma', () => ({
-  default: {
+  prisma: {
     session: {
       updateMany: vi.fn(),
       findUnique: vi.fn(),

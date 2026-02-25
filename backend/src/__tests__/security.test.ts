@@ -5,7 +5,8 @@ import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { initializeSocket } from '../gateway/socket';
 import { generateTeacherToken } from '../services/auth.service';
-import app from '../app';
+import { clearAllPendingDisconnects } from '../gateway/studentHandlers';
+import { app } from '../app';
 
 /**
  * Security Tests — validates protection against student cheating vectors:
@@ -71,7 +72,7 @@ const prismaMock = vi.hoisted(() => ({
 }));
 
 vi.mock('../utils/prisma', () => ({
-  default: prismaMock,
+  prisma: prismaMock,
 }));
 
 // ─── Socket Security Tests ───────────────────────────────────────────────────
@@ -95,6 +96,7 @@ describe('Security - Socket Layer', () => {
   });
 
   afterAll(() => {
+    clearAllPendingDisconnects();
     cleanup.clearIntervals();
     io.close();
     httpServer.close();

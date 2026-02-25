@@ -1,5 +1,6 @@
-import prisma from '../utils/prisma';
+import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
+import type { Submission } from '@prisma/client';
 
 interface CreateSubmissionParams {
   sessionStudentId: string;
@@ -10,7 +11,7 @@ interface CreateSubmissionParams {
   sizeBytes: number;
 }
 
-export const createSubmission = async (params: CreateSubmissionParams) => {
+export const createSubmission = async (params: CreateSubmissionParams): Promise<Submission> => {
   const { sessionStudentId, sessionId, originalName, storedName, mimeType, sizeBytes } = params;
 
   logger.info({ sessionStudentId, originalName, sizeBytes }, 'File submission created');
