@@ -4,7 +4,7 @@ import { describe, it, expect, beforeAll, afterAll, vi, beforeEach } from 'vites
 import { initializeSocket } from '../gateway/socket';
 
 const prismaMock = vi.hoisted(() => ({
-  student: {
+  sessionStudent: {
     findMany: vi.fn(),
     update: vi.fn(),
   },
@@ -51,7 +51,7 @@ describe('Background Jobs', () => {
   describe('Sniffer Challenger', () => {
     it('should not issue challenges when no check targets available', async () => {
       prismaMock.checkTarget.count.mockResolvedValue(0);
-      prismaMock.student.findMany.mockResolvedValue([]);
+      prismaMock.sessionStudent.findMany.mockResolvedValue([]);
 
       await vi.advanceTimersByTimeAsync(61000);
 
@@ -62,7 +62,7 @@ describe('Background Jobs', () => {
     it('should fetch a random check target when targets exist', async () => {
       prismaMock.checkTarget.count.mockResolvedValue(5);
       prismaMock.checkTarget.findFirst.mockResolvedValue({ url: 'https://www.google.com' });
-      prismaMock.student.findMany.mockResolvedValue([]);
+      prismaMock.sessionStudent.findMany.mockResolvedValue([]);
 
       await vi.advanceTimersByTimeAsync(61000);
 
@@ -92,7 +92,7 @@ describe('Background Jobs', () => {
         isActive: false,
         endedAt: new Date(),
       });
-      prismaMock.student.findMany.mockResolvedValue([]);
+      prismaMock.sessionStudent.findMany.mockResolvedValue([]);
 
       await vi.advanceTimersByTimeAsync(11000);
 
@@ -112,7 +112,7 @@ describe('Background Jobs', () => {
       };
 
       prismaMock.session.findMany.mockResolvedValue([recentSession]);
-      prismaMock.student.findMany.mockResolvedValue([]);
+      prismaMock.sessionStudent.findMany.mockResolvedValue([]);
 
       await vi.advanceTimersByTimeAsync(11000);
 
@@ -125,7 +125,7 @@ describe('Background Jobs', () => {
 
     it('should handle errors in timer checker gracefully', async () => {
       prismaMock.session.findMany.mockRejectedValue(new Error('DB error'));
-      prismaMock.student.findMany.mockResolvedValue([]);
+      prismaMock.sessionStudent.findMany.mockResolvedValue([]);
 
       // Should not throw - errors are caught internally
       await vi.advanceTimersByTimeAsync(11000);
@@ -134,7 +134,7 @@ describe('Background Jobs', () => {
 
   describe('Heartbeat Checker - additional cases', () => {
     it('should handle errors in heartbeat checker gracefully', async () => {
-      prismaMock.student.findMany.mockRejectedValue(new Error('DB error'));
+      prismaMock.sessionStudent.findMany.mockRejectedValue(new Error('DB error'));
 
       // Should not throw
       await vi.advanceTimersByTimeAsync(32000);
@@ -144,28 +144,28 @@ describe('Background Jobs', () => {
       const deadStudents = [
         {
           id: 'dead-1',
-          studentId: 'stu-1',
+          student: { studentId: 'stu-1' },
           isOnline: true,
           lastHeartbeat: new Date(Date.now() - 60000),
           session: { code: '123456' },
         },
         {
           id: 'dead-2',
-          studentId: 'stu-2',
+          student: { studentId: 'stu-2' },
           isOnline: true,
           lastHeartbeat: new Date(Date.now() - 90000),
           session: { code: '123456' },
         },
       ];
 
-      prismaMock.student.findMany.mockResolvedValue(deadStudents as never[]);
-      prismaMock.student.update.mockResolvedValue({} as never);
+      prismaMock.sessionStudent.findMany.mockResolvedValue(deadStudents as never[]);
+      prismaMock.sessionStudent.update.mockResolvedValue({} as never);
       prismaMock.violation.create.mockResolvedValue({ timestamp: new Date() } as never);
 
       await vi.advanceTimersByTimeAsync(32000);
 
       // Both students should be marked offline
-      const offlineCalls = prismaMock.student.update.mock.calls.filter(
+      const offlineCalls = prismaMock.sessionStudent.update.mock.calls.filter(
         (args: unknown[]) => (args[0] as { data: { isOnline: boolean } }).data.isOnline === false
       );
       expect(offlineCalls.length).toBeGreaterThanOrEqual(2);

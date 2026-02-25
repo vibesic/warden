@@ -187,6 +187,9 @@ describe('TeacherDashboard', () => {
 
     const { rerender } = render(<TeacherDashboard onLogout={onLogout} />);
 
+    // Enter a valid duration before clicking create
+    const durationInput = screen.getByPlaceholderText('Duration');
+    await user.type(durationInput, '60');
     await user.click(screen.getByText('Create New Session'));
 
     // Simulate activeSession arriving (like socket responding)

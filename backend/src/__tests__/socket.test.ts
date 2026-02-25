@@ -245,7 +245,7 @@ describe('Socket Gateway', () => {
         expect(data).toHaveProperty('code');
         resolve();
       });
-      teacherSocket.emit('teacher:create_session');
+      teacherSocket.emit('teacher:create_session', { durationMinutes: 60 });
     });
 
     teacherSocket.close();

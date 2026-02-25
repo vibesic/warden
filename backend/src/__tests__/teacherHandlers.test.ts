@@ -12,7 +12,7 @@ const prismaMock = vi.hoisted(() => ({
   sessionStudent: {
     upsert: vi.fn(),
     update: vi.fn(),
-    findMany: vi.fn(),
+    findMany: vi.fn().mockResolvedValue([]),
   },
   violation: {
     create: vi.fn().mockResolvedValue({ id: 'v-1', timestamp: new Date(), type: 'DISCONNECTION', details: '' }),
@@ -68,7 +68,7 @@ describe('Teacher Handlers - Extended', () => {
       createdAt: new Date(), durationMinutes: null, endedAt: null,
     });
     prismaMock.session.findMany.mockResolvedValue([]);
-    prismaMock.student.findMany.mockResolvedValue([]);
+    prismaMock.sessionStudent.findMany.mockResolvedValue([]);
     prismaMock.violation.create.mockResolvedValue({ id: 'v-1', timestamp: new Date(), type: 'DISCONNECTION', details: '' });
   });
 
@@ -121,22 +121,24 @@ describe('Teacher Handlers - Extended', () => {
         id: 's1', code: '123456', isActive: true,
         createdAt: new Date(), durationMinutes: null, endedAt: null,
       };
-      const mockStudents = [
+      const mockSessionStudents = [
         {
-          studentId: 'stu1',
-          name: 'Alice',
+          id: 'ss-1',
+          studentId: 'stu-uuid-1',
+          sessionId: 's1',
           isOnline: true,
           createdAt: new Date(),
           lastHeartbeat: new Date(),
+          student: { studentId: 'stu1', name: 'Alice' },
           violations: [
             { type: 'INTERNET_ACCESS', details: 'Google', timestamp: new Date() },
           ],
         },
       ];
 
-      // getSessionByCode uses findUnique, getStudentsForSession uses findMany
+      // getSessionByCode uses findUnique, getSessionStudentsForSession uses sessionStudent.findMany
       prismaMock.session.findUnique.mockResolvedValue(sessionData);
-      prismaMock.student.findMany.mockResolvedValue(mockStudents as never[]);
+      prismaMock.sessionStudent.findMany.mockResolvedValue(mockSessionStudents as never[]);
 
       const socket = await connectTeacher();
 

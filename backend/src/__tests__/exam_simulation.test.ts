@@ -9,8 +9,11 @@ import { generateTeacherToken } from '../services/auth.service';
 const prismaMock = vi.hoisted(() => ({
   student: {
     upsert: vi.fn(),
-    update: vi.fn(),
+  },
+  sessionStudent: {
+    upsert: vi.fn(),
     findMany: vi.fn(),
+    update: vi.fn(),
   },
   violation: {
     create: vi.fn(),
@@ -18,7 +21,12 @@ const prismaMock = vi.hoisted(() => ({
   session: {
     findFirst: vi.fn(),
     findUnique: vi.fn(),
-  }
+    findMany: vi.fn(),
+  },
+  checkTarget: {
+    count: vi.fn().mockResolvedValue(0),
+    findFirst: vi.fn(),
+  },
 }));
 
 vi.mock('../utils/prisma', () => ({
@@ -27,20 +35,25 @@ vi.mock('../utils/prisma', () => ({
 
 describe('Exam Simulation (E2E Flow)', () => {
   let io: Server;
-  let serverSocket: any;
-  let httpServer: any;
-  let cleanupSocket: () => void;
-  const port = 3002; // Different port from other tests
+  let httpServer: ReturnType<typeof createServer>;
+  let cleanup: { clearIntervals: () => void };
+  let port: number;
 
   // Setup Server
-  beforeAll(() => {
+  beforeAll(async () => {
     httpServer = createServer();
     io = new Server(httpServer);
-    initializeSocket(io);
-    httpServer.listen(port);
+    cleanup = initializeSocket(io);
+    await new Promise<void>((resolve) => {
+      httpServer.listen(0, () => {
+        port = (httpServer.address() as { port: number }).port;
+        resolve();
+      });
+    });
   });
 
   afterAll(() => {
+    cleanup.clearIntervals();
     io.close();
     httpServer.close();
   });
@@ -52,30 +65,39 @@ describe('Exam Simulation (E2E Flow)', () => {
   it('should successfully complete the full Register -> Report -> Alert flow', () => {
     return new Promise<void>(async (resolve, reject) => {
       // Mock Data
-      const sessionMock = { id: 'sess_1', code: '123456', isActive: true, createdAt: new Date() };
+      const sessionMock = { id: 'sess_1', code: '123456', isActive: true, createdAt: new Date(), durationMinutes: 60 };
 
       // Mock session retrieval (for all calls)
-      prismaMock.session.findUnique.mockResolvedValue(sessionMock as any);
-      prismaMock.session.findFirst.mockResolvedValue(sessionMock as any);
+      prismaMock.session.findUnique.mockResolvedValue(sessionMock as never);
+      prismaMock.session.findFirst.mockResolvedValue(sessionMock as never);
+      prismaMock.session.findMany.mockResolvedValue([]);
 
-      // Mock student retrieval for dashboard join
-      prismaMock.student.findMany.mockResolvedValue([]);
-
-      // Mock student upsert (register)
+      // Mock student upsert (normalized schema)
       prismaMock.student.upsert.mockResolvedValue({
-        id: 'uuid-sim-1',
+        id: 'stu-uuid-1',
         studentId: 'sim_student_01',
         name: 'Sim User',
-        sessionId: 'sess_1'
-      } as any);
+      } as never);
+
+      // Mock sessionStudent upsert
+      prismaMock.sessionStudent.upsert.mockResolvedValue({
+        id: 'ss-uuid-1',
+        studentId: 'stu-uuid-1',
+        sessionId: 'sess_1',
+        isOnline: true,
+        student: { studentId: 'sim_student_01', name: 'Sim User' },
+      } as never);
+
+      // Mock session students for dashboard
+      prismaMock.sessionStudent.findMany.mockResolvedValue([]);
 
       // Mock violation create
       prismaMock.violation.create.mockResolvedValue({
         id: 'v_123',
         type: 'INTERNET_ACCESS',
-        studentId: 'uuid-sim-1',
-        timestamp: new Date()
-      } as any);
+        sessionStudentId: 'ss-uuid-1',
+        timestamp: new Date(),
+      } as never);
 
       // 1. Connect Clients
       const token = generateTeacherToken();

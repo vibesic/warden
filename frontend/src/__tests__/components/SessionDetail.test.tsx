@@ -20,6 +20,7 @@ let mockHookReturn: {
   students: Record<string, StudentStatus>;
   activeSession: Session | null;
   history: Session[];
+  serverTimeOffset: number;
   createSession: ReturnType<typeof vi.fn>;
   endSession: typeof mockEndSession;
 };
@@ -53,6 +54,7 @@ describe('SessionDetail', () => {
         createdAt: '2024-01-01T00:00:00Z',
       },
       history: [],
+      serverTimeOffset: 0,
       createSession: vi.fn(),
       endSession: mockEndSession,
     };

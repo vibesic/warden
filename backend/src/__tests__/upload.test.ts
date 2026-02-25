@@ -15,7 +15,7 @@ vi.mock('../utils/prisma', () => ({
       findUnique: vi.fn(),
       findFirst: vi.fn(),
     },
-    student: {
+    sessionStudent: {
       findFirst: vi.fn(),
     },
     submission: {
@@ -73,7 +73,7 @@ describe('Upload & Submissions API', () => {
         code: '123456',
         isActive: true,
       });
-      (prisma.student.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      (prisma.sessionStudent.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
       const res = await request(app)
         .post('/api/upload')
@@ -91,9 +91,9 @@ describe('Upload & Submissions API', () => {
         code: '123456',
         isActive: true,
       });
-      (prisma.student.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
-        id: 'uuid-1',
-        studentId: 'stu1',
+      (prisma.sessionStudent.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 'ss-1',
+        studentId: 'uuid-1',
       });
       (prisma.submission.create as ReturnType<typeof vi.fn>).mockResolvedValue({
         id: 'sub1',
@@ -148,7 +148,7 @@ describe('Upload & Submissions API', () => {
           mimeType: 'application/pdf',
           sizeBytes: 2048,
           createdAt: new Date('2026-02-19T01:00:00Z'),
-          student: { studentId: 'stu1', name: 'Alice' },
+          sessionStudent: { student: { studentId: 'stu1', name: 'Alice' } },
         },
       ]);
 
