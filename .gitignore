@@ -44,6 +44,7 @@ yarn-error.log*
 
 # Docker
 docker-compose.override.yml
+docker-compose.lan.yml
 .docker/
 
 # Prisma
