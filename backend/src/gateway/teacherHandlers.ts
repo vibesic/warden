@@ -62,6 +62,9 @@ export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
           isOnline: ss.isOnline,
           joinedAt: ss.createdAt.toISOString(),
           lastSeenAt: ss.lastHeartbeat?.toISOString(),
+          deviceType: ss.deviceType,
+          deviceOs: ss.deviceOs,
+          deviceBrowser: ss.deviceBrowser,
           violations: ss.violations.map((v) => ({
             type: v.type,
             details: v.details,

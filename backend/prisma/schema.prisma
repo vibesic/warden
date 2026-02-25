@@ -21,6 +21,9 @@ model Student {
 model SessionStudent {
   id            String    @id @default(uuid())
   ipAddress     String?
+  deviceType    String?   // desktop | mobile | tablet
+  deviceOs      String?   // Windows 11, Android 14, iOS 17, etc.
+  deviceBrowser String?   // Chrome 120, Safari 17, etc.
   isOnline      Boolean   @default(false)
   lastHeartbeat DateTime?
   createdAt     DateTime  @default(now())

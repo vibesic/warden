@@ -9,6 +9,7 @@ import {
   broadcastStudentLeft,
 } from './helpers';
 import { createViolation } from '../services/violation.service';
+import { parseDeviceInfo } from '../utils/device';
 
 /**
  * Grace period (ms) before a disconnect is recorded as a violation.
@@ -81,6 +82,7 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
         sessionId: sessionCheck.session.id,
         name,
         ipAddress: socket.handshake.address,
+        ...parseDeviceInfo(socket.handshake.headers['user-agent']),
       });
 
       socket.data.sessionStudentId = sessionStudent.id;
@@ -97,6 +99,9 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
         studentId,
         name,
         isOnline: true,
+        deviceType: sessionStudent.deviceType,
+        deviceOs: sessionStudent.deviceOs,
+        deviceBrowser: sessionStudent.deviceBrowser,
       });
 
       socket.emit('registered', {

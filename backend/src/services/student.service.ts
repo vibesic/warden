@@ -6,10 +6,13 @@ interface RegisterStudentParams {
   sessionId: string;
   name: string;
   ipAddress: string;
+  deviceType?: string;
+  deviceOs?: string;
+  deviceBrowser?: string;
 }
 
 export const registerStudent = async (params: RegisterStudentParams): Promise<SessionStudent & { student: { studentId: string; name: string } }> => {
-  const { studentId, sessionId, name, ipAddress } = params;
+  const { studentId, sessionId, name, ipAddress, deviceType, deviceOs, deviceBrowser } = params;
 
   // Upsert the Student identity record
   const student = await prisma.student.upsert({
@@ -30,6 +33,9 @@ export const registerStudent = async (params: RegisterStudentParams): Promise<Se
       isOnline: true,
       lastHeartbeat: new Date(),
       ipAddress,
+      deviceType,
+      deviceOs,
+      deviceBrowser,
     },
     create: {
       studentId: student.id,
@@ -37,6 +43,9 @@ export const registerStudent = async (params: RegisterStudentParams): Promise<Se
       isOnline: true,
       lastHeartbeat: new Date(),
       ipAddress,
+      deviceType,
+      deviceOs,
+      deviceBrowser,
     },
     include: { student: true },
   });
