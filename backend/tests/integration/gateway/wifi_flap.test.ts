@@ -306,7 +306,8 @@ describe('WiFi Flap — Transient Disconnect Regression', () => {
 
     const details = (violationCalls[0][0] as { data: { details: string } }).data.details;
     expect(details).toBe('Student closed the browser tab or window (intentional)');
-  });
+    const reason = (violationCalls[0][0] as { data: { reason: string } }).data.reason;
+    expect(reason).toBe('TAB_CLOSED');  });
 
   // ─────────────────────────────────────────────────────────────────
   // Scenario 6:  No tab-closing signal → violation says "WiFi drop"
@@ -331,5 +332,8 @@ describe('WiFi Flap — Transient Disconnect Regression', () => {
     // When client calls socket.disconnect(), Socket.io reason is
     // "client namespace disconnect", not "transport close".
     expect(details).toBe('Student disconnected from client side');
+
+    const reason = (violationCalls[0][0] as { data: { reason: string } }).data.reason;
+    expect(reason).toBe('CLIENT_DISCONNECT');
   });
 });

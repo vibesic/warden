@@ -79,6 +79,7 @@ describe('Heartbeat Cleanup Service', () => {
       data: expect.objectContaining({
         sessionStudentId: deadStudent.id,
         type: 'DISCONNECTION',
+        reason: 'HEARTBEAT_TIMEOUT',
       }),
     });
   });

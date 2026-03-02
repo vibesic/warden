@@ -122,7 +122,7 @@ export const SecureExamMonitor: React.FC<Props> = ({ studentId, studentName, ses
             const duration = Date.now() - lastDisconnectTime;
             if (duration > 120_000) { // Only log if disconnected for > 2 minutes
                 const seconds = Math.round(duration / 1000);
-                reportViolation('CONNECTION_LOST', `Client disconnected from exam server for ${seconds}s. Possible network switch.`);
+                reportViolation('CONNECTION_LOST', `Client disconnected from exam server for ${seconds}s. Possible network switch.`, 'NETWORK_SWITCH');
             }
             setLastDisconnectTime(null);
         }
@@ -134,7 +134,7 @@ export const SecureExamMonitor: React.FC<Props> = ({ studentId, studentName, ses
         if (isViolating) {
             // Internet detected!
             if (!violationReported) {
-                reportViolation('INTERNET_ACCESS', 'Internet access detected by client-side probe');
+                reportViolation('INTERNET_ACCESS', 'Internet access detected by client-side probe', 'CLIENT_PROBE');
                 setViolationReported(true); // Don't spam
 
                 setTimeout(() => setViolationReported(false), 10000);

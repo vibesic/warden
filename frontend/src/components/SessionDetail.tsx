@@ -141,6 +141,11 @@ export const SessionDetail: React.FC = () => {
             cell: (v) => v.type.replace(/_/g, ' ')
         },
         {
+            header: 'Reason',
+            className: 'px-4 py-3 font-medium text-orange-700',
+            cell: (v) => v.reason ? v.reason.replace(/_/g, ' ') : '-'
+        },
+        {
             header: 'Details',
             className: 'px-4 py-3 text-gray-700',
             cell: (v) => v.details || '-'

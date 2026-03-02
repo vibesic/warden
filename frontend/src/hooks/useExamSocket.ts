@@ -13,7 +13,7 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
   const [error, setError] = useState('');
   const [sessionTimer, setSessionTimer] = useState<SessionTimerInfo | null>(null);
   const isRegisteredRef = useRef(false);
-  const violationQueue = useRef<{ type: string, details?: string }[]>([]);
+  const violationQueue = useRef<{ type: string; reason?: string; details?: string }[]>([]);
 
   useEffect(() => {
     if (!studentId || !name || !sessionCode) return;
@@ -63,7 +63,7 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
 
       if (violationQueue.current.length > 0) {
         violationQueue.current.forEach(v => {
-          socket.emit('report_violation', { studentId, type: v.type, details: v.details });
+          socket.emit('report_violation', { studentId, type: v.type, reason: v.reason, details: v.details });
         });
         violationQueue.current = [];
       }
@@ -124,9 +124,9 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
     }
   }, [studentId]);
 
-  const reportViolation = useCallback((type: string, details?: string) => {
+  const reportViolation = useCallback((type: string, details?: string, reason?: string) => {
     if (socketRef.current?.connected && isRegisteredRef.current) {
-      socketRef.current.emit('report_violation', { studentId, type, details });
+      socketRef.current.emit('report_violation', { studentId, type, reason, details });
     } else {
       // Deduplicate queued violations — prevent burst of identical reports
       // when WiFi flaps cause rapid disconnect/reconnect cycles.
@@ -134,7 +134,7 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
         (v) => v.type === type && v.details === details,
       );
       if (!isDuplicate) {
-        violationQueue.current.push({ type, details });
+        violationQueue.current.push({ type, reason, details });
       }
     }
   }, [studentId]);

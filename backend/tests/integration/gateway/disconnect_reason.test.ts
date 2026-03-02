@@ -120,6 +120,19 @@ const getDisconnectionDetails = (): string[] => {
     );
 };
 
+/** Extract DISCONNECTION violation reasons from mock calls. */
+const getDisconnectionReasons = (): (string | undefined)[] => {
+  return prismaMock.violation.create.mock.calls
+    .filter(
+      (args: unknown[]) =>
+        (args[0] as { data: { type: string } }).data.type === 'DISCONNECTION',
+    )
+    .map(
+      (args: unknown[]) =>
+        (args[0] as { data: { reason?: string } }).data.reason,
+    );
+};
+
 // ── Test suite ──────────────────────────────────────────────────────
 describe('Disconnect Reason Differentiation', () => {
   let io: Server;
@@ -186,6 +199,10 @@ describe('Disconnect Reason Differentiation', () => {
     expect(details[0]).toBe(
       'Student closed the browser tab or window (intentional)',
     );
+
+    const reasons = getDisconnectionReasons();
+    expect(reasons).toHaveLength(1);
+    expect(reasons[0]).toBe('TAB_CLOSED');
   });
 
   // ─────────────────────────────────────────────────────────────────
@@ -204,6 +221,10 @@ describe('Disconnect Reason Differentiation', () => {
     const details = getDisconnectionDetails();
     expect(details).toHaveLength(1);
     expect(details[0]).toBe('Student disconnected from client side');
+
+    const reasons = getDisconnectionReasons();
+    expect(reasons).toHaveLength(1);
+    expect(reasons[0]).toBe('CLIENT_DISCONNECT');
   });
 
   // ─────────────────────────────────────────────────────────────────
@@ -227,6 +248,10 @@ describe('Disconnect Reason Differentiation', () => {
     expect(details[0]).toBe(
       'Student lost network connection (WiFi drop or network change)',
     );
+
+    const reasons = getDisconnectionReasons();
+    expect(reasons).toHaveLength(1);
+    expect(reasons[0]).toBe('WIFI_LOST');
 
     // Clean up the client socket reference
     socket.disconnect();
@@ -271,6 +296,7 @@ describe('Disconnect Reason Differentiation', () => {
         sessionStudentId: 'ss-dead',
         type: 'DISCONNECTION',
         details: 'Heartbeat timeout — no heartbeat received for >120 s',
+        reason: 'HEARTBEAT_TIMEOUT',
       }),
     });
 

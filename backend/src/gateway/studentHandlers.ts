@@ -156,6 +156,7 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
       await createAndBroadcastViolation(io, studentData.sessionCode, studentData.studentId, {
         sessionStudentId: studentData.sessionStudentId,
         type: result.data.type,
+        reason: result.data.reason,
         details: result.data.details,
       });
     } catch (error) {
@@ -185,6 +186,7 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
         const violation = await createViolation({
           sessionStudentId: studentData.sessionStudentId,
           type: 'INTERNET_ACCESS',
+          reason: 'SERVER_SNIFFER',
           details: `Server-side sniffer challenge confirmed: student reached ${pending.targetUrl}`,
         });
 
@@ -220,7 +222,7 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
     if (!studentData) return;
 
     const tabClosing = socket.data.tabClosing === true;
-    const disconnectDetail = resolveDisconnectReason(reason, tabClosing);
+    const disconnectInfo = resolveDisconnectReason(reason, tabClosing);
 
     logger.info(
       { studentId: studentData.studentId, reason, tabClosing },
@@ -245,7 +247,8 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
       await createAndBroadcastViolation(io, studentData.sessionCode, studentData.studentId, {
         sessionStudentId: studentData.sessionStudentId,
         type: 'DISCONNECTION',
-        details: disconnectDetail,
+        reason: disconnectInfo.reason,
+        details: disconnectInfo.details,
       });
     }, disconnectGraceMs);
 

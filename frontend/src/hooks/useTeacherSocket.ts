@@ -4,6 +4,7 @@ import { SOCKET_URL } from '../config/api';
 
 export interface Violation {
   type: string;
+  reason?: string;
   details?: string;
   timestamp: string;
 }

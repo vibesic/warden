@@ -38,6 +38,7 @@ export const startHeartbeatChecker = (io: Server): NodeJS.Timeout => {
           {
             sessionStudentId: deadStudent.id,
             type: 'DISCONNECTION',
+            reason: 'HEARTBEAT_TIMEOUT',
             details: 'Heartbeat timeout — no heartbeat received for >120 s',
           },
         );
@@ -70,6 +71,7 @@ export const startSnifferChallenger = (io: Server): NodeJS.Timeout => {
             await createAndBroadcastViolation(io, sessionCode, s.data.studentId as string, {
               sessionStudentId: s.data.sessionStudentId as string,
               type: 'SNIFFER_TIMEOUT',
+              reason: 'NO_RESPONSE',
               details: `No response to sniffer challenge within ${SNIFFER_RESPONSE_TIMEOUT_MS / 1000}s (target: ${pending.targetUrl}). Consecutive timeouts: ${s.data.snifferTimeoutCount}`,
             });
           }

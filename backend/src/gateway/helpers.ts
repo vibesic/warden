@@ -11,7 +11,7 @@ import { Server, Socket } from 'socket.io';
 import { logger } from '../utils/logger';
 import { createViolation } from '../services/violation.service';
 import { verifyTeacherToken } from '../services/auth.service';
-import type { ViolationType } from '../types/schemas';
+import type { ViolationType, ViolationReason } from '../types/schemas';
 
 /**
  * Cooldown period (ms) for DISCONNECTION violations per student.
@@ -78,7 +78,7 @@ export const createAndBroadcastViolation = async (
   io: Server,
   sessionCode: string,
   studentId: string,
-  params: { sessionStudentId: string; type: ViolationType; details?: string },
+  params: { sessionStudentId: string; type: ViolationType; reason?: ViolationReason; details?: string },
 ): Promise<void> => {
   // Rate-limit DISCONNECTION violations to avoid flooding the teacher
   // dashboard when a student's WiFi flaps repeatedly.
@@ -129,27 +129,53 @@ export const broadcastStudentLeft = (
  *   - "ping timeout"                  → server did not receive a pong in time
  *   - "server namespace disconnect"   → server forced disconnection
  */
+export interface DisconnectInfo {
+  reason: ViolationReason;
+  details: string;
+}
+
 export const resolveDisconnectReason = (
   socketReason: string,
   tabClosing: boolean,
-): string => {
+): DisconnectInfo => {
   if (tabClosing) {
-    return 'Student closed the browser tab or window (intentional)';
+    return {
+      reason: 'TAB_CLOSED',
+      details: 'Student closed the browser tab or window (intentional)',
+    };
   }
 
   switch (socketReason) {
     case 'transport close':
-      return 'Student lost network connection (WiFi drop or network change)';
+      return {
+        reason: 'WIFI_LOST',
+        details: 'Student lost network connection (WiFi drop or network change)',
+      };
     case 'transport error':
-      return 'Student connection failed due to a network error';
+      return {
+        reason: 'TRANSPORT_ERROR',
+        details: 'Student connection failed due to a network error',
+      };
     case 'ping timeout':
-      return 'Student connection timed out (no response from client)';
+      return {
+        reason: 'PING_TIMEOUT',
+        details: 'Student connection timed out (no response from client)',
+      };
     case 'client namespace disconnect':
-      return 'Student disconnected from client side';
+      return {
+        reason: 'CLIENT_DISCONNECT',
+        details: 'Student disconnected from client side',
+      };
     case 'server namespace disconnect':
-      return 'Student was disconnected by the server';
+      return {
+        reason: 'SERVER_DISCONNECT',
+        details: 'Student was disconnected by the server',
+      };
     default:
-      return `Student disconnected (reason: ${socketReason})`;
+      return {
+        reason: 'CLIENT_DISCONNECT',
+        details: `Student disconnected (reason: ${socketReason})`,
+      };
   }
 };
 

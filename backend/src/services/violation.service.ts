@@ -1,23 +1,25 @@
 import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
-import type { ViolationType } from '../types/schemas';
+import type { ViolationType, ViolationReason } from '../types/schemas';
 import type { Violation, CheckTarget } from '@prisma/client';
 
 interface CreateViolationParams {
   sessionStudentId: string;
   type: ViolationType;
+  reason?: ViolationReason;
   details?: string;
 }
 
 export const createViolation = async (params: CreateViolationParams): Promise<Violation> => {
-  const { sessionStudentId, type, details } = params;
+  const { sessionStudentId, type, reason, details } = params;
 
-  logger.warn({ sessionStudentId, type, details }, 'Violation created');
+  logger.warn({ sessionStudentId, type, reason, details }, 'Violation created');
 
   return prisma.violation.create({
     data: {
       sessionStudentId,
       type,
+      reason,
       details,
     },
   });
