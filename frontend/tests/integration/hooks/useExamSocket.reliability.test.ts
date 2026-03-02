@@ -215,4 +215,68 @@ describe('useExamSocket — Reliability & Security', () => {
       expect(mockSocket.emit).not.toHaveBeenCalledWith('heartbeat', expect.anything());
     });
   });
+
+  describe('Tab-Closing Signal (beforeunload)', () => {
+    it('should register a beforeunload listener on mount', async () => {
+      const addSpy = vi.spyOn(window, 'addEventListener');
+      const useExamSocket = await importHook();
+      renderHook(() => useExamSocket('S001', 'Alice', '123456'));
+
+      const beforeUnloadCalls = addSpy.mock.calls.filter(
+        (args) => args[0] === 'beforeunload',
+      );
+      expect(beforeUnloadCalls).toHaveLength(1);
+
+      addSpy.mockRestore();
+    });
+
+    it('should emit student:tab-closing on beforeunload when connected', async () => {
+      const useExamSocket = await importHook();
+      renderHook(() => useExamSocket('S001', 'Alice', '123456'));
+
+      // Simulate connect
+      act(() => {
+        mockSocket.simulateEvent('connect');
+      });
+
+      // Fire beforeunload
+      window.dispatchEvent(new Event('beforeunload'));
+
+      const tabClosingCalls = mockSocket.emit.mock.calls.filter(
+        (args: unknown[]) => args[0] === 'student:tab-closing',
+      );
+      expect(tabClosingCalls).toHaveLength(1);
+    });
+
+    it('should NOT emit student:tab-closing on beforeunload when disconnected', async () => {
+      const useExamSocket = await importHook();
+      renderHook(() => useExamSocket('S001', 'Alice', '123456'));
+
+      // Socket is not connected
+      mockSocket.connected = false;
+
+      // Fire beforeunload
+      window.dispatchEvent(new Event('beforeunload'));
+
+      const tabClosingCalls = mockSocket.emit.mock.calls.filter(
+        (args: unknown[]) => args[0] === 'student:tab-closing',
+      );
+      expect(tabClosingCalls).toHaveLength(0);
+    });
+
+    it('should remove beforeunload listener on unmount', async () => {
+      const removeSpy = vi.spyOn(window, 'removeEventListener');
+      const useExamSocket = await importHook();
+      const { unmount } = renderHook(() => useExamSocket('S001', 'Alice', '123456'));
+
+      unmount();
+
+      const beforeUnloadCalls = removeSpy.mock.calls.filter(
+        (args) => args[0] === 'beforeunload',
+      );
+      expect(beforeUnloadCalls).toHaveLength(1);
+
+      removeSpy.mockRestore();
+    });
+  });
 });
