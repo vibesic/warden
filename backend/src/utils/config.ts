@@ -1,7 +1,7 @@
 /**
  * Centralized configuration utilities.
- * Eliminates duplication of isDesktopMode / CORS-origin logic
- * that was previously scattered across app.ts and server.ts.
+ * Provides production-mode detection, CORS-origin logic,
+ * and shared config used by app.ts and server.ts.
  */
 
 export const isProductionMode = (): boolean => {
