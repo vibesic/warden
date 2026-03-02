@@ -1,7 +1,7 @@
 /**
  * Resolves the API base URL.
  * - In development: uses VITE_API_URL env var or falls back to localhost:3333
- * - In production / Electron desktop: uses the same origin (relative URL)
+ * - In production (Docker): uses the same origin (relative URL)
  */
 export const getApiBaseUrl = (): string => {
   if (import.meta.env.VITE_API_URL) {

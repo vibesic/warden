@@ -115,9 +115,6 @@ frontend/src/
 ├── context/         # React contexts
 ├── config/          # App configuration
 └── App.tsx          # Root component with routing
-
-electron/
-├── main.ts          # Electron main process entry point
 ```
 
 ## Module Exports

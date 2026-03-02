@@ -5,7 +5,7 @@ import path from 'path';
 import { prisma } from './utils/prisma';
 import { logger } from './utils/logger';
 import { PUBLIC_DOMAINS } from './utils/domainList';
-import { isDesktopMode, corsOriginCallback } from './utils/config';
+import { isProductionMode, corsOriginCallback } from './utils/config';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { authRoutes } from './routes/auth.routes';
 import { sessionRoutes } from './routes/session.routes';
@@ -31,7 +31,7 @@ const seedDomains = async (): Promise<void> => {
 seedDomains();
 
 /* ── Security ────────────────────────────────────────────────── */
-if (isDesktopMode()) {
+if (isProductionMode()) {
   app.use(helmet({
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
@@ -61,8 +61,8 @@ app.use('/api', authRoutes);
 app.use('/api', sessionRoutes);
 app.use('/api', submissionRoutes);
 
-/* ── Static frontend in production / desktop mode ────────────── */
-if (isDesktopMode()) {
+/* ── Static frontend in production mode ──────────────────────── */
+if (isProductionMode()) {
   const frontendPath = process.env.FRONTEND_PATH || path.join(__dirname, '..', '..', 'frontend', 'dist');
   app.use(express.static(frontendPath));
   app.get('*', (req, res, next) => {

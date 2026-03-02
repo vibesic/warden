@@ -2,28 +2,23 @@
 
 ## Overview
 
-Proctor App is a **secure exam proctoring system** deployed as an **Electron desktop application**. The teacher runs the app on a machine connected to a local network (exam Wi-Fi). Students connect their browsers to the teacher's machine via the network. The system monitors students for internet access violations, connection drops, and session timing.
+Proctor App is a **secure exam proctoring system** deployed via **Docker Compose**. The teacher runs the app on a machine connected to a local network (exam Wi-Fi). Students connect their browsers to the teacher's machine via the network. The system monitors students for internet access violations, connection drops, and session timing.
 
 ## Deployment Topology
 
 ```
 ┌──────────────────────────────────────────────┐
-│            Teacher Machine (Electron)         │
-│  ┌────────────────────────────────────────┐   │
-│  │  Electron Main Process                 │   │
-│  │  - Spawns backend (fork)               │   │
-│  │  - Port management                     │   │
-│  │  - Window lifecycle                    │   │
-│  ├────────────────────────────────────────┤   │
-│  │  Express + Socket.io (port 3333)       │   │
-│  │  - REST API endpoints                  │   │
-│  │  - Real-time WebSocket gateway         │   │
-│  │  - Serves frontend static files        │   │
-│  ├────────────────────────────────────────┤   │
-│  │  SQLite (Prisma ORM)                   │   │
-│  │  - Sessions, Students, Violations      │   │
-│  │  - Submissions, CheckTargets           │   │
-│  └────────────────────────────────────────┘   │
+│          Teacher Machine (Docker)            │
+│  ┌────────────────────────────────────────┐  │
+│  │  Express + Socket.io (port 3333)       │  │
+│  │  - REST API endpoints                  │  │
+│  │  - Real-time WebSocket gateway         │  │
+│  │  - Serves frontend static files        │  │
+│  ├────────────────────────────────────────┤  │
+│  │  SQLite (Prisma ORM)                   │  │
+│  │  - Sessions, Students, Violations      │  │
+│  │  - Submissions, CheckTargets           │  │
+│  └────────────────────────────────────────┘  │
 └──────────────────────────────────────────────┘
          │ HTTP + WebSocket (LAN)
          ▼
@@ -37,13 +32,12 @@ Proctor App is a **secure exam proctoring system** deployed as an **Electron des
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| Desktop Shell | Electron 33 | Window management, process lifecycle, NSIS installer |
 | Frontend | React 18, TypeScript, Tailwind CSS, Vite | Student and teacher UI |
 | Backend | Express.js, Socket.io, TypeScript | REST API + real-time gateway |
 | Database | SQLite via Prisma ORM | Persistent storage (single-file DB) |
 | Auth | Custom HMAC-SHA256 tokens | Teacher authentication |
 | Testing | Vitest, v8 coverage, supertest, socket.io-client | Backend + frontend tests |
-| Build | electron-builder, NSIS | Windows installer (.exe) |
+| Deployment | Docker Compose | Development and production |
 
 ## Backend Architecture (Layered)
 
@@ -201,24 +195,9 @@ Student:
 | GET | `/api/submissions/:sessionCode` | Bearer token | List session submissions |
 | GET | `/api/submissions/:sessionCode/download/:storedName` | Bearer token/query | Download specific file |
 
-## Electron Integration
-
-```
-electron/main.ts
-├── ensureDirectories()    # Create userData + uploads dirs
-├── ensureDatabase()       # Copy template.db or prisma db push
-├── findAvailablePort()    # Check Windows TCP excluded ranges
-├── killProcessOnPort()    # Kill stale processes on target port
-├── ensureFirewallRule()   # Check Windows firewall (installer-managed)
-├── startBackend()         # Fork Node.js process with env vars
-├── waitForBackend()       # Poll /health until 200 OK
-└── createWindow()         # BrowserWindow → http://127.0.0.1:{port}
-```
-
-### Port Strategy
+## Port Strategy
 
 | Mode | Backend Port | Frontend |
 |------|-------------|----------|
 | Docker (dev) | 4444 | Vite dev server on 5174 |
-| Electron (.exe) | 3333 (or next available) | Served by Express static |
-| Development (local) | 3333 | Vite dev server on 5173 |
+| Docker (prod) | 3333 | Served by Express static |

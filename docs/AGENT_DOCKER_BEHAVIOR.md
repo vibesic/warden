@@ -1,23 +1,22 @@
 # AI Agent Docker Behavior - Quick Reference
 
 **Project**: Proctor App (proctor-app)  
-**Approach**: Docker for development services, Electron for production  
+**Approach**: Docker for development and production  
 **Database**: SQLite via Prisma ORM
 
 ## Architecture Overview
 
-The Proctor App is an Electron desktop application. Docker is used **only during development** to provide consistent dev environments. Production runs as a standalone Electron app with an embedded Express + SQLite backend.
+The Proctor App runs entirely via Docker Compose. Development uses hot-reload volumes; production serves the built frontend from Express static files.
 
 ```
 Development: docker-compose.dev.yml
-- Frontend (Vite HMR, port 5173)
-- Backend (Express + Socket.io, port 3333)
+- Frontend (Vite HMR, port 5174)
+- Backend (Express + Socket.io, port 4444)
 
-Production: Electron desktop app
-- Bundled frontend (static build)
-- Embedded backend (Express + Socket.io on port 3333)
-- SQLite database in %APPDATA%/Proctor App/proctor.db
-- NSIS installer for Windows
+Production: docker-compose.yml (or docker-compose.dev.yml)
+- Backend serves built frontend as static files
+- Express + Socket.io on port 3333
+- SQLite database in persistent Docker volume
 ```
 
 ## Development Workflow
@@ -133,7 +132,7 @@ volumes:
 | Aspect          | Typical Docker App             | Proctor App                      |
 | --------------- | ------------------------------ | -------------------------------- |
 | **Database**    | PostgreSQL/MySQL in container  | SQLite file (no DB container)    |
-| **Production**  | Docker Compose deployment      | Electron desktop app + NSIS      |
+| **Production**  | Docker Compose deployment      | Docker Compose deployment        |
 | **Cache**       | Redis container                | Not used                         |
 | **Port**        | 3000 (typical)                 | 3333 (bound to 0.0.0.0)         |
 | **Networking**  | Docker internal network        | LAN access (private network)     |
@@ -173,7 +172,7 @@ docker system prune
 
 ## Critical Rules
 
-1. **Docker is dev-only**: Production is an Electron desktop app
+1. **Docker for dev and prod**: All environments use Docker Compose
 2. **No PostgreSQL/Redis**: Database is SQLite via Prisma
 3. **Host-first deps**: Install packages on host, then rebuild Docker
 4. **Named volumes**: Persist SQLite data with named volumes

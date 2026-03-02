@@ -71,7 +71,7 @@ See AGENT_VISUAL_BEHAVIOR.md for:
 
 See AGENT_DOCKER_BEHAVIOR.md for:
 
-- Docker for development only; production is an Electron desktop app
+- Docker for development and production deployment
 - No PostgreSQL or Redis containers — SQLite via Prisma only
 - Install dependencies on host first, then rebuild Docker
 - Use `docker compose -f docker-compose.dev.yml exec` for commands
@@ -94,15 +94,15 @@ See AGENT_TEST_BEHAVIOR.md for:
 - **For commits**: Check file path → determine scope → use `type(scope): subject` format
 - **For UI**: Start mobile → add `sm:` → add `lg:` → test at 360px, 768px, 1024px
 - **For styling**: Tailwind utilities first → SCSS modules for complex patterns
-- **For Docker**: Dev only → install on host → rebuild container → exec for commands
+- **For Docker**: Install on host → rebuild container → exec for commands
 - **For tests**: Mock Prisma → real Socket.io → Vitest + AAA pattern → 90%+ coverage
 
 ## Tech Stack
 
-- **Desktop**: Electron + NSIS installer (Windows)
 - **Frontend**: React 18 + TypeScript + Tailwind CSS + Vite
 - **Backend**: Express.js + Socket.io (port 3333, bound to 0.0.0.0)
 - **Database**: SQLite via Prisma ORM
+- **Deployment**: Docker Compose
 - **Auth**: Custom HMAC-SHA256 tokens
 - **Testing**: Vitest + v8 coverage + supertest + socket.io-client
 - **File Upload**: Multer (50MB limit)

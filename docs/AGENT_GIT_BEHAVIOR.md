@@ -12,7 +12,7 @@
 
 **Types**: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `ci`
 
-**Common Scopes**: `auth`, `session`, `student`, `violation`, `sniffer`, `gateway`, `upload`, `ui`, `api`, `db`, `docker`, `electron`
+**Common Scopes**: `auth`, `session`, `student`, `violation`, `sniffer`, `gateway`, `upload`, `ui`, `api`, `db`, `docker`
 
 **Subject Rules**:
 
@@ -87,8 +87,6 @@ docker-compose*.yml                               → (docker)
 backend/Dockerfile                                → (docker)
 frontend/Dockerfile                               → (docker)
 
-electron/*                                        → (electron)
-installer/*                                       → (electron)
 scripts/*                                         → (scripts)
 
 backend/package.json                              → (deps) with type: chore

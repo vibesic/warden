@@ -4,8 +4,8 @@
  * that was previously scattered across app.ts and server.ts.
  */
 
-export const isDesktopMode = (): boolean => {
-  return process.env.ELECTRON === 'true' || process.env.NODE_ENV === 'production';
+export const isProductionMode = (): boolean => {
+  return process.env.NODE_ENV === 'production';
 };
 
 export const isDevelopment = (): boolean => {
@@ -17,7 +17,7 @@ export const getAllowedOrigins = (): string[] => {
   if (envOrigins) {
     return envOrigins.split(',').map((o) => o.trim());
   }
-  if (isDesktopMode() || isDevelopment()) {
+  if (isProductionMode() || isDevelopment()) {
     return ['*'];
   }
   return ['http://localhost:5173', 'http://127.0.0.1:5173'];

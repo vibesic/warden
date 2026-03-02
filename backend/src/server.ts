@@ -1,5 +1,4 @@
-// Catch any uncaught errors (including import-time failures) and write to stderr
-// so the Electron parent process can display them.
+// Catch any uncaught errors and write to stderr for diagnostics.
 process.on('uncaughtException', (err: Error) => {
   process.stderr.write(`UNCAUGHT EXCEPTION: ${err.message}\n${err.stack ?? ''}\n`);
   process.exit(1);
@@ -102,7 +101,6 @@ const startServer = async (): Promise<void> => {
 
     httpServer.listen(port, host, () => {
       logger.info({ port, host }, 'Server running');
-      // Also write to stdout so the Electron parent captures it immediately
       process.stdout.write(`Server running on ${host}:${port}\n`);
     });
   } catch (err: unknown) {

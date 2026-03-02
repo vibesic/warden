@@ -11,8 +11,7 @@ node_modules/
 **/build/
 **/out/
 
-# Electron / electron-builder output
-release/
+# Build output
 
 # Uploaded files (user data, not source code)
 **/uploads/
