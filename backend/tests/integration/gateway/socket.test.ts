@@ -425,7 +425,7 @@ describe('Socket Gateway', () => {
       (args: any[]) => args[0]?.data?.sessionStudentId === 'ss-disconnect' && args[0]?.data?.type === 'DISCONNECTION'
     );
     expect(violationCalls.length).toBe(1);
-    expect(violationCalls[0][0].data.details).toContain('disconnected from server');
+    expect(violationCalls[0][0].data.details).toContain('Student disconnected');
   });
 
   it('should NOT create DISCONNECTION violation when student reconnects within grace period', async () => {

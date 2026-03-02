@@ -74,6 +74,15 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
       isRegisteredRef.current = false;
     });
 
+    // Notify server before tab/window closes so it can distinguish
+    // intentional close from WiFi loss.
+    const handleBeforeUnload = (): void => {
+      if (socket.connected) {
+        socket.emit('student:tab-closing');
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     // Server-side sniffer challenge handler
     socket.on('sniffer:challenge', async (data: { challengeId: string; targetUrl: string }) => {
       const { challengeId, targetUrl } = data;
@@ -104,6 +113,7 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
     });
 
     return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       socket.disconnect();
     };
   }, [studentId, name, sessionCode, onSessionEnded, onServerViolation]);

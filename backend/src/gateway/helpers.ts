@@ -118,6 +118,42 @@ export const broadcastStudentLeft = (
 };
 
 /**
+ * Determine a human-readable disconnect reason from the Socket.io
+ * disconnect reason string and the `tabClosing` flag (set when the
+ * client emits `student:tab-closing` via the beforeunload handler).
+ *
+ * Socket.io reason values:
+ *   - "client namespace disconnect"   → client called socket.disconnect()
+ *   - "transport close"               → underlying transport was closed (WiFi drop)
+ *   - "transport error"               → transport encountered an error
+ *   - "ping timeout"                  → server did not receive a pong in time
+ *   - "server namespace disconnect"   → server forced disconnection
+ */
+export const resolveDisconnectReason = (
+  socketReason: string,
+  tabClosing: boolean,
+): string => {
+  if (tabClosing) {
+    return 'Student closed the browser tab or window (intentional)';
+  }
+
+  switch (socketReason) {
+    case 'transport close':
+      return 'Student lost network connection (WiFi drop or network change)';
+    case 'transport error':
+      return 'Student connection failed due to a network error';
+    case 'ping timeout':
+      return 'Student connection timed out (no response from client)';
+    case 'client namespace disconnect':
+      return 'Student disconnected from client side';
+    case 'server namespace disconnect':
+      return 'Student was disconnected by the server';
+    default:
+      return `Student disconnected (reason: ${socketReason})`;
+  }
+};
+
+/**
  * Check whether a socket carries a valid teacher token.
  */
 export const isTeacherAuthenticated = (socket: Socket): boolean => {

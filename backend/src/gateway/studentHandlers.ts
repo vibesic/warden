@@ -7,6 +7,7 @@ import {
   getSocketStudentData,
   createAndBroadcastViolation,
   broadcastStudentLeft,
+  resolveDisconnectReason,
 } from './helpers';
 import { createViolation } from '../services/violation.service';
 import { parseDeviceInfo } from '../utils/device';
@@ -203,11 +204,28 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
     }
   });
 
-  socket.on('disconnect', async () => {
+  // Student signals before closing tab/window.
+  // This flag lets the disconnect handler distinguish intentional close
+  // from a network drop.
+  socket.on('student:tab-closing', () => {
+    socket.data.tabClosing = true;
+    logger.info(
+      { studentId: socket.data.studentId },
+      'Student signalled tab/window closing',
+    );
+  });
+
+  socket.on('disconnect', async (reason: string) => {
     const studentData = getSocketStudentData(socket);
     if (!studentData) return;
 
-    logger.info({ studentId: studentData.studentId }, 'Student disconnected');
+    const tabClosing = socket.data.tabClosing === true;
+    const disconnectDetail = resolveDisconnectReason(reason, tabClosing);
+
+    logger.info(
+      { studentId: studentData.studentId, reason, tabClosing },
+      'Student disconnected',
+    );
     await markStudentOffline(studentData.sessionStudentId);
 
     // Only record a DISCONNECTION violation if the session is still active
@@ -227,7 +245,7 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
       await createAndBroadcastViolation(io, studentData.sessionCode, studentData.studentId, {
         sessionStudentId: studentData.sessionStudentId,
         type: 'DISCONNECTION',
-        details: 'Student disconnected from server (closed tab or lost connection)',
+        details: disconnectDetail,
       });
     }, disconnectGraceMs);
 

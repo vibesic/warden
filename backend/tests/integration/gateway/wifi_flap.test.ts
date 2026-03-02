@@ -282,4 +282,54 @@ describe('WiFi Flap — Transient Disconnect Regression', () => {
 
     s2.disconnect();
   });
+
+  // ─────────────────────────────────────────────────────────────────
+  // Scenario 5:  Tab-closing signal → violation says "intentional"
+  //              Student emits 'student:tab-closing' before disconnect.
+  // ─────────────────────────────────────────────────────────────────
+  it('should record "intentional" close when student signals tab-closing before disconnect', async () => {
+    const socket = await connectAndRegister(port);
+
+    // Simulate beforeunload → emit tab-closing signal, then disconnect
+    socket.emit('student:tab-closing');
+    await new Promise((r) => setTimeout(r, 30));
+    socket.disconnect();
+
+    // Wait past grace period for the violation to fire
+    await new Promise((r) => setTimeout(r, 300));
+
+    const violationCalls = prismaMock.violation.create.mock.calls.filter(
+      (args: unknown[]) =>
+        (args[0] as { data: { type: string } }).data.type === 'DISCONNECTION',
+    );
+    expect(violationCalls.length).toBe(1);
+
+    const details = (violationCalls[0][0] as { data: { details: string } }).data.details;
+    expect(details).toBe('Student closed the browser tab or window (intentional)');
+  });
+
+  // ─────────────────────────────────────────────────────────────────
+  // Scenario 6:  No tab-closing signal → violation says "WiFi drop"
+  //              Student disconnects without emitting tab-closing.
+  // ─────────────────────────────────────────────────────────────────
+  it('should record "WiFi drop" when student disconnects without tab-closing signal', async () => {
+    const socket = await connectAndRegister(port);
+
+    // Just disconnect — no tab-closing signal (simulates WiFi loss)
+    socket.disconnect();
+
+    // Wait past grace period for the violation to fire
+    await new Promise((r) => setTimeout(r, 300));
+
+    const violationCalls = prismaMock.violation.create.mock.calls.filter(
+      (args: unknown[]) =>
+        (args[0] as { data: { type: string } }).data.type === 'DISCONNECTION',
+    );
+    expect(violationCalls.length).toBe(1);
+
+    const details = (violationCalls[0][0] as { data: { details: string } }).data.details;
+    // When client calls socket.disconnect(), Socket.io reason is
+    // "client namespace disconnect", not "transport close".
+    expect(details).toBe('Student disconnected from client side');
+  });
 });
