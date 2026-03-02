@@ -6,6 +6,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } 
 import { initializeSocket } from '@src/gateway/socket';
 import { generateTeacherToken } from '@src/services/auth.service';
 import { clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
+import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
 import { app } from '@src/app';
 
 /**
@@ -97,6 +98,7 @@ describe('Security - Socket Layer', () => {
 
   afterAll(() => {
     clearAllPendingDisconnects();
+    clearDisconnectionCooldowns();
     cleanup.clearIntervals();
     io.close();
     httpServer.close();

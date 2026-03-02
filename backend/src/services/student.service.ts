@@ -82,7 +82,7 @@ export const getSessionStudentsForSession = async (sessionId: string): Promise<A
   });
 };
 
-export const findDeadHeartbeats = async (thresholdMs: number = 45000): Promise<Array<SessionStudent & { student: { studentId: string; name: string }; session: { id: string; code: string; isActive: boolean } | null }>> => {
+export const findDeadHeartbeats = async (thresholdMs: number = 120_000): Promise<Array<SessionStudent & { student: { studentId: string; name: string }; session: { id: string; code: string; isActive: boolean } | null }>> => {
   const timeoutThreshold = new Date(Date.now() - thresholdMs);
 
   return prisma.sessionStudent.findMany({

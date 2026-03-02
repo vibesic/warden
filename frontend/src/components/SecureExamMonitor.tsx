@@ -120,7 +120,7 @@ export const SecureExamMonitor: React.FC<Props> = ({ studentId, studentName, ses
         } else if (isConnected && lastDisconnectTime) {
             // Reconnected
             const duration = Date.now() - lastDisconnectTime;
-            if (duration > 5000) { // Only log if disconnected for > 5 seconds
+            if (duration > 120_000) { // Only log if disconnected for > 2 minutes
                 const seconds = Math.round(duration / 1000);
                 reportViolation('CONNECTION_LOST', `Client disconnected from exam server for ${seconds}s. Possible network switch.`);
             }

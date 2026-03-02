@@ -13,11 +13,13 @@ import { parseDeviceInfo } from '../utils/device';
 
 /**
  * Grace period (ms) before a disconnect is recorded as a violation.
- * Allows students to refresh the page without triggering a false
- * DISCONNECTION violation. If the same studentId re-registers within
- * this window the pending violation is cancelled.
+ * Allows students to refresh the page or recover from transient WiFi
+ * drops without triggering a false DISCONNECTION violation.  If the
+ * same studentId re-registers within this window the pending violation
+ * is cancelled.  Set to 45 s to accommodate slow reconnections on
+ * congested classroom networks.
  */
-let disconnectGraceMs = 5_000;
+let disconnectGraceMs = 45_000;
 
 /**
  * Override the grace period duration. Intended for tests so they do not

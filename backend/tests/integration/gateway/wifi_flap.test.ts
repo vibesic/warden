@@ -1,0 +1,285 @@
+/**
+ * Regression test for the WiFi-flap / transient-disconnect bug.
+ *
+ * On busy classroom networks, Socket.io may declare students disconnected
+ * during brief WiFi hiccups even though the laptop is still on the network.
+ * This test verifies that:
+ *
+ *  1. A student who reconnects within the grace window gets NO violation.
+ *  2. The DISCONNECTION cooldown suppresses duplicate violations when a
+ *     student's WiFi flaps multiple times in quick succession.
+ *  3. A genuinely long disconnect (past grace + cooldown) still records
+ *     the violation correctly.
+ */
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import Client, { Socket as ClientSocket } from 'socket.io-client';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { initializeSocket } from '@src/gateway/socket';
+import { setDisconnectGraceMs, clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
+import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
+
+// ── Prisma mock ─────────────────────────────────────────────────────
+const prismaMock = vi.hoisted(() => ({
+  student: {
+    upsert: vi.fn(),
+    findMany: vi.fn().mockResolvedValue([]),
+  },
+  sessionStudent: {
+    upsert: vi.fn(),
+    update: vi.fn().mockResolvedValue({}),
+    findMany: vi.fn().mockResolvedValue([]),
+  },
+  violation: {
+    create: vi.fn().mockResolvedValue({
+      id: 'v-default',
+      timestamp: new Date(),
+      type: 'DISCONNECTION',
+      details: '',
+      sessionStudentId: '',
+    }),
+  },
+  session: {
+    findUnique: vi.fn().mockResolvedValue({
+      id: 's1', code: '123456', isActive: true,
+      createdAt: new Date(), durationMinutes: null, endedAt: null,
+    }),
+    findFirst: vi.fn().mockResolvedValue({
+      id: 's1', code: '123456', isActive: true,
+      createdAt: new Date(), durationMinutes: null, endedAt: null,
+    }),
+    findMany: vi.fn().mockResolvedValue([]),
+    create: vi.fn(),
+    update: vi.fn(),
+    updateMany: vi.fn(),
+    count: vi.fn(),
+  },
+  checkTarget: {
+    findMany: vi.fn().mockResolvedValue([]),
+  },
+}));
+
+vi.mock('@src/utils/prisma', () => ({
+  prisma: prismaMock,
+}));
+
+// ── Helpers ─────────────────────────────────────────────────────────
+const STUDENT_ID = 'wifi-flap-student';
+const STUDENT_NAME = 'WiFi Flap Test';
+const SESSION_CODE = '123456';
+
+const registerData = {
+  studentId: STUDENT_ID,
+  name: STUDENT_NAME,
+  sessionCode: SESSION_CODE,
+};
+
+const setupStudentMocks = (): void => {
+  prismaMock.student.upsert.mockResolvedValue({
+    id: 'stu-flap',
+    studentId: STUDENT_ID,
+    name: STUDENT_NAME,
+  });
+  prismaMock.sessionStudent.upsert.mockResolvedValue({
+    id: 'ss-flap',
+    student: { studentId: STUDENT_ID, name: STUDENT_NAME },
+  });
+};
+
+const connectAndRegister = async (port: number): Promise<ClientSocket> => {
+  const socket = Client(`http://localhost:${port}`, {
+    reconnection: false,
+  });
+  await new Promise<void>((resolve) => socket.on('connect', resolve));
+
+  setupStudentMocks();
+
+  await new Promise<void>((resolve) => {
+    socket.emit('register', registerData);
+    socket.once('registered', () => resolve());
+  });
+
+  return socket;
+};
+
+// ── Test suite ──────────────────────────────────────────────────────
+describe('WiFi Flap — Transient Disconnect Regression', () => {
+  let io: Server;
+  let httpServer: ReturnType<typeof createServer>;
+  let cleanup: { clearIntervals: () => void };
+  let port: number;
+
+  beforeAll(async () => {
+    // Use a very short grace period so tests run fast
+    setDisconnectGraceMs(150);
+
+    httpServer = createServer();
+    io = new Server(httpServer);
+    cleanup = initializeSocket(io);
+
+    await new Promise<void>((resolve) => {
+      httpServer.listen(0, () => {
+        port = (httpServer.address() as { port: number }).port;
+        resolve();
+      });
+    });
+  });
+
+  afterAll(() => {
+    clearAllPendingDisconnects();
+    clearDisconnectionCooldowns();
+    cleanup.clearIntervals();
+    io.close();
+    httpServer.close();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    clearAllPendingDisconnects();
+    clearDisconnectionCooldowns();
+
+    // Re-apply default session mocks
+    prismaMock.session.findUnique.mockResolvedValue({
+      id: 's1', code: SESSION_CODE, isActive: true,
+      createdAt: new Date(), durationMinutes: null, endedAt: null,
+    });
+    prismaMock.session.findFirst.mockResolvedValue({
+      id: 's1', code: SESSION_CODE, isActive: true,
+      createdAt: new Date(), durationMinutes: null, endedAt: null,
+    });
+    prismaMock.sessionStudent.update.mockResolvedValue({});
+    prismaMock.sessionStudent.findMany.mockResolvedValue([]);
+    prismaMock.violation.create.mockResolvedValue({
+      id: 'v-1', timestamp: new Date(), type: 'DISCONNECTION', details: '',
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────
+  // Scenario 1:  Quick reconnect within grace window → no violation
+  // Simulates a brief WiFi hiccup where the socket drops and the
+  // client reconnects in under the grace period.
+  // ─────────────────────────────────────────────────────────────────
+  it('should NOT create a DISCONNECTION violation when student reconnects within grace period (WiFi hiccup)', async () => {
+    const socket1 = await connectAndRegister(port);
+
+    // Simulate WiFi drop → socket disconnects
+    socket1.disconnect();
+    await new Promise((r) => setTimeout(r, 30));
+
+    // Clear mocks so only post-reconnect calls are visible
+    prismaMock.violation.create.mockClear();
+
+    // Student reconnects quickly (< 150 ms grace period)
+    const socket2 = await connectAndRegister(port);
+
+    // Wait well past the grace period to confirm no violation fires
+    await new Promise((r) => setTimeout(r, 300));
+
+    const violationCalls = prismaMock.violation.create.mock.calls.filter(
+      (args: unknown[]) =>
+        (args[0] as { data: { type: string } }).data.type === 'DISCONNECTION',
+    );
+    expect(violationCalls).toHaveLength(0);
+
+    socket2.disconnect();
+  });
+
+  // ─────────────────────────────────────────────────────────────────
+  // Scenario 2:  Two rapid disconnect/reconnect cycles → at most 1
+  //              DISCONNECTION violation (cooldown suppresses the 2nd)
+  // ─────────────────────────────────────────────────────────────────
+  it('should suppress duplicate DISCONNECTION violations during rapid WiFi flaps (cooldown)', async () => {
+    // --- Flap 1: disconnect, wait past grace → 1st violation created ---
+    const socket1 = await connectAndRegister(port);
+    socket1.disconnect();
+
+    // Wait past grace period so the 1st violation fires
+    await new Promise((r) => setTimeout(r, 300));
+
+    const firstViolationCalls = prismaMock.violation.create.mock.calls.filter(
+      (args: unknown[]) =>
+        (args[0] as { data: { type: string } }).data.type === 'DISCONNECTION',
+    );
+    expect(firstViolationCalls.length).toBe(1);
+
+    // --- Flap 2: reconnect briefly, then disconnect again ---
+    prismaMock.violation.create.mockClear();
+
+    const socket2 = await connectAndRegister(port);
+    socket2.disconnect();
+
+    // Wait past grace period again
+    await new Promise((r) => setTimeout(r, 300));
+
+    // The cooldown should suppress the 2nd violation
+    const secondViolationCalls = prismaMock.violation.create.mock.calls.filter(
+      (args: unknown[]) =>
+        (args[0] as { data: { type: string } }).data.type === 'DISCONNECTION',
+    );
+    expect(secondViolationCalls).toHaveLength(0);
+  });
+
+  // ─────────────────────────────────────────────────────────────────
+  // Scenario 3:  Three rapid flaps → only 1 total DISCONNECTION
+  //              violation (grace + cooldown combined)
+  // ─────────────────────────────────────────────────────────────────
+  it('should record only 1 DISCONNECTION for 3 rapid WiFi flaps', async () => {
+    // Flap 1: disconnect → reconnect within grace → no violation
+    const s1 = await connectAndRegister(port);
+    s1.disconnect();
+    await new Promise((r) => setTimeout(r, 30));
+    const s2 = await connectAndRegister(port);
+
+    // Flap 2: disconnect → wait past grace → 1 violation
+    s2.disconnect();
+    await new Promise((r) => setTimeout(r, 300));
+
+    // Flap 3: reconnect → disconnect again → cooldown suppresses
+    const s3 = await connectAndRegister(port);
+    s3.disconnect();
+    await new Promise((r) => setTimeout(r, 300));
+
+    const totalViolations = prismaMock.violation.create.mock.calls.filter(
+      (args: unknown[]) =>
+        (args[0] as { data: { type: string } }).data.type === 'DISCONNECTION',
+    );
+
+    // Only 1 violation should exist (from flap 2), flap 1 was within grace,
+    // flap 3 was suppressed by cooldown.
+    expect(totalViolations.length).toBe(1);
+  });
+
+  // ─────────────────────────────────────────────────────────────────
+  // Scenario 4:  Student marked offline on disconnect, back online
+  //              on reconnect
+  // ─────────────────────────────────────────────────────────────────
+  it('should mark student offline then re-online during reconnect cycle', async () => {
+    const s1 = await connectAndRegister(port);
+    s1.disconnect();
+    await new Promise((r) => setTimeout(r, 30));
+
+    // Should have an offline update
+    const offlineCalls = prismaMock.sessionStudent.update.mock.calls.filter(
+      (args: unknown[]) =>
+        (args[0] as { data: { isOnline: boolean } }).data.isOnline === false,
+    );
+    expect(offlineCalls.length).toBeGreaterThanOrEqual(1);
+
+    // Reconnect → upsert sets isOnline: true
+    prismaMock.sessionStudent.upsert.mockClear();
+    const s2 = await connectAndRegister(port);
+
+    const upsertCalls = prismaMock.sessionStudent.upsert.mock.calls;
+    expect(upsertCalls.length).toBeGreaterThanOrEqual(1);
+
+    // The upsert should set isOnline: true
+    const lastUpsert = upsertCalls[upsertCalls.length - 1][0] as {
+      update: { isOnline: boolean };
+      create: { isOnline: boolean };
+    };
+    expect(lastUpsert.update.isOnline).toBe(true);
+    expect(lastUpsert.create.isOnline).toBe(true);
+
+    s2.disconnect();
+  });
+});

@@ -41,15 +41,16 @@ describe('Heartbeat Cleanup Service', () => {
     vi.clearAllMocks();
   });
 
-  it('should detect and cleanup disconnected students after 30s', async () => {
+  it('should detect and cleanup disconnected students after 60s', async () => {
     // 1. Setup Mock: Return one dead session student (normalized schema)
     const deadStudent = {
       id: 'ss-1',
       student: { studentId: 'public_id_1' },
       isOnline: true,
-      lastHeartbeat: new Date(Date.now() - 60000),
+      lastHeartbeat: new Date(Date.now() - 130000),
       session: {
         code: '123456',
+        isActive: true,
       },
     };
 
@@ -57,8 +58,8 @@ describe('Heartbeat Cleanup Service', () => {
     prismaMock.sessionStudent.update.mockResolvedValue({} as never);
     prismaMock.violation.create.mockResolvedValue({ timestamp: new Date() } as never);
 
-    // 2. Advance time by > 30s (Interval tick is 30s)
-    await vi.advanceTimersByTimeAsync(32000);
+    // 2. Advance time by > 60s (Interval tick is 60s)
+    await vi.advanceTimersByTimeAsync(62000);
 
     // 3. Verify FindMany called (sessionStudent model)
     expect(prismaMock.sessionStudent.findMany).toHaveBeenCalled();

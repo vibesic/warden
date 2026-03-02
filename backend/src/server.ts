@@ -33,6 +33,12 @@ const io = new Server(httpServer, {
     methods: ['GET', 'POST'],
     credentials: true,
   },
+  // Use generous timeouts for LAN/WiFi environments where packet loss
+  // and congestion can delay ping-pong frames.  The defaults (25 s / 20 s)
+  // are too aggressive for busy classroom networks and cause Socket.io to
+  // declare students disconnected during transient WiFi hiccups.
+  pingInterval: 25_000,
+  pingTimeout: 60_000,
 });
 
 initializeSocket(io);

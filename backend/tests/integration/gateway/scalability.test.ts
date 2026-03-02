@@ -5,6 +5,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import { initializeSocket } from '@src/gateway/socket';
 import { generateTeacherToken } from '@src/services/auth.service';
 import { setDisconnectGraceMs, clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
+import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
 
 /**
  * Scalability tests: multiple concurrent students, rapid heartbeats,
@@ -63,6 +64,7 @@ describe('Scalability Tests', () => {
 
   afterAll(() => {
     clearAllPendingDisconnects();
+    clearDisconnectionCooldowns();
     cleanup.clearIntervals();
     io.close();
     httpServer.close();

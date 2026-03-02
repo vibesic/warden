@@ -137,7 +137,7 @@ describe('Background Jobs', () => {
       prismaMock.sessionStudent.findMany.mockRejectedValue(new Error('DB error'));
 
       // Should not throw
-      await vi.advanceTimersByTimeAsync(32000);
+      await vi.advanceTimersByTimeAsync(62000);
     });
 
     it('should handle multiple dead students', async () => {
@@ -146,15 +146,15 @@ describe('Background Jobs', () => {
           id: 'dead-1',
           student: { studentId: 'stu-1' },
           isOnline: true,
-          lastHeartbeat: new Date(Date.now() - 60000),
-          session: { code: '123456' },
+          lastHeartbeat: new Date(Date.now() - 130000),
+          session: { code: '123456', isActive: true },
         },
         {
           id: 'dead-2',
           student: { studentId: 'stu-2' },
           isOnline: true,
-          lastHeartbeat: new Date(Date.now() - 90000),
-          session: { code: '123456' },
+          lastHeartbeat: new Date(Date.now() - 150000),
+          session: { code: '123456', isActive: true },
         },
       ];
 
@@ -162,7 +162,7 @@ describe('Background Jobs', () => {
       prismaMock.sessionStudent.update.mockResolvedValue({} as never);
       prismaMock.violation.create.mockResolvedValue({ timestamp: new Date() } as never);
 
-      await vi.advanceTimersByTimeAsync(32000);
+      await vi.advanceTimersByTimeAsync(62000);
 
       // Both students should be marked offline
       const offlineCalls = prismaMock.sessionStudent.update.mock.calls.filter(

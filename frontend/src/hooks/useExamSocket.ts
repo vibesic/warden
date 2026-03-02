@@ -23,8 +23,9 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
 
     socketRef.current = io(SOCKET_URL, {
       reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
+      reconnectionAttempts: 50,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 10000,
     });
     const socket = socketRef.current;
 
@@ -117,7 +118,14 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
     if (socketRef.current?.connected && isRegisteredRef.current) {
       socketRef.current.emit('report_violation', { studentId, type, details });
     } else {
-      violationQueue.current.push({ type, details });
+      // Deduplicate queued violations — prevent burst of identical reports
+      // when WiFi flaps cause rapid disconnect/reconnect cycles.
+      const isDuplicate = violationQueue.current.some(
+        (v) => v.type === type && v.details === details,
+      );
+      if (!isDuplicate) {
+        violationQueue.current.push({ type, details });
+      }
     }
   }, [studentId]);
 

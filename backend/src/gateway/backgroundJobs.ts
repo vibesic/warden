@@ -5,7 +5,7 @@ import { getRandomCheckTarget } from '../services/violation.service';
 import { getExpiredSessions, endSessionById } from '../services/session.service';
 import { createAndBroadcastViolation, broadcastStudentLeft } from './helpers';
 
-const HEARTBEAT_CHECK_INTERVAL_MS = 30000;
+const HEARTBEAT_CHECK_INTERVAL_MS = 60_000;
 const SNIFFER_CHALLENGE_INTERVAL_MS = 60000;
 const SNIFFER_RESPONSE_TIMEOUT_MS = 15000;
 const TIMER_CHECK_INTERVAL_MS = 3000;
@@ -13,27 +13,34 @@ const TIMER_CHECK_INTERVAL_MS = 3000;
 export const startHeartbeatChecker = (io: Server): NodeJS.Timeout => {
   return setInterval(async () => {
     try {
-      const deadStudents = await findDeadHeartbeats();
+      const deadStudents = await findDeadHeartbeats(120_000);
 
       for (const deadStudent of deadStudents) {
+        // Skip students whose session has already ended — no point
+        // creating violations or broadcasting updates.
+        if (!deadStudent.session?.isActive) {
+          await markStudentOffline(deadStudent.id);
+          continue;
+        }
+
         logger.info({ studentId: deadStudent.student.studentId }, 'Heartbeat missed');
 
         await markStudentOffline(deadStudent.id);
 
-        if (deadStudent.session) {
-          broadcastStudentLeft(io, deadStudent.session.code, deadStudent.student.studentId);
+        broadcastStudentLeft(io, deadStudent.session.code, deadStudent.student.studentId);
 
-          await createAndBroadcastViolation(
-            io,
-            deadStudent.session.code,
-            deadStudent.student.studentId,
-            {
-              sessionStudentId: deadStudent.id,
-              type: 'DISCONNECTION',
-              details: 'Heartbeat timeout > 45s',
-            },
-          );
-        }
+        // createAndBroadcastViolation already enforces a per-student
+        // DISCONNECTION cooldown, so rapid WiFi flaps won't spam.
+        await createAndBroadcastViolation(
+          io,
+          deadStudent.session.code,
+          deadStudent.student.studentId,
+          {
+            sessionStudentId: deadStudent.id,
+            type: 'DISCONNECTION',
+            details: 'Heartbeat timeout — no heartbeat received for >120 s',
+          },
+        );
       }
     } catch (error) {
       logger.error({ error }, 'Heartbeat check error');
