@@ -1,10 +1,8 @@
-import { createServer } from 'http';
-import { Server } from 'socket.io';
 import Client, { Socket as ClientSocket } from 'socket.io-client';
 import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach, vi } from 'vitest';
-import { initializeSocket } from '@src/gateway/socket';
 import { generateTeacherToken } from '@src/services/auth.service';
 import { clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
+import { createTestSocketServer, cleanupTestServer, type TestServerContext } from '../../helpers/setup';
 
 /**
  * Reliability tests: stale session cleanup, timer expiry auto-end,
@@ -43,28 +41,17 @@ vi.mock('@src/utils/prisma', () => ({
 }));
 
 describe('Reliability Tests', () => {
-  let io: Server;
-  let httpServer: ReturnType<typeof createServer>;
-  let cleanup: { clearIntervals: () => void };
+  let serverCtx: TestServerContext;
   let port: number;
 
   beforeAll(async () => {
-    httpServer = createServer();
-    io = new Server(httpServer);
-    cleanup = initializeSocket(io);
-    await new Promise<void>((resolve) => {
-      httpServer.listen(0, () => {
-        port = (httpServer.address() as { port: number }).port;
-        resolve();
-      });
-    });
+    serverCtx = await createTestSocketServer();
+    port = serverCtx.port;
   });
 
   afterAll(() => {
     clearAllPendingDisconnects();
-    cleanup.clearIntervals();
-    io.close();
-    httpServer.close();
+    cleanupTestServer(serverCtx);
   });
 
   beforeEach(() => {

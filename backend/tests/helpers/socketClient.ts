@@ -10,8 +10,11 @@ import { generateTeacherToken } from '@src/services/auth.service';
 /**
  * Connect a raw socket client (no auth) and wait for connection.
  */
-export const connectClient = async (port: number): Promise<ClientSocket> => {
-  const socket = Client(`http://localhost:${port}`);
+export const connectClient = async (
+  port: number,
+  options: Partial<Parameters<typeof Client>[1]> = {},
+): Promise<ClientSocket> => {
+  const socket = Client(`http://localhost:${port}`, options);
   await new Promise<void>((resolve) => {
     socket.on('connect', () => resolve());
   });
@@ -54,6 +57,19 @@ export const registerStudent = (
       reject(new Error(`Registration failed: ${reason}`));
     });
   });
+};
+
+/**
+ * Connect a teacher socket, join a session, and wait for the room join.
+ */
+export const connectTeacherToSession = async (
+  port: number,
+  sessionCode: string,
+): Promise<ClientSocket> => {
+  const socket = await connectTeacher(port);
+  socket.emit('dashboard:join_session', { sessionCode });
+  await new Promise((r) => setTimeout(r, 100));
+  return socket;
 };
 
 /**
