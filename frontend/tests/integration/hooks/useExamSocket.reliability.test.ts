@@ -127,7 +127,7 @@ describe('useExamSocket — Reliability & Security', () => {
       mockSocket.connected = false;
       act(() => {
         result.current.reportViolation('INTERNET_ACCESS', 'first');
-        result.current.reportViolation('CONNECTION_LOST', 'second');
+        result.current.reportViolation('DISCONNECTION', 'second');
       });
 
       // Now register
@@ -143,7 +143,7 @@ describe('useExamSocket — Reliability & Security', () => {
       );
       expect(violationCalls).toHaveLength(2);
       expect(violationCalls[0][1]).toMatchObject({ type: 'INTERNET_ACCESS', details: 'first' });
-      expect(violationCalls[1][1]).toMatchObject({ type: 'CONNECTION_LOST', details: 'second' });
+      expect(violationCalls[1][1]).toMatchObject({ type: 'DISCONNECTION', details: 'second' });
     });
   });
 

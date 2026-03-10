@@ -205,7 +205,7 @@ describe('SessionDetail', () => {
         isOnline: true,
         violations: [
           { type: 'INTERNET_ACCESS', timestamp: '2024-01-01T00:05:00Z' },
-          { type: 'CONNECTION_LOST', timestamp: '2024-01-01T00:06:00Z' },
+          { type: 'DISCONNECTION', timestamp: '2024-01-01T00:06:00Z' },
         ],
       },
     };
