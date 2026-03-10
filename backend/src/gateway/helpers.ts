@@ -141,39 +141,35 @@ export const resolveDisconnectReason = (
   if (tabClosing) {
     return {
       reason: 'TAB_CLOSED',
-      details: 'Student closed the browser tab or window (intentional)',
+      details: 'Student closed the browser tab or window',
     };
   }
 
   switch (socketReason) {
     case 'transport close':
-      return {
-        reason: 'WIFI_LOST',
-        details: 'Student lost network connection (WiFi drop or network change)',
-      };
     case 'transport error':
       return {
-        reason: 'TRANSPORT_ERROR',
-        details: 'Student connection failed due to a network error',
+        reason: 'NETWORK_LOST',
+        details: 'Network connectivity lost (WiFi drop or transport failure)',
       };
     case 'ping timeout':
       return {
         reason: 'PING_TIMEOUT',
-        details: 'Student connection timed out (no response from client)',
+        details: 'Socket connection timed out (no response from client)',
       };
     case 'client namespace disconnect':
       return {
-        reason: 'CLIENT_DISCONNECT',
-        details: 'Student disconnected from client side',
+        reason: 'CLIENT_INITIATED',
+        details: 'Student\'s client disconnected explicitly',
       };
     case 'server namespace disconnect':
       return {
-        reason: 'SERVER_DISCONNECT',
-        details: 'Student was disconnected by the server',
+        reason: 'SERVER_INITIATED',
+        details: 'Server forced the disconnection',
       };
     default:
       return {
-        reason: 'CLIENT_DISCONNECT',
+        reason: 'CLIENT_INITIATED',
         details: `Student disconnected (reason: ${socketReason})`,
       };
   }

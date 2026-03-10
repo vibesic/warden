@@ -55,8 +55,8 @@ model Session {
 
 model Violation {
   id        String   @id @default(uuid())
-  type      String   // INTERNET_ACCESS | DISCONNECTION | CONNECTION_LOST | SNIFFER_TIMEOUT
-  reason    String?  // Granular sub-reason: TAB_CLOSED | WIFI_LOST | PING_TIMEOUT | HEARTBEAT_TIMEOUT | CLIENT_PROBE | SERVER_SNIFFER | NETWORK_SWITCH | NO_RESPONSE | etc.
+  type      String   // INTERNET_ACCESS | DISCONNECTION | SNIFFER_TIMEOUT
+  reason    String?  // Granular sub-reason: TAB_CLOSED | NETWORK_LOST | PING_TIMEOUT | HEARTBEAT_TIMEOUT | CLIENT_PROBE | SERVER_SNIFFER | CLIENT_INITIATED | SERVER_INITIATED | PROLONGED_ABSENCE | NO_RESPONSE
   timestamp DateTime @default(now())
   details   String?
 

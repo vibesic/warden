@@ -163,8 +163,7 @@ frontend/src/
 | Type | Trigger | Source |
 |------|---------|--------|
 | `INTERNET_ACCESS` | Student's browser can reach external URLs | Client-side sniffer or server-side challenge |
-| `DISCONNECTION` | Student socket disconnects | Socket `disconnect` event |
-| `CONNECTION_LOST` | Student offline for extended period | Heartbeat checker background job |
+| `DISCONNECTION` | Student socket disconnects or goes offline | Socket `disconnect` event, heartbeat checker, or prolonged absence |
 | `SNIFFER_TIMEOUT` | Student does not respond to server challenge within 15s | Sniffer challenger background job |
 
 ## Authentication Flow

@@ -102,7 +102,7 @@ graph TD
 // Payload for Violation
 interface ViolationEvent {
   studentId: string;
-  type: 'INTERNET_ACCESS' | 'DISCONNECTION' | 'CONNECTION_LOST' | 'SNIFFER_TIMEOUT';
+  type: 'INTERNET_ACCESS' | 'DISCONNECTION' | 'SNIFFER_TIMEOUT';
   timestamp: Date;
 }
 ```

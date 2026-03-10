@@ -108,8 +108,8 @@
 
 7. **Disconnection Handling:**
    - Tracks disconnect duration
-   - If disconnected > 10 seconds: reports `CONNECTION_LOST` violation
-   - Auto-reconnects (up to 5 attempts)
+   - If disconnected > 2 minutes: reports `DISCONNECTION` violation with reason `PROLONGED_ABSENCE`
+   - Auto-reconnects (up to 50 attempts)
 
 ### Step 3 - Student Logout
 

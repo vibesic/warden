@@ -59,7 +59,6 @@ export interface StudentStatus {
 export const VALID_VIOLATION_TYPES = [
   'INTERNET_ACCESS',
   'DISCONNECTION',
-  'CONNECTION_LOST',
   'SNIFFER_TIMEOUT',
 ] as const;
 
