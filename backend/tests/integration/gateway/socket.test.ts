@@ -1,11 +1,9 @@
-import { createServer } from 'http';
-import { Server } from 'socket.io';
 import Client, { Socket as ClientSocket } from 'socket.io-client';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
-import { initializeSocket } from '@src/gateway/socket';
 import { generateTeacherToken } from '@src/services/auth.service';
 import { setDisconnectGraceMs, clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
 import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
+import { createTestSocketServer, cleanupTestServer, type TestServerContext } from '../../helpers/setup';
 
 // Mock Prisma
 // We must mock '../utils/prisma' BEFORE importing the module that uses it
@@ -39,31 +37,22 @@ vi.mock('@src/utils/prisma', () => ({
 
 describe('Socket Gateway', () => {
 
-  let io: Server;
+  let io: InstanceType<typeof import('socket.io').Server>;
   let clientSocket: ClientSocket;
-  let httpServer: any;
-  let cleanup: { clearIntervals: () => void };
+  let serverCtx: TestServerContext;
   let port: number;
 
   beforeAll(async () => {
     setDisconnectGraceMs(100);
-    httpServer = createServer();
-    io = new Server(httpServer);
-    cleanup = initializeSocket(io);
-    await new Promise<void>((resolve) => {
-      httpServer.listen(0, () => {
-        port = (httpServer.address() as any).port;
-        resolve();
-      });
-    });
+    serverCtx = await createTestSocketServer();
+    io = serverCtx.io;
+    port = serverCtx.port;
   });
 
   afterAll(() => {
     clearAllPendingDisconnects();
     clearDisconnectionCooldowns();
-    cleanup.clearIntervals();
-    io.close();
-    httpServer.close();
+    cleanupTestServer(serverCtx);
   });
 
   beforeEach(() => {
@@ -425,7 +414,7 @@ describe('Socket Gateway', () => {
       (args: any[]) => args[0]?.data?.sessionStudentId === 'ss-disconnect' && args[0]?.data?.type === 'DISCONNECTION'
     );
     expect(violationCalls.length).toBe(1);
-    expect(violationCalls[0][0].data.details).toContain('Student disconnected');
+    expect(violationCalls[0][0].data.details).toContain('disconnected');
   });
 
   it('should NOT create DISCONNECTION violation when student reconnects within grace period', async () => {

@@ -1,13 +1,11 @@
-import { createServer } from 'http';
-import { Server } from 'socket.io';
 import Client, { Socket as ClientSocket } from 'socket.io-client';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
-import { initializeSocket } from '@src/gateway/socket';
 import { generateTeacherToken } from '@src/services/auth.service';
 import { clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
 import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
 import { app } from '@src/app';
+import { createTestSocketServer, cleanupTestServer, createTestSocketServerNoListen, type TestServerContext } from '../../helpers/setup';
 
 /**
  * Security Tests — validates protection against student cheating vectors:
@@ -79,29 +77,20 @@ vi.mock('@src/utils/prisma', () => ({
 // ─── Socket Security Tests ───────────────────────────────────────────────────
 
 describe('Security - Socket Layer', () => {
-  let io: Server;
-  let httpServer: ReturnType<typeof createServer>;
-  let cleanup: { clearIntervals: () => void };
+  let serverCtx: TestServerContext;
+  let io: InstanceType<typeof import('socket.io').Server>;
   let port: number;
 
   beforeAll(async () => {
-    httpServer = createServer();
-    io = new Server(httpServer);
-    cleanup = initializeSocket(io);
-    await new Promise<void>((resolve) => {
-      httpServer.listen(0, () => {
-        port = (httpServer.address() as { port: number }).port;
-        resolve();
-      });
-    });
+    serverCtx = await createTestSocketServer();
+    io = serverCtx.io;
+    port = serverCtx.port;
   });
 
   afterAll(() => {
     clearAllPendingDisconnects();
     clearDisconnectionCooldowns();
-    cleanup.clearIntervals();
-    io.close();
-    httpServer.close();
+    cleanupTestServer(serverCtx);
   });
 
   beforeEach(() => {
@@ -278,13 +267,13 @@ describe('Security - Socket Layer', () => {
       const socket = await connectStudent();
       await registerStudent(socket, { studentId: 'stu-enum-2' });
 
-      socket.emit('report_violation', { type: 'CONNECTION_LOST', details: 'Lost connection' });
+      socket.emit('report_violation', { type: 'DISCONNECTION', details: 'Lost connection' });
 
       await new Promise((r) => setTimeout(r, 200));
 
       expect(prismaMock.violation.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ type: 'CONNECTION_LOST' }),
+          data: expect.objectContaining({ type: 'DISCONNECTION' }),
         })
       );
 
@@ -511,21 +500,17 @@ describe('Security - HTTP Endpoints', () => {
 // ─── Sniffer Timeout Tests ───────────────────────────────────────────────────
 
 describe('Security - Sniffer Challenge Timeout', () => {
-  let io: Server;
-  let httpServer: ReturnType<typeof createServer>;
-  let cleanup: { clearIntervals: () => void };
+  let snifferCtx: Omit<TestServerContext, 'port'>;
+  let io: InstanceType<typeof import('socket.io').Server>;
 
   beforeAll(() => {
     vi.useFakeTimers();
-    httpServer = createServer();
-    io = new Server(httpServer);
-    cleanup = initializeSocket(io);
+    snifferCtx = createTestSocketServerNoListen();
+    io = snifferCtx.io;
   });
 
   afterAll(() => {
-    cleanup.clearIntervals();
-    io.close();
-    httpServer.close();
+    cleanupTestServer(snifferCtx);
     vi.useRealTimers();
   });
 

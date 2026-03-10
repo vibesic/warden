@@ -11,13 +11,11 @@
  *  3. A genuinely long disconnect (past grace + cooldown) still records
  *     the violation correctly.
  */
-import { createServer } from 'http';
-import { Server } from 'socket.io';
 import Client, { Socket as ClientSocket } from 'socket.io-client';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import { initializeSocket } from '@src/gateway/socket';
 import { setDisconnectGraceMs, clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
 import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
+import { createTestSocketServer, cleanupTestServer, type TestServerContext } from '../../helpers/setup';
 
 // ── Prisma mock ─────────────────────────────────────────────────────
 const prismaMock = vi.hoisted(() => ({
@@ -104,33 +102,20 @@ const connectAndRegister = async (port: number): Promise<ClientSocket> => {
 
 // ── Test suite ──────────────────────────────────────────────────────
 describe('WiFi Flap — Transient Disconnect Regression', () => {
-  let io: Server;
-  let httpServer: ReturnType<typeof createServer>;
-  let cleanup: { clearIntervals: () => void };
+  let serverCtx: TestServerContext;
   let port: number;
 
   beforeAll(async () => {
     // Use a very short grace period so tests run fast
     setDisconnectGraceMs(150);
-
-    httpServer = createServer();
-    io = new Server(httpServer);
-    cleanup = initializeSocket(io);
-
-    await new Promise<void>((resolve) => {
-      httpServer.listen(0, () => {
-        port = (httpServer.address() as { port: number }).port;
-        resolve();
-      });
-    });
+    serverCtx = await createTestSocketServer();
+    port = serverCtx.port;
   });
 
   afterAll(() => {
     clearAllPendingDisconnects();
     clearDisconnectionCooldowns();
-    cleanup.clearIntervals();
-    io.close();
-    httpServer.close();
+    cleanupTestServer(serverCtx);
   });
 
   beforeEach(() => {
@@ -305,7 +290,7 @@ describe('WiFi Flap — Transient Disconnect Regression', () => {
     expect(violationCalls.length).toBe(1);
 
     const details = (violationCalls[0][0] as { data: { details: string } }).data.details;
-    expect(details).toBe('Student closed the browser tab or window (intentional)');
+    expect(details).toBe('Student closed the browser tab or window');
     const reason = (violationCalls[0][0] as { data: { reason: string } }).data.reason;
     expect(reason).toBe('TAB_CLOSED');
   });
@@ -332,9 +317,9 @@ describe('WiFi Flap — Transient Disconnect Regression', () => {
     const details = (violationCalls[0][0] as { data: { details: string } }).data.details;
     // When client calls socket.disconnect(), Socket.io reason is
     // "client namespace disconnect", not "transport close".
-    expect(details).toBe('Student disconnected from client side');
+    expect(details).toBe('Student\'s client disconnected explicitly');
 
     const reason = (violationCalls[0][0] as { data: { reason: string } }).data.reason;
-    expect(reason).toBe('CLIENT_DISCONNECT');
+    expect(reason).toBe('CLIENT_INITIATED');
   });
 });

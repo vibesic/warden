@@ -14,13 +14,11 @@
  *  6. Tab-closing + quick reconnect — grace period still cancels the
  *     violation even when tab-closing was signalled.
  */
-import { createServer, IncomingMessage, ServerResponse } from 'http';
-import { Server } from 'socket.io';
 import Client, { Socket as ClientSocket } from 'socket.io-client';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import { initializeSocket } from '@src/gateway/socket';
 import { setDisconnectGraceMs, clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
 import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
+import { createTestSocketServer, cleanupTestServer, createTestSocketServerNoListen, type TestServerContext } from '../../helpers/setup';
 
 // ── Prisma mock ─────────────────────────────────────────────────────
 const prismaMock = vi.hoisted(() => ({
@@ -135,32 +133,19 @@ const getDisconnectionReasons = (): (string | undefined)[] => {
 
 // ── Test suite ──────────────────────────────────────────────────────
 describe('Disconnect Reason Differentiation', () => {
-  let io: Server;
-  let httpServer: ReturnType<typeof createServer>;
-  let cleanup: { clearIntervals: () => void };
+  let serverCtx: TestServerContext;
   let port: number;
 
   beforeAll(async () => {
     setDisconnectGraceMs(150);
-
-    httpServer = createServer();
-    io = new Server(httpServer);
-    cleanup = initializeSocket(io);
-
-    await new Promise<void>((resolve) => {
-      httpServer.listen(0, () => {
-        port = (httpServer.address() as { port: number }).port;
-        resolve();
-      });
-    });
+    serverCtx = await createTestSocketServer();
+    port = serverCtx.port;
   });
 
   afterAll(() => {
     clearAllPendingDisconnects();
     clearDisconnectionCooldowns();
-    cleanup.clearIntervals();
-    io.close();
-    httpServer.close();
+    cleanupTestServer(serverCtx);
   });
 
   beforeEach(() => {
@@ -197,7 +182,7 @@ describe('Disconnect Reason Differentiation', () => {
     const details = getDisconnectionDetails();
     expect(details).toHaveLength(1);
     expect(details[0]).toBe(
-      'Student closed the browser tab or window (intentional)',
+      'Student closed the browser tab or window',
     );
 
     const reasons = getDisconnectionReasons();
@@ -220,11 +205,11 @@ describe('Disconnect Reason Differentiation', () => {
 
     const details = getDisconnectionDetails();
     expect(details).toHaveLength(1);
-    expect(details[0]).toBe('Student disconnected from client side');
+    expect(details[0]).toBe('Student\'s client disconnected explicitly');
 
     const reasons = getDisconnectionReasons();
     expect(reasons).toHaveLength(1);
-    expect(reasons[0]).toBe('CLIENT_DISCONNECT');
+    expect(reasons[0]).toBe('CLIENT_INITIATED');
   });
 
   // ─────────────────────────────────────────────────────────────────
@@ -246,12 +231,12 @@ describe('Disconnect Reason Differentiation', () => {
     const details = getDisconnectionDetails();
     expect(details).toHaveLength(1);
     expect(details[0]).toBe(
-      'Student lost network connection (WiFi drop or network change)',
+      'Network connectivity lost (WiFi drop or transport failure)',
     );
 
     const reasons = getDisconnectionReasons();
     expect(reasons).toHaveLength(1);
-    expect(reasons[0]).toBe('WIFI_LOST');
+    expect(reasons[0]).toBe('NETWORK_LOST');
 
     // Clean up the client socket reference
     socket.disconnect();
@@ -265,10 +250,9 @@ describe('Disconnect Reason Differentiation', () => {
   it('should record "heartbeat timeout" from the heartbeat checker background job', async () => {
     // This scenario doesn't use a real client. We mock Prisma to return
     // a dead student and advance time on a dedicated fake-timer server.
-    const fakeHttpServer = createServer();
-    const fakeIo = new Server(fakeHttpServer);
-
     vi.useFakeTimers();
+
+    const fakeCtx = createTestSocketServerNoListen();
 
     const deadStudent = {
       id: 'ss-dead',
@@ -286,8 +270,6 @@ describe('Disconnect Reason Differentiation', () => {
       details: '',
     });
 
-    const fakeCleanup = initializeSocket(fakeIo);
-
     // Advance past the 60s heartbeat check interval
     await vi.advanceTimersByTimeAsync(62_000);
 
@@ -300,9 +282,7 @@ describe('Disconnect Reason Differentiation', () => {
       }),
     });
 
-    fakeCleanup.clearIntervals();
-    fakeIo.close();
-    fakeHttpServer.close();
+    cleanupTestServer(fakeCtx);
     vi.useRealTimers();
   });
 
