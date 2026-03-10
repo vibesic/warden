@@ -51,6 +51,19 @@ model Session {
 
   sessionStudents SessionStudent[]
   submissions     Submission[]
+  questionFiles   QuestionFile[]
+}
+
+model QuestionFile {
+  id           String   @id @default(uuid())
+  originalName String
+  storedName   String
+  mimeType     String?
+  sizeBytes    Int
+  createdAt    DateTime @default(now())
+
+  session   Session @relation(fields: [sessionId], references: [id])
+  sessionId String
 }
 
 model Violation {

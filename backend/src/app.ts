@@ -10,6 +10,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { authRoutes } from './routes/auth.routes';
 import { sessionRoutes } from './routes/session.routes';
 import { submissionRoutes } from './routes/submission.routes';
+import { questionRoutes } from './routes/question.routes';
 
 const app = express();
 
@@ -46,7 +47,7 @@ if (isProductionMode()) {
 app.use(cors({
   origin: corsOriginCallback,
   credentials: true,
-  methods: ['GET', 'POST'],
+  methods: ['GET', 'POST', 'DELETE'],
 }));
 
 app.use(express.json());
@@ -60,6 +61,7 @@ app.get('/health', (_req, res) => {
 app.use('/api', authRoutes);
 app.use('/api', sessionRoutes);
 app.use('/api', submissionRoutes);
+app.use('/api', questionRoutes);
 
 /* ── Static frontend in production mode ──────────────────────── */
 if (isProductionMode()) {

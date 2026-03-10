@@ -18,6 +18,13 @@ interface UploadedFile {
     createdAt: string;
 }
 
+interface QuestionFileItem {
+    id: string;
+    originalName: string;
+    sizeBytes: number;
+    createdAt: string;
+}
+
 interface Props {
     studentId: string;
     studentName: string;
@@ -58,6 +65,7 @@ export const SecureExamMonitor: React.FC<Props> = ({ studentId, studentName, ses
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [questionFiles, setQuestionFiles] = useState<QuestionFileItem[]>([]);
 
     const formatRemainingTime = useCallback((): string | null => {
         if (!sessionTimer?.durationMinutes || !sessionTimer.createdAt) return null;
@@ -67,6 +75,26 @@ export const SecureExamMonitor: React.FC<Props> = ({ studentId, studentName, ses
     }, [sessionTimer, currentTime]);
 
     const remainingTime = formatRemainingTime();
+
+    // Fetch question files once on mount
+    useEffect(() => {
+        const fetchQuestionFiles = async () => {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/session/${sessionCode}/questions`);
+                const data = await res.json();
+                if (data.success) {
+                    setQuestionFiles(data.data);
+                }
+            } catch {
+                // Silently fail
+            }
+        };
+        fetchQuestionFiles();
+    }, [sessionCode]);
+
+    const handleQuestionDownload = useCallback((fileId: string) => {
+        window.open(`${API_BASE_URL}/api/session/${sessionCode}/questions/${fileId}/download`, '_blank');
+    }, [sessionCode]);
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -281,6 +309,25 @@ export const SecureExamMonitor: React.FC<Props> = ({ studentId, studentName, ses
                 <div className="text-sm opacity-75">Student ID: {studentId}</div>
                 <div className="text-xs opacity-50">Connection Status: {isConnected ? 'Server Connected' : 'Server Disconnected'}</div>
             </div>
+
+            {/* Question Files Download Section */}
+            {questionFiles.length > 0 && (
+                <div className="w-full max-w-sm mx-auto mb-6">
+                    <h3 className="text-sm font-bold text-center mb-3 opacity-90">Question Files</h3>
+                    <div className="space-y-1.5">
+                        {questionFiles.map((f) => (
+                            <button
+                                key={f.id}
+                                onClick={() => handleQuestionDownload(f.id)}
+                                className="flex items-center justify-between w-full bg-white/10 hover:bg-white/20 rounded px-3 py-2 text-xs transition-colors"
+                            >
+                                <span className="truncate mr-2">{f.originalName}</span>
+                                <span className="text-white/60 whitespace-nowrap">{formatFileSize(f.sizeBytes)}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* File Upload Section */}
             <div className="w-full max-w-sm mx-auto mb-6">

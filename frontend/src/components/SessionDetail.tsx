@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTeacherSocket, Violation, StudentStatus } from '../hooks/useTeacherSocket';
 import { useCurrentTime } from '../hooks/useCurrentTime';
-import { AlertTriangle, Wifi, WifiOff, Download, Monitor, Smartphone, Tablet } from 'lucide-react';
+import { AlertTriangle, Wifi, WifiOff, Download, Upload, Trash2, Monitor, Smartphone, Tablet, FileText } from 'lucide-react';
 import { ConfirmationModal } from './common/ConfirmationModal';
 import { Modal } from './common/Modal';
 import { Header } from './layout/Header';
@@ -10,6 +10,13 @@ import { Table, TableColumn } from './common/Table';
 import { Card } from './common/Card';
 import { API_BASE_URL } from '../config/api';
 import { formatDuration, formatFileSize, formatHMS } from '../utils/format';
+
+interface QuestionFileItem {
+    id: string;
+    originalName: string;
+    sizeBytes: number;
+    createdAt: string;
+}
 
 interface SubmissionItem {
     id: string;
@@ -32,6 +39,10 @@ export const SessionDetail: React.FC = () => {
     const currentTime = useCurrentTime();
     const [submissions, setSubmissions] = useState<SubmissionItem[]>([]);
     const [connectionFilter, setConnectionFilter] = useState<'all' | 'online' | 'offline'>('all');
+    const [questionFiles, setQuestionFiles] = useState<QuestionFileItem[]>([]);
+    const [questionUploading, setQuestionUploading] = useState(false);
+    const [questionUploadError, setQuestionUploadError] = useState('');
+    const questionFileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (isAuthError) {
@@ -63,6 +74,76 @@ export const SessionDetail: React.FC = () => {
         const interval = setInterval(fetchSubmissions, 15000);
         return () => clearInterval(interval);
     }, [fetchSubmissions]);
+
+    const fetchQuestionFiles = useCallback(async () => {
+        if (!sessionCode) return;
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/session/${sessionCode}/questions`);
+            const data = await res.json();
+            if (data.success) {
+                setQuestionFiles(data.data);
+            }
+        } catch {
+            // Silently fail
+        }
+    }, [sessionCode]);
+
+    useEffect(() => {
+        fetchQuestionFiles();
+    }, [fetchQuestionFiles]);
+
+    const handleQuestionUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !sessionCode) return;
+
+        setQuestionUploading(true);
+        setQuestionUploadError('');
+
+        try {
+            const token = localStorage.getItem('teacherToken') || '';
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const res = await fetch(`${API_BASE_URL}/api/session/${sessionCode}/questions`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData,
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                setQuestionFiles((prev) => [...prev, data.data]);
+            } else {
+                setQuestionUploadError(data.message || 'Upload failed');
+            }
+        } catch {
+            setQuestionUploadError('Upload failed. Check your connection.');
+        } finally {
+            setQuestionUploading(false);
+            if (questionFileInputRef.current) questionFileInputRef.current.value = '';
+        }
+    };
+
+    const handleQuestionDelete = async (fileId: string) => {
+        if (!sessionCode) return;
+        try {
+            const token = localStorage.getItem('teacherToken') || '';
+            const res = await fetch(`${API_BASE_URL}/api/session/${sessionCode}/questions/${fileId}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await res.json();
+            if (data.success) {
+                setQuestionFiles((prev) => prev.filter((f) => f.id !== fileId));
+            }
+        } catch {
+            // Silently fail
+        }
+    };
+
+    const handleQuestionDownload = (fileId: string) => {
+        window.open(`${API_BASE_URL}/api/session/${sessionCode}/questions/${fileId}/download`, '_blank');
+    };
 
     const formatElapsedTime = useCallback((start: string): string => {
         const serverNow = currentTime.getTime() + serverTimeOffset;
@@ -414,6 +495,101 @@ export const SessionDetail: React.FC = () => {
                         </Card>
                     </section>
                 )}
+
+                {/* Question Files Section */}
+                <section className="mt-8">
+                    <div className="flex justify-between items-center mb-4 px-6">
+                        <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide">
+                            Question Files ({questionFiles.length})
+                        </h2>
+                        {activeSession?.isActive && (
+                            <div>
+                                <input
+                                    ref={questionFileInputRef}
+                                    type="file"
+                                    onChange={handleQuestionUpload}
+                                    className="hidden"
+                                    id="question-file-upload"
+                                />
+                                <label
+                                    htmlFor="question-file-upload"
+                                    className={`inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg cursor-pointer hover:bg-indigo-700 transition-colors ${questionUploading ? 'opacity-50 pointer-events-none' : ''}`}
+                                >
+                                    <Upload size={14} />
+                                    {questionUploading ? 'Uploading...' : 'Upload Question File'}
+                                </label>
+                            </div>
+                        )}
+                    </div>
+                    {questionUploadError && (
+                        <p className="text-red-500 text-xs px-6 mb-2">{questionUploadError}</p>
+                    )}
+                    <Card className="border-gray-200 overflow-hidden" padding="none">
+                        {questionFiles.length > 0 ? (
+                            <Table
+                                data={questionFiles}
+                                columns={[
+                                    {
+                                        header: 'File',
+                                        cell: (f: QuestionFileItem) => (
+                                            <div className="flex items-center gap-2">
+                                                <FileText size={16} className="text-indigo-500 flex-shrink-0" />
+                                                <span className="text-gray-800 truncate max-w-xs" title={f.originalName}>
+                                                    {f.originalName}
+                                                </span>
+                                            </div>
+                                        ),
+                                    },
+                                    {
+                                        header: 'Size',
+                                        cell: (f: QuestionFileItem) => (
+                                            <span className="text-gray-600 text-sm">{formatFileSize(f.sizeBytes)}</span>
+                                        ),
+                                    },
+                                    {
+                                        header: 'Uploaded',
+                                        cell: (f: QuestionFileItem) => (
+                                            <span className="text-gray-600 text-sm whitespace-nowrap">
+                                                {new Date(f.createdAt).toLocaleTimeString()}
+                                            </span>
+                                        ),
+                                    },
+                                    {
+                                        header: '',
+                                        cell: (f: QuestionFileItem) => (
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    onClick={() => handleQuestionDownload(f.id)}
+                                                    className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                                                    title="Download"
+                                                >
+                                                    <Download size={16} />
+                                                </button>
+                                                {activeSession?.isActive && (
+                                                    <button
+                                                        onClick={() => handleQuestionDelete(f.id)}
+                                                        className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"
+                                                        title="Delete"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ),
+                                    },
+                                ]}
+                                keyExtractor={(f: QuestionFileItem) => f.id}
+                                emptyMessage=""
+                            />
+                        ) : (
+                            <div className="py-8 text-center text-gray-400 text-sm">
+                                {activeSession?.isActive
+                                    ? 'No question files uploaded yet. Use the button above to add files.'
+                                    : 'No question files were uploaded for this session.'}
+                            </div>
+                        )}
+                    </Card>
+                </section>
 
                 {/* Submissions Section */}
                 {submissions.length > 0 && (

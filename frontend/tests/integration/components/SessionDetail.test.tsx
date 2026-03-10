@@ -355,21 +355,26 @@ describe('SessionDetail', () => {
   });
 
   it('should render submissions table when submissions exist', async () => {
-    mockFetch.mockResolvedValue({
-      json: () => Promise.resolve({
-        success: true,
-        data: [
-          {
-            id: 'sub-1',
-            originalName: 'answer.pdf',
-            storedName: 'abc123.pdf',
-            mimeType: 'application/pdf',
-            sizeBytes: 2048,
-            createdAt: '2024-01-01T00:30:00Z',
-            student: { studentId: 'S001', name: 'Alice' },
-          },
-        ],
-      }),
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/questions')) {
+        return Promise.resolve({ json: () => Promise.resolve({ success: true, data: [] }) });
+      }
+      return Promise.resolve({
+        json: () => Promise.resolve({
+          success: true,
+          data: [
+            {
+              id: 'sub-1',
+              originalName: 'answer.pdf',
+              storedName: 'abc123.pdf',
+              mimeType: 'application/pdf',
+              sizeBytes: 2048,
+              createdAt: '2024-01-01T00:30:00Z',
+              student: { studentId: 'S001', name: 'Alice' },
+            },
+          ],
+        }),
+      });
     });
 
     render(<SessionDetail />);
@@ -386,21 +391,26 @@ describe('SessionDetail', () => {
     const windowOpenSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     localStorage.setItem('teacherToken', 'my-token');
 
-    mockFetch.mockResolvedValue({
-      json: () => Promise.resolve({
-        success: true,
-        data: [
-          {
-            id: 'sub-1',
-            originalName: 'answer.pdf',
-            storedName: 'stored-file.pdf',
-            mimeType: 'application/pdf',
-            sizeBytes: 512,
-            createdAt: '2024-01-01T00:30:00Z',
-            student: { studentId: 'S001', name: 'Alice' },
-          },
-        ],
-      }),
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/questions')) {
+        return Promise.resolve({ json: () => Promise.resolve({ success: true, data: [] }) });
+      }
+      return Promise.resolve({
+        json: () => Promise.resolve({
+          success: true,
+          data: [
+            {
+              id: 'sub-1',
+              originalName: 'answer.pdf',
+              storedName: 'stored-file.pdf',
+              mimeType: 'application/pdf',
+              sizeBytes: 512,
+              createdAt: '2024-01-01T00:30:00Z',
+              student: { studentId: 'S001', name: 'Alice' },
+            },
+          ],
+        }),
+      });
     });
 
     render(<SessionDetail />);
@@ -474,5 +484,141 @@ describe('SessionDetail', () => {
     // The timer value should have rose color class
     const timerEl = screen.getByText('Time Remaining').nextElementSibling;
     expect(timerEl?.className).toContain('text-rose-500');
+  });
+
+  /* ── Question Files ─────────────────────────────────────────── */
+
+  describe('question files', () => {
+    const questionResponse = {
+      success: true,
+      data: [
+        { id: 'qf-1', originalName: 'exam-paper.pdf', sizeBytes: 8192, createdAt: '2024-01-01T00:10:00Z' },
+      ],
+    };
+
+    const urlAwareFetch = (questionsData: unknown, submissionsData: unknown = { success: true, data: [] }) =>
+      (url: string) => {
+        const body = (url as string).includes('/questions') ? questionsData : submissionsData;
+        return Promise.resolve({ json: () => Promise.resolve(body) });
+      };
+
+    it('should render question files section with file list', async () => {
+      mockFetch.mockImplementation(urlAwareFetch(questionResponse));
+
+      render(<SessionDetail />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Question Files (1)')).toBeInTheDocument();
+      });
+      expect(screen.getByText('exam-paper.pdf')).toBeInTheDocument();
+      expect(screen.getByText('8.0 KB')).toBeInTheDocument();
+    });
+
+    it('should show upload button only for active session', async () => {
+      mockFetch.mockImplementation(urlAwareFetch({ success: true, data: [] }));
+
+      render(<SessionDetail />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Upload Question File')).toBeInTheDocument();
+      });
+    });
+
+    it('should hide upload button for ended session', async () => {
+      mockHookReturn.activeSession = {
+        id: '1', code: 'TEST01', isActive: false,
+        createdAt: '2024-01-01T00:00:00Z', endedAt: '2024-01-01T01:00:00Z',
+      };
+      mockFetch.mockImplementation(urlAwareFetch({ success: true, data: [] }));
+
+      render(<SessionDetail />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Question Files (0)')).toBeInTheDocument();
+      });
+      expect(screen.queryByText('Upload Question File')).not.toBeInTheDocument();
+    });
+
+    it('should show delete button only for active session', async () => {
+      mockFetch.mockImplementation(urlAwareFetch(questionResponse));
+
+      render(<SessionDetail />);
+
+      await waitFor(() => {
+        expect(screen.getByTitle('Delete')).toBeInTheDocument();
+      });
+    });
+
+    it('should open download link for question file', async () => {
+      const user = userEvent.setup();
+      const windowOpenSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+      mockFetch.mockImplementation(urlAwareFetch(questionResponse));
+
+      render(<SessionDetail />);
+
+      await waitFor(() => {
+        expect(screen.getAllByTitle('Download').length).toBeGreaterThanOrEqual(1);
+      });
+
+      // Click the first Download button (question file)
+      const downloadButtons = screen.getAllByTitle('Download');
+      await user.click(downloadButtons[0]);
+
+      expect(windowOpenSpy).toHaveBeenCalledWith(
+        expect.stringContaining('/questions/qf-1/download'),
+        '_blank',
+      );
+    });
+
+    it('should call delete endpoint and remove file from list', async () => {
+      const user = userEvent.setup();
+      let deleteCalled = false;
+      mockFetch.mockImplementation((url: string, options?: RequestInit) => {
+        if ((url as string).includes('/questions') && options?.method === 'DELETE') {
+          deleteCalled = true;
+          return Promise.resolve({ json: () => Promise.resolve({ success: true }) });
+        }
+        return urlAwareFetch(questionResponse)(url);
+      });
+
+      render(<SessionDetail />);
+
+      await waitFor(() => {
+        expect(screen.getByTitle('Delete')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTitle('Delete'));
+
+      await waitFor(() => {
+        expect(deleteCalled).toBe(true);
+      });
+    });
+
+    it('should upload a question file and add to list', async () => {
+      const user = userEvent.setup();
+      const newFile = { id: 'qf-new', originalName: 'new-q.pdf', sizeBytes: 1024, createdAt: '2024-01-01T00:15:00Z' };
+      localStorage.setItem('teacherToken', 'test-token');
+
+      mockFetch.mockImplementation((url: string, options?: RequestInit) => {
+        if ((url as string).includes('/questions') && options?.method === 'POST') {
+          return Promise.resolve({ json: () => Promise.resolve({ success: true, data: newFile }) });
+        }
+        return urlAwareFetch({ success: true, data: [] })(url);
+      });
+
+      render(<SessionDetail />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Upload Question File')).toBeInTheDocument();
+      });
+
+      const fileInput = document.getElementById('question-file-upload') as HTMLInputElement;
+      const file = new File(['content'], 'new-q.pdf', { type: 'application/pdf' });
+      await user.upload(fileInput, file);
+
+      await waitFor(() => {
+        expect(screen.getByText('new-q.pdf')).toBeInTheDocument();
+      });
+    });
   });
 });
