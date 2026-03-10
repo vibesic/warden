@@ -18,4 +18,4 @@ RUN mkdir -p /app/data
 
 EXPOSE ${PORT:-4444}
 
-CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && npm run dev"]
+CMD ["sh", "-c", "npx prisma generate && npx prisma db push --skip-generate --accept-data-loss && npm run dev"]
