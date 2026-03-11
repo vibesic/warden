@@ -36,27 +36,32 @@ vi.mock('@src/utils/probeStore', () => ({
   clearAllProbes: vi.fn().mockResolvedValue(undefined),
 }));
 
+/* ------------------------------------------------------------------ */
+/*  Mock the exam session context                                     */
+/* ------------------------------------------------------------------ */
+
+const mockReportViolation = vi.fn();
+let mockIsConnected = true;
+
+vi.mock('@src/contexts/ExamSessionContext', () => ({
+  useExamSession: () => ({
+    isConnected: mockIsConnected,
+    sessionCode: 'ABC123',
+    reportViolation: mockReportViolation,
+    studentId: 'S001',
+    studentName: 'Alice',
+    isViolating: false,
+    sessionEnded: false,
+    showEndModal: false,
+    remainingTime: null,
+    questionFiles: [],
+    onLogout: vi.fn(),
+  }),
+}));
+
 import { render } from '@testing-library/react';
 import { DisconnectDetector } from '@src/components/exam/DisconnectDetector';
 import { readAllProbes } from '@src/utils/probeStore';
-
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                           */
-/* ------------------------------------------------------------------ */
-
-type ReportViolationFn = (type: string, details: string, reason: string) => void;
-
-interface TestProps {
-  isConnected: boolean;
-  sessionCode: string;
-  reportViolation: ReportViolationFn;
-}
-
-const defaultProps = (): TestProps => ({
-  isConnected: true,
-  sessionCode: 'ABC123',
-  reportViolation: vi.fn<ReportViolationFn>(),
-});
 
 /* ------------------------------------------------------------------ */
 /*  Tests                                                             */
@@ -66,49 +71,42 @@ describe('DisconnectDetector', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGap = null;
+    mockIsConnected = true;
   });
 
   it('should render nothing (returns null)', () => {
-    const props = defaultProps();
-    const { container } = render(
-      <DisconnectDetector {...props} />
-    );
+    const { container } = render(<DisconnectDetector />);
     expect(container.firstChild).toBeNull();
   });
 
   it('should not report violation when connected the whole time', () => {
-    const props = defaultProps();
-    render(<DisconnectDetector {...props} />);
-    expect(props.reportViolation).not.toHaveBeenCalled();
+    render(<DisconnectDetector />);
+    expect(mockReportViolation).not.toHaveBeenCalled();
   });
 
   it('should not report violation for short disconnect (<120s)', () => {
-    const props = defaultProps();
-    props.isConnected = false;
-
-    const { rerender } = render(<DisconnectDetector {...props} />);
+    mockIsConnected = false;
+    const { rerender } = render(<DisconnectDetector />);
 
     // Simulate quick reconnect
-    props.isConnected = true;
-    rerender(<DisconnectDetector {...props} />);
+    mockIsConnected = true;
+    rerender(<DisconnectDetector />);
 
-    expect(props.reportViolation).not.toHaveBeenCalled();
+    expect(mockReportViolation).not.toHaveBeenCalled();
   });
 
   it('should report DISCONNECTION violation for long disconnect (>120s)', async () => {
-    const props = defaultProps();
-    props.isConnected = false;
-
-    const { rerender } = render(<DisconnectDetector {...props} />);
+    mockIsConnected = false;
+    const { rerender } = render(<DisconnectDetector />);
 
     // Simulate passage of >120s using Date.now
     const now = Date.now();
     vi.spyOn(Date, 'now').mockReturnValue(now + 150_000);
 
-    props.isConnected = true;
-    rerender(<DisconnectDetector {...props} />);
+    mockIsConnected = true;
+    rerender(<DisconnectDetector />);
 
-    expect(props.reportViolation).toHaveBeenCalledWith(
+    expect(mockReportViolation).toHaveBeenCalledWith(
       'DISCONNECTION',
       expect.stringContaining('disconnected from exam server for 150s'),
       'PROLONGED_ABSENCE',
@@ -116,13 +114,11 @@ describe('DisconnectDetector', () => {
   });
 
   it('should trigger SW probe on reconnect', async () => {
-    const props = defaultProps();
-    props.isConnected = false;
+    mockIsConnected = false;
+    const { rerender } = render(<DisconnectDetector />);
 
-    const { rerender } = render(<DisconnectDetector {...props} />);
-
-    props.isConnected = true;
-    rerender(<DisconnectDetector {...props} />);
+    mockIsConnected = true;
+    rerender(<DisconnectDetector />);
 
     // Allow async effects to complete
     await vi.waitFor(() => {
@@ -131,20 +127,19 @@ describe('DisconnectDetector', () => {
   });
 
   it('should report INTERNET_ACCESS when SW probes find reachable results', async () => {
-    const props = defaultProps();
-    props.isConnected = false;
+    mockIsConnected = false;
 
     vi.mocked(readAllProbes).mockResolvedValueOnce([
       { timestamp: 1700000000000, reachable: true, source: 'background-sync' },
     ]);
 
-    const { rerender } = render(<DisconnectDetector {...props} />);
+    const { rerender } = render(<DisconnectDetector />);
 
-    props.isConnected = true;
-    rerender(<DisconnectDetector {...props} />);
+    mockIsConnected = true;
+    rerender(<DisconnectDetector />);
 
     await vi.waitFor(() => {
-      expect(props.reportViolation).toHaveBeenCalledWith(
+      expect(mockReportViolation).toHaveBeenCalledWith(
         'INTERNET_ACCESS',
         expect.stringContaining('Service Worker detected internet access'),
         'CLIENT_PROBE',
@@ -153,23 +148,22 @@ describe('DisconnectDetector', () => {
   });
 
   it('should not report INTERNET_ACCESS when all probes are unreachable', async () => {
-    const props = defaultProps();
-    props.isConnected = false;
+    mockIsConnected = false;
 
     vi.mocked(readAllProbes).mockResolvedValueOnce([
       { timestamp: 1700000000000, reachable: false, source: 'background-sync' },
     ]);
 
-    const { rerender } = render(<DisconnectDetector {...props} />);
+    const { rerender } = render(<DisconnectDetector />);
 
-    props.isConnected = true;
-    rerender(<DisconnectDetector {...props} />);
+    mockIsConnected = true;
+    rerender(<DisconnectDetector />);
 
     await vi.waitFor(() => {
       expect(mockRequestProbe).toHaveBeenCalledOnce();
     });
 
-    expect(props.reportViolation).not.toHaveBeenCalledWith(
+    expect(mockReportViolation).not.toHaveBeenCalledWith(
       'INTERNET_ACCESS',
       expect.anything(),
       expect.anything(),
@@ -186,10 +180,9 @@ describe('DisconnectDetector', () => {
       networkChanged: false,
     };
 
-    const props = defaultProps();
-    render(<DisconnectDetector {...props} />);
+    render(<DisconnectDetector />);
 
-    expect(props.reportViolation).toHaveBeenCalledWith(
+    expect(mockReportViolation).toHaveBeenCalledWith(
       'DISCONNECTION',
       expect.stringContaining('App was inactive for 60s'),
       'PROLONGED_ABSENCE',
@@ -207,10 +200,9 @@ describe('DisconnectDetector', () => {
       networkChanged: true,
     };
 
-    const props = defaultProps();
-    render(<DisconnectDetector {...props} />);
+    render(<DisconnectDetector />);
 
-    expect(props.reportViolation).toHaveBeenCalledWith(
+    expect(mockReportViolation).toHaveBeenCalledWith(
       'DISCONNECTION',
       expect.stringContaining('Network fingerprint changed'),
       'PROLONGED_ABSENCE',
@@ -227,10 +219,9 @@ describe('DisconnectDetector', () => {
       networkChanged: false,
     };
 
-    const props = defaultProps();
-    props.isConnected = false;
-    render(<DisconnectDetector {...props} />);
+    mockIsConnected = false;
+    render(<DisconnectDetector />);
 
-    expect(props.reportViolation).not.toHaveBeenCalled();
+    expect(mockReportViolation).not.toHaveBeenCalled();
   });
 });

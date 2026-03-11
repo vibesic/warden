@@ -74,16 +74,18 @@ describe('Teacher Handlers - Extended', () => {
   };
 
   describe('dashboard:join_session', () => {
-    it('should reject without auth token', async () => {
+    it('should silently ignore without auth token (#16 connection-level auth)', async () => {
       const socket = await connectStudent();
 
-      await new Promise<void>((resolve) => {
-        socket.on('dashboard:error', (data: { message: string }) => {
-          expect(data.message).toContain('Unauthorized');
-          resolve();
-        });
-        socket.emit('dashboard:join_session', { sessionCode: '123456' });
-      });
+      const errorSpy = vi.fn();
+      socket.on('dashboard:error', errorSpy);
+
+      socket.emit('dashboard:join_session', { sessionCode: '123456' });
+
+      await new Promise(r => setTimeout(r, 200));
+
+      // Teacher handlers not registered for unauthenticated sockets
+      expect(errorSpy).not.toHaveBeenCalled();
 
       socket.close();
     });

@@ -201,7 +201,7 @@ describe('Security Tests', () => {
   });
 
   describe('Teacher Auth Edge Cases', () => {
-    it('should reject all teacher actions with empty token', async () => {
+    it('should silently ignore all teacher actions with empty token (#16 connection-level auth)', async () => {
       const socket = Client(`http://localhost:${port}`, { auth: { token: '' } });
       await new Promise<void>((r) => socket.on('connect', r));
 
@@ -215,23 +215,27 @@ describe('Security Tests', () => {
 
       await new Promise((r) => setTimeout(r, 300));
 
-      expect(errors.length).toBe(4);
-      errors.forEach((msg) => expect(msg).toContain('Unauthorized'));
+      // Teacher handlers are not registered for invalid tokens — events are silently ignored
+      expect(errors.length).toBe(0);
 
       socket.disconnect();
     });
 
-    it('should reject teacher actions with malformed token', async () => {
+    it('should silently ignore teacher actions with malformed token (#16)', async () => {
       const socket = Client(`http://localhost:${port}`, { auth: { token: 'not-a-real-token' } });
       await new Promise<void>((r) => socket.on('connect', r));
 
-      const errorPromise = new Promise<{ message: string }>((resolve) => {
-        socket.on('dashboard:error', (data: { message: string }) => resolve(data));
-      });
+      const errorSpy = vi.fn();
+      const overviewSpy = vi.fn();
+      socket.on('dashboard:error', errorSpy);
+      socket.on('dashboard:overview', overviewSpy);
 
       socket.emit('dashboard:join_overview');
-      const err = await errorPromise;
-      expect(err.message).toContain('Unauthorized');
+
+      await new Promise((r) => setTimeout(r, 300));
+
+      expect(errorSpy).not.toHaveBeenCalled();
+      expect(overviewSpy).not.toHaveBeenCalled();
 
       socket.disconnect();
     });

@@ -1,6 +1,30 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+/* ------------------------------------------------------------------ */
+/*  Mock the exam session context                                     */
+/* ------------------------------------------------------------------ */
+
+let mockSessionCode = 'ABC123';
+let mockStudentId = 'S001';
+
+vi.mock('@src/contexts/ExamSessionContext', () => ({
+  useExamSession: () => ({
+    sessionCode: mockSessionCode,
+    studentId: mockStudentId,
+    studentName: 'Alice',
+    isConnected: true,
+    isViolating: false,
+    sessionEnded: false,
+    showEndModal: false,
+    remainingTime: null,
+    questionFiles: [],
+    reportViolation: vi.fn(),
+    onLogout: vi.fn(),
+  }),
+}));
+
 import { FileUploadSection } from '@src/components/exam/FileUploadSection';
 
 const mockFetch = vi.fn();
@@ -8,16 +32,18 @@ const mockFetch = vi.fn();
 beforeEach(() => {
   mockFetch.mockReset();
   vi.stubGlobal('fetch', mockFetch);
+  mockSessionCode = 'ABC123';
+  mockStudentId = 'S001';
 });
 
 describe('FileUploadSection', () => {
   it('should render the upload label', () => {
-    render(<FileUploadSection sessionCode="ABC123" studentId="S001" />);
+    render(<FileUploadSection />);
     expect(screen.getByText('Upload File')).toBeInTheDocument();
   });
 
   it('should have a hidden file input', () => {
-    render(<FileUploadSection sessionCode="ABC123" studentId="S001" />);
+    render(<FileUploadSection />);
     const input = document.getElementById('file-upload') as HTMLInputElement;
     expect(input).toBeInTheDocument();
     expect(input.type).toBe('file');
@@ -32,7 +58,7 @@ describe('FileUploadSection', () => {
       }),
     });
 
-    render(<FileUploadSection sessionCode="ABC123" studentId="S001" />);
+    render(<FileUploadSection />);
 
     const input = document.getElementById('file-upload') as HTMLInputElement;
     const file = new File(['content'], 'answer.pdf', { type: 'application/pdf' });
@@ -58,7 +84,9 @@ describe('FileUploadSection', () => {
       }),
     });
 
-    render(<FileUploadSection sessionCode="SESS42" studentId="STU99" />);
+    mockSessionCode = 'SESS42';
+    mockStudentId = 'STU99';
+    render(<FileUploadSection />);
 
     const input = document.getElementById('file-upload') as HTMLInputElement;
     const file = new File(['test'], 'test.txt', { type: 'text/plain' });
@@ -82,7 +110,7 @@ describe('FileUploadSection', () => {
       }),
     });
 
-    render(<FileUploadSection sessionCode="ABC123" studentId="S001" />);
+    render(<FileUploadSection />);
 
     const input = document.getElementById('file-upload') as HTMLInputElement;
     const file = new File(['x'], 'big.zip', { type: 'application/zip' });
@@ -97,7 +125,7 @@ describe('FileUploadSection', () => {
     const user = userEvent.setup();
     mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-    render(<FileUploadSection sessionCode="ABC123" studentId="S001" />);
+    render(<FileUploadSection />);
 
     const input = document.getElementById('file-upload') as HTMLInputElement;
     const file = new File(['x'], 'test.txt', { type: 'text/plain' });
@@ -115,7 +143,7 @@ describe('FileUploadSection', () => {
 
     mockFetch.mockReturnValueOnce(uploadPromise);
 
-    render(<FileUploadSection sessionCode="ABC123" studentId="S001" />);
+    render(<FileUploadSection />);
 
     const input = document.getElementById('file-upload') as HTMLInputElement;
     const file = new File(['x'], 'test.txt', { type: 'text/plain' });
@@ -142,7 +170,7 @@ describe('FileUploadSection', () => {
       }),
     });
 
-    render(<FileUploadSection sessionCode="ABC123" studentId="S001" />);
+    render(<FileUploadSection />);
 
     const input = document.getElementById('file-upload') as HTMLInputElement;
     const file = new File(['content'], 'report.pdf', { type: 'application/pdf' });
@@ -171,7 +199,7 @@ describe('FileUploadSection', () => {
         }),
       });
 
-    render(<FileUploadSection sessionCode="ABC123" studentId="S001" />);
+    render(<FileUploadSection />);
 
     const input = document.getElementById('file-upload') as HTMLInputElement;
 

@@ -2,19 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { useServiceWorker } from '../../hooks/useServiceWorker';
 import { useContinuityClock } from '../../hooks/useContinuityClock';
 import { readAllProbes, clearAllProbes } from '../../utils/probeStore';
-
-interface Props {
-  isConnected: boolean;
-  sessionCode: string;
-  reportViolation: (type: string, details: string, reason: string) => void;
-}
+import { useExamSession } from '../../contexts/ExamSessionContext';
 
 /**
  * Effects-only component that detects disconnects and continuity gaps.
  * Renders nothing — purely handles violation logic that was previously
  * inlined in SecureExamMonitor.
  */
-export const DisconnectDetector: React.FC<Props> = ({ isConnected, sessionCode, reportViolation }) => {
+export const DisconnectDetector: React.FC = () => {
+  const { isConnected, sessionCode, reportViolation } = useExamSession();
   const { requestProbe } = useServiceWorker();
   const { gap, clearGap } = useContinuityClock(sessionCode);
 

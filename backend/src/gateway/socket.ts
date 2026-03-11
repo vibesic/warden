@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 import { registerStudentHandlers, startPendingDisconnectSweep, stopPendingDisconnectSweep } from './studentHandlers';
 import { registerTeacherHandlers } from './teacherHandlers';
 import { startHeartbeatChecker, startSnifferChallenger, startTimerChecker } from './backgroundJobs';
+import { verifyTeacherToken } from '../services/auth.service';
 
 interface SocketCleanup {
   clearIntervals: () => void;
@@ -17,7 +18,14 @@ export const initializeSocket = (io: Server): SocketCleanup => {
     });
 
     registerStudentHandlers(io, socket);
-    registerTeacherHandlers(io, socket);
+
+    // Only register teacher handlers for sockets with a valid teacher token.
+    // Per-event isTeacherAuthenticated checks remain as defense-in-depth.
+    const token = socket.handshake.auth?.token;
+    if (typeof token === 'string' && verifyTeacherToken(token)) {
+      socket.data.isTeacher = true;
+      registerTeacherHandlers(io, socket);
+    }
   });
 
   startPendingDisconnectSweep();

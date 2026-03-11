@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { API_BASE_URL } from '../../config/api';
 import { formatFileSize } from '../../utils/format';
+import { useExamSession } from '../../contexts/ExamSessionContext';
 
 interface UploadedFile {
   id: string;
@@ -9,12 +10,8 @@ interface UploadedFile {
   createdAt: string;
 }
 
-interface Props {
-  sessionCode: string;
-  studentId: string;
-}
-
-export const FileUploadSection: React.FC<Props> = ({ sessionCode, studentId }) => {
+export const FileUploadSection: React.FC = () => {
+  const { sessionCode, studentId } = useExamSession();
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');

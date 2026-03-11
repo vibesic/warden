@@ -210,18 +210,23 @@ describe('Socket Gateway', () => {
     teacherSocket.close();
   });
 
-  it('should reject dashboard:join_overview without auth token', async () => {
-    // Create client without a token
+  it('should silently ignore dashboard:join_overview on unauthenticated sockets (#16 connection-level auth)', async () => {
+    // Without the teacher token, teacher handlers are not registered at all
     const unauthSocket = Client(`http://localhost:${port}`);
     await new Promise<void>((resolve) => unauthSocket.on('connect', resolve));
 
-    await new Promise<void>((resolve) => {
-      unauthSocket.on('dashboard:error', (data: any) => {
-        expect(data.message).toContain('Unauthorized');
-        resolve();
-      });
-      unauthSocket.emit('dashboard:join_overview');
-    });
+    const errorSpy = vi.fn();
+    const overviewSpy = vi.fn();
+    unauthSocket.on('dashboard:error', errorSpy);
+    unauthSocket.on('dashboard:overview', overviewSpy);
+
+    unauthSocket.emit('dashboard:join_overview');
+
+    await new Promise(r => setTimeout(r, 200));
+
+    // No handler means no response at all
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(overviewSpy).not.toHaveBeenCalled();
 
     unauthSocket.close();
   });
@@ -248,17 +253,21 @@ describe('Socket Gateway', () => {
     teacherSocket.close();
   });
 
-  it('should reject teacher:create_session without auth token', async () => {
+  it('should silently ignore teacher:create_session on unauthenticated sockets (#16)', async () => {
     const unauthSocket = Client(`http://localhost:${port}`);
     await new Promise<void>((resolve) => unauthSocket.on('connect', resolve));
 
-    await new Promise<void>((resolve) => {
-      unauthSocket.on('dashboard:error', (data: any) => {
-        expect(data.message).toContain('Unauthorized');
-        resolve();
-      });
-      unauthSocket.emit('teacher:create_session');
-    });
+    const errorSpy = vi.fn();
+    const sessionCreatedSpy = vi.fn();
+    unauthSocket.on('dashboard:error', errorSpy);
+    unauthSocket.on('dashboard:session_created', sessionCreatedSpy);
+
+    unauthSocket.emit('teacher:create_session');
+
+    await new Promise(r => setTimeout(r, 200));
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(sessionCreatedSpy).not.toHaveBeenCalled();
 
     unauthSocket.close();
   });
@@ -280,17 +289,21 @@ describe('Socket Gateway', () => {
     teacherSocket.close();
   });
 
-  it('should reject teacher:end_session without auth token', async () => {
+  it('should silently ignore teacher:end_session on unauthenticated sockets (#16)', async () => {
     const unauthSocket = Client(`http://localhost:${port}`);
     await new Promise<void>((resolve) => unauthSocket.on('connect', resolve));
 
-    await new Promise<void>((resolve) => {
-      unauthSocket.on('dashboard:error', (data: any) => {
-        expect(data.message).toContain('Unauthorized');
-        resolve();
-      });
-      unauthSocket.emit('teacher:end_session');
-    });
+    const errorSpy = vi.fn();
+    const sessionEndedSpy = vi.fn();
+    unauthSocket.on('dashboard:error', errorSpy);
+    unauthSocket.on('dashboard:session_ended', sessionEndedSpy);
+
+    unauthSocket.emit('teacher:end_session');
+
+    await new Promise(r => setTimeout(r, 200));
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(sessionEndedSpy).not.toHaveBeenCalled();
 
     unauthSocket.close();
   });
@@ -461,5 +474,60 @@ describe('Socket Gateway', () => {
     expect(violationCalls).toHaveLength(0);
 
     reconnectedSocket.disconnect();
+  });
+
+  it('should NOT create violation when student reconnects during async grace processing (#18 race fix)', async () => {
+    // First findFirst call (in disconnect handler) resolves immediately
+    // Second findFirst call (in timer callback) takes 500ms to simulate slow DB
+    prismaMock.session.findFirst
+      .mockResolvedValueOnce({ id: 's1', code: '123456', isActive: true, createdAt: new Date() })
+      .mockImplementationOnce(() =>
+        new Promise(resolve =>
+          setTimeout(() => resolve({ id: 's1', code: '123456', isActive: true, createdAt: new Date() }), 500)
+        )
+      );
+
+    const registerData = { studentId: 'race_student', name: 'Race Test', sessionCode: '123456' };
+    prismaMock.student.upsert.mockResolvedValue({ id: 'stu-race', studentId: 'race_student', name: 'Race Test' } as any);
+    prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-race', student: { studentId: 'race_student', name: 'Race Test' } } as any);
+    prismaMock.sessionStudent.update.mockResolvedValue({} as any);
+
+    // Register student
+    await new Promise<void>(resolve => {
+      clientSocket.emit('register', registerData);
+      clientSocket.once('registered', () => resolve());
+    });
+
+    // Disconnect - starts grace timer (100ms)
+    clientSocket.disconnect();
+
+    // Wait 150ms — timer has fired (100ms), started async DB call (500ms delay)
+    await new Promise(r => setTimeout(r, 150));
+
+    // Clear violation mock to only track post-reconnect violations
+    prismaMock.violation.create.mockClear();
+
+    // Reconnect while timer callback is in the middle of async work
+    const reconnectSocket = Client(`http://localhost:${port}`);
+    await new Promise<void>(r => reconnectSocket.on('connect', r));
+
+    prismaMock.student.upsert.mockResolvedValue({ id: 'stu-race', studentId: 'race_student', name: 'Race Test' } as any);
+    prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-race', student: { studentId: 'race_student', name: 'Race Test' } } as any);
+
+    await new Promise<void>(resolve => {
+      reconnectSocket.emit('register', registerData);
+      reconnectSocket.once('registered', () => resolve());
+    });
+
+    // Wait for the slow DB call to resolve and the timer callback to complete
+    await new Promise(r => setTimeout(r, 600));
+
+    // No DISCONNECTION violation should have been created — cancelled flag prevented it
+    const violationCalls = prismaMock.violation.create.mock.calls.filter(
+      (args: any[]) => args[0]?.data?.type === 'DISCONNECTION'
+    );
+    expect(violationCalls).toHaveLength(0);
+
+    reconnectSocket.disconnect();
   });
 });

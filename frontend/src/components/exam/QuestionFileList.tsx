@@ -1,20 +1,12 @@
 import React, { useCallback } from 'react';
 import { API_BASE_URL } from '../../config/api';
 import { formatFileSize } from '../../utils/format';
+import { useExamSession } from '../../contexts/ExamSessionContext';
 
-export interface QuestionFileItem {
-  id: string;
-  originalName: string;
-  sizeBytes: number;
-  createdAt: string;
-}
+export type { QuestionFileItem } from '../../types/exam';
 
-interface Props {
-  sessionCode: string;
-  questionFiles: QuestionFileItem[];
-}
-
-export const QuestionFileList: React.FC<Props> = ({ sessionCode, questionFiles }) => {
+export const QuestionFileList: React.FC = () => {
+  const { sessionCode, questionFiles } = useExamSession();
   const handleDownload = useCallback((fileId: string) => {
     window.open(`${API_BASE_URL}/api/session/${sessionCode}/questions/${fileId}/download`, '_blank');
   }, [sessionCode]);

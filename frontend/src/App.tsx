@@ -1,11 +1,28 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { SecureExamMonitor } from './components/SecureExamMonitor';
-import { TeacherDashboard } from './components/TeacherDashboard';
-import { SessionDetail } from './components/SessionDetail';
-import { StudentLogin } from './components/StudentLogin';
-import { TeacherLogin } from './components/TeacherLogin';
 import { API_BASE_URL } from './config/api';
+
+const SecureExamMonitor = React.lazy(() =>
+    import('./components/SecureExamMonitor').then(m => ({ default: m.SecureExamMonitor }))
+);
+const TeacherDashboard = React.lazy(() =>
+    import('./components/TeacherDashboard').then(m => ({ default: m.TeacherDashboard }))
+);
+const SessionDetail = React.lazy(() =>
+    import('./components/SessionDetail').then(m => ({ default: m.SessionDetail }))
+);
+const StudentLogin = React.lazy(() =>
+    import('./components/StudentLogin').then(m => ({ default: m.StudentLogin }))
+);
+const TeacherLogin = React.lazy(() =>
+    import('./components/TeacherLogin').then(m => ({ default: m.TeacherLogin }))
+);
+
+const LazyFallback: React.FC = () => (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-gray-500 text-sm">Loading...</div>
+    </div>
+);
 
 // Wrapper for Student Exam View
 const StudentExamPage = () => {
@@ -121,37 +138,39 @@ const AppContent = () => {
     };
 
     return (
-        <Routes>
-            <Route path="/student/login" element={
-                <StudentLogin
-                    onLogin={handleStudentLogin}
-                    onSwitchToTeacher={() => navigate('/teacher/login')}
-                />
-            } />
+        <Suspense fallback={<LazyFallback />}>
+            <Routes>
+                <Route path="/student/login" element={
+                    <StudentLogin
+                        onLogin={handleStudentLogin}
+                        onSwitchToTeacher={() => navigate('/teacher/login')}
+                    />
+                } />
 
-            <Route path="/teacher/login" element={
-                <TeacherLogin
-                    onLogin={handleTeacherLogin}
-                    onSwitchToStudent={() => navigate('/student/login')}
-                />
-            } />
+                <Route path="/teacher/login" element={
+                    <TeacherLogin
+                        onLogin={handleTeacherLogin}
+                        onSwitchToStudent={() => navigate('/student/login')}
+                    />
+                } />
 
-            <Route path="/student/exam" element={<StudentExamPage />} />
+                <Route path="/student/exam" element={<StudentExamPage />} />
 
-            <Route path="/teacher" element={
-                <TeacherRoute>
-                    <TeacherDashboard onLogout={teacherLogout} />
-                </TeacherRoute>
-            } />
+                <Route path="/teacher" element={
+                    <TeacherRoute>
+                        <TeacherDashboard onLogout={teacherLogout} />
+                    </TeacherRoute>
+                } />
 
-            <Route path="/teacher/session/:sessionCode" element={
-                <TeacherRoute>
-                    <SessionDetail />
-                </TeacherRoute>
-            } />
+                <Route path="/teacher/session/:sessionCode" element={
+                    <TeacherRoute>
+                        <SessionDetail />
+                    </TeacherRoute>
+                } />
 
-            <Route path="/" element={<Navigate to="/student/login" replace />} />
-        </Routes>
+                <Route path="/" element={<Navigate to="/student/login" replace />} />
+            </Routes>
+        </Suspense>
     );
 };
 

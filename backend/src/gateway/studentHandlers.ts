@@ -35,6 +35,7 @@ export const setDisconnectGraceMs = (ms: number): void => {
 interface PendingDisconnect {
   timer: NodeJS.Timeout;
   createdAt: number;
+  cancelled: boolean;
 }
 
 /** Pending disconnect entries keyed by studentId. */
@@ -54,6 +55,7 @@ export const startPendingDisconnectSweep = (): void => {
     const maxAge = disconnectGraceMs * 2;
     for (const [studentId, entry] of pendingDisconnects) {
       if (now - entry.createdAt > maxAge) {
+        entry.cancelled = true;
         clearTimeout(entry.timer);
         pendingDisconnects.delete(studentId);
         logger.warn({ studentId }, 'Stale pending disconnect entry swept');
@@ -79,7 +81,8 @@ export const stopPendingDisconnectSweep = (): void => {
  */
 export const cancelPendingDisconnect = (studentId: string): boolean => {
   const entry = pendingDisconnects.get(studentId);
-  if (entry) {
+  if (entry && !entry.cancelled) {
+    entry.cancelled = true;
     clearTimeout(entry.timer);
     pendingDisconnects.delete(studentId);
     logger.info({ studentId }, 'Reconnected within grace period — disconnect violation cancelled');
@@ -94,6 +97,7 @@ export const cancelPendingDisconnect = (studentId: string): boolean => {
  */
 export const clearAllPendingDisconnects = (): void => {
   for (const entry of pendingDisconnects.values()) {
+    entry.cancelled = true;
     clearTimeout(entry.timer);
   }
   pendingDisconnects.clear();
@@ -285,14 +289,28 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
 
       broadcastStudentLeft(io, studentData.sessionCode, studentData.studentId);
 
-      // Delay the violation to allow page-refresh reconnects within the grace period
-      const timer = setTimeout(async () => {
+      // Delay the violation to allow page-refresh reconnects within the grace period.
+      // Keep the entry in the map during async work so cancelPendingDisconnect
+      // can find and flag it even after the timer fires (#18 race fix).
+      const entry: PendingDisconnect = {
+        timer: null as unknown as NodeJS.Timeout,
+        createdAt: Date.now(),
+        cancelled: false,
+      };
+
+      entry.timer = setTimeout(async () => {
         try {
-          pendingDisconnects.delete(studentData.studentId);
+          if (entry.cancelled) {
+            pendingDisconnects.delete(studentData.studentId);
+            return;
+          }
 
           // Re-check session — it may have ended during the grace window
           const currentSession = await getSessionByCode(studentData.sessionCode);
-          if (!currentSession?.isActive) return;
+          if (!currentSession?.isActive || entry.cancelled) {
+            pendingDisconnects.delete(studentData.studentId);
+            return;
+          }
 
           await createAndBroadcastViolation(io, studentData.sessionCode, studentData.studentId, {
             sessionStudentId: studentData.sessionStudentId,
@@ -302,10 +320,12 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
           });
         } catch (error) {
           logger.error({ error, studentId: studentData.studentId }, 'Error in disconnect grace period handler');
+        } finally {
+          pendingDisconnects.delete(studentData.studentId);
         }
       }, disconnectGraceMs);
 
-      pendingDisconnects.set(studentData.studentId, { timer, createdAt: Date.now() });
+      pendingDisconnects.set(studentData.studentId, entry);
     } catch (error) {
       logger.error({ error }, 'Disconnect handler error');
     }

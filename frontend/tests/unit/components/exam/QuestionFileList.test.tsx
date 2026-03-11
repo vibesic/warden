@@ -1,12 +1,40 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { QuestionFileList, type QuestionFileItem } from '@src/components/exam/QuestionFileList';
+import type { QuestionFileItem } from '@src/types/exam';
+
+/* ------------------------------------------------------------------ */
+/*  Mock the exam session context                                     */
+/* ------------------------------------------------------------------ */
+
+let mockSessionCode = 'ABC123';
+let mockQuestionFiles: QuestionFileItem[] = [];
+
+vi.mock('@src/contexts/ExamSessionContext', () => ({
+  useExamSession: () => ({
+    sessionCode: mockSessionCode,
+    questionFiles: mockQuestionFiles,
+    studentId: 'S001',
+    studentName: 'Alice',
+    isConnected: true,
+    isViolating: false,
+    sessionEnded: false,
+    showEndModal: false,
+    remainingTime: null,
+    reportViolation: vi.fn(),
+    onLogout: vi.fn(),
+  }),
+}));
+
+import { QuestionFileList } from '@src/components/exam/QuestionFileList';
 
 const mockOpen = vi.fn();
 
 beforeEach(() => {
   vi.stubGlobal('open', mockOpen);
+  vi.clearAllMocks();
+  mockSessionCode = 'ABC123';
+  mockQuestionFiles = [];
 });
 
 const sampleFiles: QuestionFileItem[] = [
@@ -16,25 +44,26 @@ const sampleFiles: QuestionFileItem[] = [
 
 describe('QuestionFileList', () => {
   it('should render nothing when questionFiles is empty', () => {
-    const { container } = render(
-      <QuestionFileList sessionCode="ABC123" questionFiles={[]} />
-    );
+    const { container } = render(<QuestionFileList />);
     expect(container.firstChild).toBeNull();
   });
 
   it('should render the heading when files exist', () => {
-    render(<QuestionFileList sessionCode="ABC123" questionFiles={sampleFiles} />);
+    mockQuestionFiles = sampleFiles;
+    render(<QuestionFileList />);
     expect(screen.getByText('Question Files')).toBeInTheDocument();
   });
 
   it('should render a button for each question file', () => {
-    render(<QuestionFileList sessionCode="ABC123" questionFiles={sampleFiles} />);
+    mockQuestionFiles = sampleFiles;
+    render(<QuestionFileList />);
     expect(screen.getByText('exam-paper.pdf')).toBeInTheDocument();
     expect(screen.getByText('appendix.docx')).toBeInTheDocument();
   });
 
   it('should show formatted file size', () => {
-    render(<QuestionFileList sessionCode="ABC123" questionFiles={sampleFiles} />);
+    mockQuestionFiles = sampleFiles;
+    render(<QuestionFileList />);
     // 204800 bytes = 200 KB, 51200 = 50 KB
     expect(screen.getByText('200.0 KB')).toBeInTheDocument();
     expect(screen.getByText('50.0 KB')).toBeInTheDocument();
@@ -42,7 +71,8 @@ describe('QuestionFileList', () => {
 
   it('should open download URL in new tab when a file is clicked', async () => {
     const user = userEvent.setup();
-    render(<QuestionFileList sessionCode="ABC123" questionFiles={sampleFiles} />);
+    mockQuestionFiles = sampleFiles;
+    render(<QuestionFileList />);
 
     await user.click(screen.getByText('exam-paper.pdf'));
 
@@ -55,7 +85,9 @@ describe('QuestionFileList', () => {
 
   it('should use the correct sessionCode in the download URL', async () => {
     const user = userEvent.setup();
-    render(<QuestionFileList sessionCode="XYZ999" questionFiles={sampleFiles} />);
+    mockSessionCode = 'XYZ999';
+    mockQuestionFiles = sampleFiles;
+    render(<QuestionFileList />);
 
     await user.click(screen.getByText('appendix.docx'));
 
@@ -66,7 +98,8 @@ describe('QuestionFileList', () => {
   });
 
   it('should render correct number of buttons', () => {
-    render(<QuestionFileList sessionCode="ABC123" questionFiles={sampleFiles} />);
+    mockQuestionFiles = sampleFiles;
+    render(<QuestionFileList />);
     const buttons = screen.getAllByRole('button');
     expect(buttons).toHaveLength(2);
   });
