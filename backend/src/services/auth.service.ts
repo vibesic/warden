@@ -46,13 +46,23 @@ export const verifyTeacherToken = (token: string): boolean => {
   }
 };
 
+const DEFAULT_PASSWORD = 'Proctor2026!';
 let defaultPasswordWarned = false;
 
 export const getTeacherPassword = (): string => {
-  const password = process.env.TEACHER_PASSWORD || 'Proctor2026!';
-  if (password === 'Proctor2026!' && !defaultPasswordWarned) {
-    defaultPasswordWarned = true;
-    logger.warn('Using default teacher password. Set TEACHER_PASSWORD environment variable for production use.');
+  const password = process.env.TEACHER_PASSWORD || DEFAULT_PASSWORD;
+
+  if (password === DEFAULT_PASSWORD) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'Default teacher password is not allowed in production. Set the TEACHER_PASSWORD environment variable.',
+      );
+    }
+    if (!defaultPasswordWarned) {
+      defaultPasswordWarned = true;
+      logger.warn('Using default teacher password. Set TEACHER_PASSWORD environment variable for production use.');
+    }
   }
+
   return password;
 };

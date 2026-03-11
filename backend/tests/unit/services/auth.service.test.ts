@@ -103,5 +103,19 @@ describe('Auth Service', () => {
       process.env.TEACHER_PASSWORD = 'my_secure_pass';
       expect(getTeacherPassword()).toBe('my_secure_pass');
     });
+
+    it('should throw in production mode with default password', () => {
+      delete process.env.TEACHER_PASSWORD;
+      process.env.NODE_ENV = 'production';
+      expect(() => getTeacherPassword()).toThrow(
+        'Default teacher password is not allowed in production',
+      );
+    });
+
+    it('should allow custom password in production mode', () => {
+      process.env.TEACHER_PASSWORD = 'SecureProductionPass!';
+      process.env.NODE_ENV = 'production';
+      expect(getTeacherPassword()).toBe('SecureProductionPass!');
+    });
   });
 });

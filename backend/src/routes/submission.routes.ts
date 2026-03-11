@@ -123,21 +123,31 @@ router.get('/submissions/:sessionCode', requireTeacherAuth, async (req: Request,
 /** Teacher downloads a specific file. */
 router.get('/submissions/:sessionCode/download/:storedName', requireTeacherAuth, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { storedName } = req.params;
+    const { sessionCode, storedName } = req.params;
     const safeName = path.basename(storedName);
-    const filePath = path.join(UPLOADS_DIR, safeName);
 
-    if (!fs.existsSync(filePath)) {
-      res.status(404).json({ success: false, message: 'File not found' });
+    const session = await getSessionByCode(sessionCode);
+    if (!session) {
+      res.status(404).json({ success: false, message: 'Session not found' });
       return;
     }
 
     const submission = await prisma.submission.findFirst({
-      where: { storedName: safeName },
+      where: { storedName: safeName, sessionId: session.id },
     });
 
-    const downloadName = submission?.originalName || safeName;
-    res.download(filePath, downloadName);
+    if (!submission) {
+      res.status(404).json({ success: false, message: 'File not found' });
+      return;
+    }
+
+    const filePath = path.join(UPLOADS_DIR, safeName);
+    if (!fs.existsSync(filePath)) {
+      res.status(404).json({ success: false, message: 'File not found on disk' });
+      return;
+    }
+
+    res.download(filePath, submission.originalName);
   } catch (error) {
     logger.error({ error }, 'Error downloading file');
     res.status(500).json({ success: false, message: 'Internal Server Error' });

@@ -7,12 +7,13 @@ import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { validateSession } from '../services/session.service';
 import { requireTeacherAuth } from '../middleware/authMiddleware';
+import { sessionValidationRateLimiter } from '../middleware/rateLimiter';
 import { PUBLIC_DOMAINS } from '../utils/domainList';
 
 const router = Router();
 
 /** Public: validate a session code (used by student login). */
-router.get('/session/:code', async (req: Request, res: Response): Promise<void> => {
+router.get('/session/:code', sessionValidationRateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const { code } = req.params;
     const result = await validateSession(code);

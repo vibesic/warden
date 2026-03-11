@@ -4,9 +4,11 @@ import { createSession, endSession, getActiveSession, getSessionHistory, getSess
 import { getSessionStudentsForSession } from '../services/student.service';
 import { CreateSessionSchema, JoinSessionSchema } from '../types/schemas';
 import { isTeacherAuthenticated, emitUnauthorized } from './helpers';
+import { checkSocketRateLimit } from './socketRateLimiter';
 
 export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
   socket.on('dashboard:join_overview', async () => {
+    if (!checkSocketRateLimit(socket, 'dashboard:join_overview')) return;
     if (!isTeacherAuthenticated(socket)) {
       emitUnauthorized(socket);
       return;
@@ -29,6 +31,7 @@ export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
   });
 
   socket.on('dashboard:join_session', async (data: unknown) => {
+    if (!checkSocketRateLimit(socket, 'dashboard:join_session')) return;
     if (!isTeacherAuthenticated(socket)) {
       emitUnauthorized(socket);
       return;
@@ -78,6 +81,7 @@ export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
   });
 
   socket.on('teacher:create_session', async (data?: unknown) => {
+    if (!checkSocketRateLimit(socket, 'teacher:create_session')) return;
     if (!isTeacherAuthenticated(socket)) {
       emitUnauthorized(socket);
       return;
@@ -102,6 +106,7 @@ export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
   });
 
   socket.on('teacher:end_session', async () => {
+    if (!checkSocketRateLimit(socket, 'teacher:end_session')) return;
     if (!isTeacherAuthenticated(socket)) {
       emitUnauthorized(socket);
       return;

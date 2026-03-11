@@ -7,6 +7,7 @@ import { logger } from './utils/logger';
 import { PUBLIC_DOMAINS } from './utils/domainList';
 import { isProductionMode, corsOriginCallback } from './utils/config';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { generalRateLimiter } from './middleware/rateLimiter';
 import { authRoutes } from './routes/auth.routes';
 import { sessionRoutes } from './routes/session.routes';
 import { submissionRoutes } from './routes/submission.routes';
@@ -51,6 +52,9 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+/* ── Rate limiting ───────────────────────────────────────────── */
+app.use('/api', generalRateLimiter);
 
 /* ── Health ──────────────────────────────────────────────────── */
 app.get('/health', (_req, res) => {

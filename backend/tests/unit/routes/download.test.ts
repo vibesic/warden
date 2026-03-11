@@ -22,6 +22,8 @@ vi.mock('@src/utils/prisma', () => ({
   },
 }));
 
+const mockSession = { id: 'session-1', code: '123456', isActive: true };
+
 describe('Download API', () => {
   const UPLOADS_DIR = path.resolve(process.env.UPLOADS_DIR || path.join(__dirname, '..', '..', '..', 'uploads'));
   const testFileName = 'test-download-file.txt';
@@ -30,6 +32,7 @@ describe('Download API', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (prisma.checkTarget.count as ReturnType<typeof vi.fn>).mockResolvedValue(5);
+    (prisma.session.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockSession);
 
     if (!fs.existsSync(UPLOADS_DIR)) {
       fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -66,6 +69,8 @@ describe('Download API', () => {
       const token = generateTeacherToken();
       (prisma.submission.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
         originalName: 'homework.pdf',
+        storedName: testFileName,
+        sessionId: mockSession.id,
       });
 
       const res = await request(app)
@@ -76,6 +81,7 @@ describe('Download API', () => {
 
     it('should return 404 for non-existent file', async () => {
       const token = generateTeacherToken();
+      (prisma.submission.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
       const res = await request(app)
         .get('/api/submissions/123456/download/nonexistent.txt')
@@ -89,6 +95,8 @@ describe('Download API', () => {
       const token = generateTeacherToken();
       (prisma.submission.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
         originalName: 'homework.pdf',
+        storedName: testFileName,
+        sessionId: mockSession.id,
       });
 
       const res = await request(app)
@@ -99,7 +107,7 @@ describe('Download API', () => {
       expect(res.headers['content-disposition']).toContain('homework.pdf');
     });
 
-    it('should download file with stored name if no DB record', async () => {
+    it('should return 404 if submission not in session', async () => {
       const token = generateTeacherToken();
       (prisma.submission.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
@@ -107,8 +115,8 @@ describe('Download API', () => {
         .get(`/api/submissions/123456/download/${testFileName}`)
         .set('Authorization', `Bearer ${token}`);
 
-      expect(res.status).toBe(200);
-      expect(res.headers['content-disposition']).toContain(testFileName);
+      expect(res.status).toBe(404);
+      expect(res.body.message).toBe('File not found');
     });
 
     it('should prevent directory traversal attacks', async () => {
@@ -123,9 +131,21 @@ describe('Download API', () => {
       expect(res.status).toBe(404);
     });
 
+    it('should return 404 for invalid session', async () => {
+      const token = generateTeacherToken();
+      (prisma.session.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      const res = await request(app)
+        .get(`/api/submissions/123456/download/${testFileName}`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(404);
+      expect(res.body.message).toBe('Session not found');
+    });
+
     it('should handle DB error gracefully during download', async () => {
       const token = generateTeacherToken();
-      (prisma.submission.findFirst as ReturnType<typeof vi.fn>).mockRejectedValue(
+      (prisma.session.findUnique as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error('DB connection error')
       );
 

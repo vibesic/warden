@@ -5,11 +5,12 @@
 import { Router, Request, Response } from 'express';
 import { TeacherLoginSchema } from '../types/auth';
 import { generateTeacherToken, getTeacherPassword, verifyTeacherToken } from '../services/auth.service';
+import { authRateLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
 /** Teacher login with password. */
-router.post('/auth/teacher', (req: Request, res: Response): void => {
+router.post('/auth/teacher', authRateLimiter, (req: Request, res: Response): void => {
   const result = TeacherLoginSchema.safeParse(req.body);
   if (!result.success) {
     res.status(400).json({ success: false, message: 'Password is required' });

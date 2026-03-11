@@ -9,6 +9,7 @@ import {
   broadcastStudentLeft,
   resolveDisconnectReason,
 } from './helpers';
+import { checkSocketRateLimit } from './socketRateLimiter';
 import { createViolation } from '../services/violation.service';
 import { parseDeviceInfo } from '../utils/device';
 
@@ -61,6 +62,7 @@ export const clearAllPendingDisconnects = (): void => {
 
 export const registerStudentHandlers = (io: Server, socket: Socket): void => {
   socket.on('register', async (data: unknown) => {
+    if (!checkSocketRateLimit(socket, 'register')) return;
     try {
       const result = RegisterSchema.safeParse(data);
       if (!result.success) {
@@ -121,6 +123,7 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
   });
 
   socket.on('heartbeat', async () => {
+    if (!checkSocketRateLimit(socket, 'heartbeat')) return;
     try {
       const studentData = getSocketStudentData(socket);
       if (!studentData) return;
@@ -135,6 +138,7 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
   });
 
   socket.on('report_violation', async (data: unknown) => {
+    if (!checkSocketRateLimit(socket, 'report_violation')) return;
     try {
       const studentData = getSocketStudentData(socket);
       if (!studentData) {
@@ -165,6 +169,7 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
   });
 
   socket.on('sniffer:response', async (data: unknown) => {
+    if (!checkSocketRateLimit(socket, 'sniffer:response')) return;
     try {
       const studentData = getSocketStudentData(socket);
       if (!studentData) return;
@@ -210,6 +215,7 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
   // This flag lets the disconnect handler distinguish intentional close
   // from a network drop.
   socket.on('student:tab-closing', () => {
+    if (!checkSocketRateLimit(socket, 'student:tab-closing')) return;
     socket.data.tabClosing = true;
     logger.info(
       { studentId: socket.data.studentId },

@@ -224,18 +224,18 @@ describe('Scalability Tests', () => {
 
       prismaMock.sessionStudent.update.mockClear();
 
-      // Send 20 rapid heartbeats
-      for (let i = 0; i < 20; i++) {
+      // Send 5 rapid heartbeats (within token-bucket burst limit)
+      for (let i = 0; i < 5; i++) {
         socket.emit('heartbeat');
       }
 
       await new Promise((r) => setTimeout(r, 500));
 
-      // All heartbeats should be processed
+      // All heartbeats within burst should be processed
       const heartbeatCalls = prismaMock.sessionStudent.update.mock.calls.filter(
         (args: unknown[]) => (args[0] as { data: { isOnline: boolean } }).data.isOnline === true,
       );
-      expect(heartbeatCalls.length).toBe(20);
+      expect(heartbeatCalls.length).toBe(5);
 
       socket.disconnect();
     });
