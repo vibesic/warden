@@ -31,17 +31,55 @@ export const setDisconnectGraceMs = (ms: number): void => {
   disconnectGraceMs = ms;
 };
 
-/** Pending disconnect timers keyed by studentId. */
-const pendingDisconnects = new Map<string, NodeJS.Timeout>();
+interface PendingDisconnect {
+  timer: NodeJS.Timeout;
+  createdAt: number;
+}
+
+/** Pending disconnect entries keyed by studentId. */
+const pendingDisconnects = new Map<string, PendingDisconnect>();
+
+let sweepInterval: NodeJS.Timeout | null = null;
+const SWEEP_INTERVAL_MS = 60_000;
+
+/**
+ * Start a periodic sweep that removes stale pendingDisconnect entries.
+ * Acts as a safety net if a setTimeout callback never fires.
+ */
+export const startPendingDisconnectSweep = (): void => {
+  if (sweepInterval) return;
+  sweepInterval = setInterval(() => {
+    const now = Date.now();
+    const maxAge = disconnectGraceMs * 2;
+    for (const [studentId, entry] of pendingDisconnects) {
+      if (now - entry.createdAt > maxAge) {
+        clearTimeout(entry.timer);
+        pendingDisconnects.delete(studentId);
+        logger.warn({ studentId }, 'Stale pending disconnect entry swept');
+      }
+    }
+  }, SWEEP_INTERVAL_MS);
+};
+
+/**
+ * Stop the pending disconnect sweep.
+ * Called during server shutdown and test teardown.
+ */
+export const stopPendingDisconnectSweep = (): void => {
+  if (sweepInterval) {
+    clearInterval(sweepInterval);
+    sweepInterval = null;
+  }
+};
 
 /**
  * Cancel a pending disconnect violation for a student.
  * Called when the student re-registers within the grace window.
  */
 export const cancelPendingDisconnect = (studentId: string): boolean => {
-  const timer = pendingDisconnects.get(studentId);
-  if (timer) {
-    clearTimeout(timer);
+  const entry = pendingDisconnects.get(studentId);
+  if (entry) {
+    clearTimeout(entry.timer);
     pendingDisconnects.delete(studentId);
     logger.info({ studentId }, 'Reconnected within grace period — disconnect violation cancelled');
     return true;
@@ -54,11 +92,14 @@ export const cancelPendingDisconnect = (studentId: string): boolean => {
  * Intended for test teardown.
  */
 export const clearAllPendingDisconnects = (): void => {
-  for (const timer of pendingDisconnects.values()) {
-    clearTimeout(timer);
+  for (const entry of pendingDisconnects.values()) {
+    clearTimeout(entry.timer);
   }
   pendingDisconnects.clear();
 };
+
+/** Expose pending disconnect count for testing. */
+export const getPendingDisconnectCount = (): number => pendingDisconnects.size;
 
 export const registerStudentHandlers = (io: Server, socket: Socket): void => {
   socket.on('register', async (data: unknown) => {
@@ -224,40 +265,48 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
   });
 
   socket.on('disconnect', async (reason: string) => {
-    const studentData = getSocketStudentData(socket);
-    if (!studentData) return;
+    try {
+      const studentData = getSocketStudentData(socket);
+      if (!studentData) return;
 
-    const tabClosing = socket.data.tabClosing === true;
-    const disconnectInfo = resolveDisconnectReason(reason, tabClosing);
+      const tabClosing = socket.data.tabClosing === true;
+      const disconnectInfo = resolveDisconnectReason(reason, tabClosing);
 
-    logger.info(
-      { studentId: studentData.studentId, reason, tabClosing },
-      'Student disconnected',
-    );
-    await markStudentOffline(studentData.sessionStudentId);
+      logger.info(
+        { studentId: studentData.studentId, reason, tabClosing },
+        'Student disconnected',
+      );
+      await markStudentOffline(studentData.sessionStudentId);
 
-    // Only record a DISCONNECTION violation if the session is still active
-    const session = await getSessionByCode(studentData.sessionCode);
-    if (!session?.isActive) return;
+      // Only record a DISCONNECTION violation if the session is still active
+      const session = await getSessionByCode(studentData.sessionCode);
+      if (!session?.isActive) return;
 
-    broadcastStudentLeft(io, studentData.sessionCode, studentData.studentId);
+      broadcastStudentLeft(io, studentData.sessionCode, studentData.studentId);
 
-    // Delay the violation to allow page-refresh reconnects within the grace period
-    const timer = setTimeout(async () => {
-      pendingDisconnects.delete(studentData.studentId);
+      // Delay the violation to allow page-refresh reconnects within the grace period
+      const timer = setTimeout(async () => {
+        try {
+          pendingDisconnects.delete(studentData.studentId);
 
-      // Re-check session — it may have ended during the grace window
-      const currentSession = await getSessionByCode(studentData.sessionCode);
-      if (!currentSession?.isActive) return;
+          // Re-check session — it may have ended during the grace window
+          const currentSession = await getSessionByCode(studentData.sessionCode);
+          if (!currentSession?.isActive) return;
 
-      await createAndBroadcastViolation(io, studentData.sessionCode, studentData.studentId, {
-        sessionStudentId: studentData.sessionStudentId,
-        type: 'DISCONNECTION',
-        reason: disconnectInfo.reason,
-        details: disconnectInfo.details,
-      });
-    }, disconnectGraceMs);
+          await createAndBroadcastViolation(io, studentData.sessionCode, studentData.studentId, {
+            sessionStudentId: studentData.sessionStudentId,
+            type: 'DISCONNECTION',
+            reason: disconnectInfo.reason,
+            details: disconnectInfo.details,
+          });
+        } catch (error) {
+          logger.error({ error, studentId: studentData.studentId }, 'Error in disconnect grace period handler');
+        }
+      }, disconnectGraceMs);
 
-    pendingDisconnects.set(studentData.studentId, timer);
+      pendingDisconnects.set(studentData.studentId, { timer, createdAt: Date.now() });
+    } catch (error) {
+      logger.error({ error }, 'Disconnect handler error');
+    }
   });
 };

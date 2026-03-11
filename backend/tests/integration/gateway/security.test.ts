@@ -36,6 +36,7 @@ const prismaMock = vi.hoisted(() => ({
       type: 'INTERNET_ACCESS',
       details: '',
     }),
+    findFirst: vi.fn(),
   },
   session: {
     findUnique: vi.fn().mockResolvedValue({

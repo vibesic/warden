@@ -10,6 +10,7 @@ const prismaMock = vi.hoisted(() => ({
   },
   violation: {
     create: vi.fn(),
+    findFirst: vi.fn(),
   },
   checkTarget: {
     count: vi.fn(),

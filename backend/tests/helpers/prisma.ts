@@ -27,6 +27,7 @@ export interface PrismaMock {
   };
   violation: {
     create: ReturnType<typeof vi.fn>;
+    findFirst: ReturnType<typeof vi.fn>;
   };
   session: {
     findUnique: ReturnType<typeof vi.fn>;
@@ -71,6 +72,7 @@ export const createPrismaMock = (): PrismaMock => ({
   },
   violation: {
     create: vi.fn(),
+    findFirst: vi.fn(),
   },
   session: {
     findUnique: vi.fn(),

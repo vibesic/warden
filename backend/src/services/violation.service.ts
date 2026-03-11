@@ -25,6 +25,22 @@ export const createViolation = async (params: CreateViolationParams): Promise<Vi
   });
 };
 
+/**
+ * Query the most recent DISCONNECTION violation for a student.
+ * Used by isDisconnectionOnCooldown as a DB fallback after server restart.
+ */
+export const getLatestDisconnectionTime = async (sessionStudentId: string): Promise<Date | null> => {
+  const violation = await prisma.violation.findFirst({
+    where: {
+      sessionStudentId,
+      type: 'DISCONNECTION',
+    },
+    orderBy: { timestamp: 'desc' },
+    select: { timestamp: true },
+  });
+  return violation?.timestamp ?? null;
+};
+
 export const getRandomCheckTarget = async (): Promise<string | null> => {
   const count = await prisma.checkTarget.count({ where: { isEnabled: true } });
   if (count === 0) return null;

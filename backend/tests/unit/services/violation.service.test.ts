@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createViolation, getRandomCheckTarget } from '@src/services/violation.service';
+import { createViolation, getRandomCheckTarget, getLatestDisconnectionTime } from '@src/services/violation.service';
 import { prisma } from '@src/utils/prisma';
 
 vi.mock('@src/utils/prisma', () => ({
   prisma: {
     violation: {
       create: vi.fn(),
+      findFirst: vi.fn(),
     },
     checkTarget: {
       count: vi.fn(),
@@ -65,6 +66,30 @@ describe('Violation Service', () => {
           details: undefined,
         },
       });
+    });
+  });
+
+  describe('getLatestDisconnectionTime', () => {
+    it('should return the timestamp of the latest DISCONNECTION violation', async () => {
+      const ts = new Date('2026-03-11T10:00:00Z');
+      (prisma.violation.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ timestamp: ts });
+
+      const result = await getLatestDisconnectionTime('ss-1');
+
+      expect(prisma.violation.findFirst).toHaveBeenCalledWith({
+        where: { sessionStudentId: 'ss-1', type: 'DISCONNECTION' },
+        orderBy: { timestamp: 'desc' },
+        select: { timestamp: true },
+      });
+      expect(result).toEqual(ts);
+    });
+
+    it('should return null when no DISCONNECTION violation exists', async () => {
+      (prisma.violation.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      const result = await getLatestDisconnectionTime('ss-none');
+
+      expect(result).toBeNull();
     });
   });
 

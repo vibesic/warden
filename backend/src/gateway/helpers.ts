@@ -9,7 +9,7 @@
  */
 import { Server, Socket } from 'socket.io';
 import { logger } from '../utils/logger';
-import { createViolation } from '../services/violation.service';
+import { createViolation, getLatestDisconnectionTime } from '../services/violation.service';
 import { verifyTeacherToken } from '../services/auth.service';
 import type { ViolationType, ViolationReason } from '../types/schemas';
 
@@ -31,13 +31,26 @@ const lastDisconnectionTime = new Map<string, number>();
  * Check whether a DISCONNECTION violation was recently recorded for a
  * student, and if not, update the timestamp.
  * Returns `true` when the violation should be **suppressed**.
+ *
+ * Falls back to the database when the in-memory map has no entry
+ * (e.g. after a server restart) to prevent duplicate violation spam.
  */
-export const isDisconnectionOnCooldown = (sessionStudentId: string): boolean => {
+export const isDisconnectionOnCooldown = async (sessionStudentId: string): Promise<boolean> => {
   const now = Date.now();
   const last = lastDisconnectionTime.get(sessionStudentId);
   if (last && now - last < DISCONNECTION_COOLDOWN_MS) {
     return true;
   }
+
+  // Fallback: check DB for server restart resilience (#6)
+  if (!last) {
+    const dbTime = await getLatestDisconnectionTime(sessionStudentId);
+    if (dbTime && now - dbTime.getTime() < DISCONNECTION_COOLDOWN_MS) {
+      lastDisconnectionTime.set(sessionStudentId, dbTime.getTime());
+      return true;
+    }
+  }
+
   lastDisconnectionTime.set(sessionStudentId, now);
   return false;
 };
@@ -83,7 +96,7 @@ export const createAndBroadcastViolation = async (
   // Rate-limit DISCONNECTION violations to avoid flooding the teacher
   // dashboard when a student's WiFi flaps repeatedly.
   if (params.type === 'DISCONNECTION') {
-    if (isDisconnectionOnCooldown(params.sessionStudentId)) {
+    if (await isDisconnectionOnCooldown(params.sessionStudentId)) {
       logger.info(
         { studentId, type: params.type },
         'DISCONNECTION violation suppressed — cooldown active',

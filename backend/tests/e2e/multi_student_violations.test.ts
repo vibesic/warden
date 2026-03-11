@@ -28,6 +28,7 @@ const prismaMock = vi.hoisted(() => ({
   },
   violation: {
     create: vi.fn(),
+    findFirst: vi.fn(),
   },
   session: {
     findFirst: vi.fn(),

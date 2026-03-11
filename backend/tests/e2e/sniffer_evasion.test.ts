@@ -26,7 +26,7 @@ const prismaMock = vi.hoisted(() => ({
     update: vi.fn().mockResolvedValue({}),
     findMany: vi.fn().mockResolvedValue([]),
   },
-  violation: { create: vi.fn() },
+  violation: { create: vi.fn(), findFirst: vi.fn() },
   session: {
     findFirst: vi.fn(),
     findUnique: vi.fn(),
