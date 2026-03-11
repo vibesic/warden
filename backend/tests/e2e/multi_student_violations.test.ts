@@ -15,6 +15,7 @@ import { setDisconnectGraceMs, clearAllPendingDisconnects } from '@src/gateway/s
 import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
 import { createTestSocketServer, cleanupTestServer, type TestServerContext } from '../helpers/setup';
 import { connectClient, connectTeacher, connectTeacherToSession, registerStudent } from '../helpers/socketClient';
+import { mockStudentRegistration, applyDefaultMocks, type PrismaMock } from '../helpers/prisma';
 
 // ── Prisma mock ─────────────────────────────────────────────────────
 const prismaMock = vi.hoisted(() => ({
@@ -42,7 +43,7 @@ const prismaMock = vi.hoisted(() => ({
     count: vi.fn().mockResolvedValue(0),
     findFirst: vi.fn(),
   },
-}));
+})) as unknown as PrismaMock;
 
 vi.mock('@src/utils/prisma', () => ({
   prisma: prismaMock,
@@ -61,23 +62,6 @@ const activeSession = {
 
 // ── Helpers ─────────────────────────────────────────────────────────
 let violationCounter = 0;
-
-const setupSessionMocks = (): void => {
-  prismaMock.session.findUnique.mockResolvedValue(activeSession as never);
-  prismaMock.session.findFirst.mockResolvedValue(activeSession as never);
-  prismaMock.session.findMany.mockResolvedValue([]);
-  prismaMock.sessionStudent.findMany.mockResolvedValue([]);
-};
-
-const setupStudentMocks = (studentId: string, name: string, ssId: string): void => {
-  prismaMock.student.upsert.mockResolvedValue({
-    id: `stu-${ssId}`, studentId, name,
-  } as never);
-  prismaMock.sessionStudent.upsert.mockResolvedValue({
-    id: ssId,
-    student: { studentId, name },
-  } as never);
-};
 
 const mockViolationCreate = (): void => {
   prismaMock.violation.create.mockImplementation(((args: { data: { type: string; reason?: string; details?: string; sessionStudentId: string } }) => {
@@ -100,11 +84,8 @@ const connectAndRegister = async (
   ssId: string,
 ): Promise<ReturnType<typeof import('socket.io-client').default>> => {
   const socket = await connectClient(port, { reconnection: false });
-
-  setupStudentMocks(studentId, name, ssId);
-
+  mockStudentRegistration(prismaMock, studentId, name, `stu-${ssId}`, ssId);
   await registerStudent(socket, { studentId, name, sessionCode: SESSION_CODE });
-
   return socket;
 };
 
@@ -132,7 +113,7 @@ describe('E2E: Multi-Student Violation Scenarios', () => {
     clearDisconnectionCooldowns();
     vi.clearAllMocks();
     violationCounter = 0;
-    setupSessionMocks();
+    applyDefaultMocks(prismaMock, { id: 'sess-multi', code: SESSION_CODE, durationMinutes: 60 });
     mockViolationCreate();
   });
 

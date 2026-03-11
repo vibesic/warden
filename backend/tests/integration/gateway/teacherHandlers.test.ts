@@ -1,7 +1,8 @@
 import Client, { Socket as ClientSocket } from 'socket.io-client';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
-import { generateTeacherToken } from '@src/services/auth.service';
 import { createTestSocketServer, cleanupTestServer, type TestServerContext } from '../../helpers/setup';
+import { applyDefaultMocks, mockStudentRegistration, type PrismaMock } from '../../helpers/prisma';
+import { connectClient, connectTeacher, registerStudent } from '../../helpers/socketClient';
 
 const prismaMock = vi.hoisted(() => ({
   student: {
@@ -17,15 +18,15 @@ const prismaMock = vi.hoisted(() => ({
     findFirst: vi.fn(),
   },
   session: {
-    findUnique: vi.fn().mockResolvedValue({ id: 's1', code: '123456', isActive: true, createdAt: new Date(), durationMinutes: null, endedAt: null }),
-    findFirst: vi.fn().mockResolvedValue({ id: 's1', code: '123456', isActive: true, createdAt: new Date(), durationMinutes: null, endedAt: null }),
-    findMany: vi.fn().mockResolvedValue([]),
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
     count: vi.fn(),
   },
-}));
+})) as unknown as PrismaMock;
 
 vi.mock('@src/utils/prisma', () => ({
   prisma: prismaMock,
@@ -46,36 +47,12 @@ describe('Teacher Handlers - Extended', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    // Restore default mocks
-    prismaMock.session.findUnique.mockResolvedValue({
-      id: 's1', code: '123456', isActive: true,
-      createdAt: new Date(), durationMinutes: null, endedAt: null,
-    });
-    prismaMock.session.findFirst.mockResolvedValue({
-      id: 's1', code: '123456', isActive: true,
-      createdAt: new Date(), durationMinutes: null, endedAt: null,
-    });
-    prismaMock.session.findMany.mockResolvedValue([]);
-    prismaMock.sessionStudent.findMany.mockResolvedValue([]);
-    prismaMock.violation.create.mockResolvedValue({ id: 'v-1', timestamp: new Date(), type: 'DISCONNECTION', details: '' });
+    applyDefaultMocks(prismaMock);
   });
-
-  const connectTeacher = async (): Promise<ClientSocket> => {
-    const token = generateTeacherToken();
-    const socket = Client(`http://localhost:${port}`, { auth: { token } });
-    await new Promise<void>((resolve) => socket.on('connect', resolve));
-    return socket;
-  };
-
-  const connectStudent = async (): Promise<ClientSocket> => {
-    const socket = Client(`http://localhost:${port}`);
-    await new Promise<void>((resolve) => socket.on('connect', resolve));
-    return socket;
-  };
 
   describe('dashboard:join_session', () => {
     it('should silently ignore without auth token (#16 connection-level auth)', async () => {
-      const socket = await connectStudent();
+      const socket = await connectClient(port);
 
       const errorSpy = vi.fn();
       socket.on('dashboard:error', errorSpy);
@@ -93,7 +70,7 @@ describe('Teacher Handlers - Extended', () => {
     it('should return error for non-existent session', async () => {
       prismaMock.session.findUnique.mockResolvedValue(null);
 
-      const socket = await connectTeacher();
+      const socket = await connectTeacher(port);
 
       await new Promise<void>((resolve) => {
         socket.on('dashboard:error', (data: { message: string }) => {
@@ -130,7 +107,7 @@ describe('Teacher Handlers - Extended', () => {
       prismaMock.session.findUnique.mockResolvedValue(sessionData);
       prismaMock.sessionStudent.findMany.mockResolvedValue(mockSessionStudents as never[]);
 
-      const socket = await connectTeacher();
+      const socket = await connectTeacher(port);
 
       await new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => reject(new Error('Timed out waiting for session_state')), 4000);
@@ -159,7 +136,7 @@ describe('Teacher Handlers - Extended', () => {
     });
 
     it('should handle missing sessionCode gracefully', async () => {
-      const socket = await connectTeacher();
+      const socket = await connectTeacher(port);
 
       // Emit with no data — shouldn't crash
       socket.emit('dashboard:join_session', {});
@@ -180,7 +157,7 @@ describe('Teacher Handlers - Extended', () => {
         durationMinutes: 90, createdAt: new Date(),
       });
 
-      const socket = await connectTeacher();
+      const socket = await connectTeacher(port);
 
       await new Promise<void>((resolve) => {
         socket.on('dashboard:session_created', (data: { code: string; durationMinutes: number }) => {
@@ -195,7 +172,7 @@ describe('Teacher Handlers - Extended', () => {
     });
 
     it('should emit error when duration not provided', async () => {
-      const socket = await connectTeacher();
+      const socket = await connectTeacher(port);
 
       await new Promise<void>((resolve) => {
         socket.on('dashboard:error', (data: { message: string }) => {
@@ -213,7 +190,7 @@ describe('Teacher Handlers - Extended', () => {
     it('should do nothing when no active session exists', async () => {
       prismaMock.session.findFirst.mockResolvedValue(null);
 
-      const socket = await connectTeacher();
+      const socket = await connectTeacher(port);
 
       socket.emit('teacher:end_session');
       await new Promise((r) => setTimeout(r, 200));
@@ -230,16 +207,12 @@ describe('Teacher Handlers - Extended', () => {
         createdAt: new Date(), endedAt: new Date(),
       });
 
-      const teacherSocket = await connectTeacher();
-      const studentSocket = await connectStudent();
+      const teacherSocket = await connectTeacher(port);
+      const studentSocket = await connectClient(port);
 
       // Register student first
-      prismaMock.student.upsert.mockResolvedValue({ id: 'stu-1', studentId: 'stu1', name: 'Test' } as never);
-      prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-1', student: { studentId: 'stu1', name: 'Test' } } as never);
-      await new Promise<void>((resolve) => {
-        studentSocket.emit('register', { studentId: 'stu1', name: 'Test', sessionCode: '123456' });
-        studentSocket.once('registered', () => resolve());
-      });
+      mockStudentRegistration(prismaMock, 'stu1', 'Test');
+      await registerStudent(studentSocket, { studentId: 'stu1', name: 'Test', sessionCode: '123456' });
 
       await new Promise<void>((resolve) => {
         studentSocket.on('session:ended', (data: { message: string }) => {
@@ -278,7 +251,7 @@ describe('Teacher Handlers - Extended', () => {
       ];
       prismaMock.session.findMany.mockResolvedValue(historyMock);
 
-      const socket = await connectTeacher();
+      const socket = await connectTeacher(port);
 
       await new Promise<void>((resolve) => {
         socket.on('dashboard:overview', (data: { history: Array<{ code: string; studentCount: number }>; activeSession: unknown }) => {
@@ -304,7 +277,7 @@ describe('Teacher Handlers - Extended', () => {
       prismaMock.session.findMany.mockResolvedValue([]);
       prismaMock.session.findFirst.mockResolvedValue(activeSession);
 
-      const socket = await connectTeacher();
+      const socket = await connectTeacher(port);
 
       await new Promise<void>((resolve) => {
         socket.on('dashboard:overview', (data: { activeSession: { code: string } }) => {

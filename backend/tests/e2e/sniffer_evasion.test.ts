@@ -17,6 +17,7 @@ import { setDisconnectGraceMs, clearAllPendingDisconnects } from '@src/gateway/s
 import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
 import { createTestSocketServer, cleanupTestServer, type TestServerContext } from '../helpers/setup';
 import { connectClient, registerStudent } from '../helpers/socketClient';
+import { mockStudentRegistration, applyDefaultMocks, type PrismaMock } from '../helpers/prisma';
 
 // ── Prisma mock ─────────────────────────────────────────────────────
 const prismaMock = vi.hoisted(() => ({
@@ -39,7 +40,7 @@ const prismaMock = vi.hoisted(() => ({
     count: vi.fn().mockResolvedValue(0),
     findFirst: vi.fn(),
   },
-}));
+})) as unknown as PrismaMock;
 
 vi.mock('@src/utils/prisma', () => ({ prisma: prismaMock }));
 
@@ -78,14 +79,8 @@ describe('E2E: Sniffer Evasion — Liar Caught by Client Probe', () => {
     clearDisconnectionCooldowns();
     vi.clearAllMocks();
 
-    prismaMock.session.findUnique.mockResolvedValue(activeSession as never);
-    prismaMock.session.findFirst.mockResolvedValue(activeSession as never);
-    prismaMock.student.upsert.mockResolvedValue({
-      id: 'stu-sn', studentId: 'sniffer-student', name: 'Sniffer Test',
-    } as never);
-    prismaMock.sessionStudent.upsert.mockResolvedValue({
-      id: 'ss-sn', student: { studentId: 'sniffer-student', name: 'Sniffer Test' },
-    } as never);
+    applyDefaultMocks(prismaMock, { id: 'sess-sniffer', code: SESSION_CODE, durationMinutes: 60 });
+    mockStudentRegistration(prismaMock, 'sniffer-student', 'Sniffer Test', 'stu-sn', 'ss-sn');
     prismaMock.violation.create.mockResolvedValue({
       id: 'v-1', type: 'INTERNET_ACCESS', reason: 'CLIENT_PROBE',
       details: '', sessionStudentId: 'ss-sn', timestamp: new Date(),

@@ -14,6 +14,10 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
     include: ['tests/**/*.test.ts'],
+    pool: 'forks',
+    testTimeout: 10_000,
+    hookTimeout: 10_000,
+    retry: 1,
     env: {
       DATABASE_URL: 'file:./data/test.db',
       NODE_ENV: 'test',

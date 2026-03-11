@@ -19,6 +19,7 @@ import { setDisconnectGraceMs, clearAllPendingDisconnects } from '@src/gateway/s
 import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
 import { createTestSocketServer, cleanupTestServer, type TestServerContext } from '../helpers/setup';
 import { connectClient, connectTeacherToSession, registerStudent as sharedRegisterStudent } from '../helpers/socketClient';
+import { mockStudentRegistration, applyDefaultMocks, type PrismaMock } from '../helpers/prisma';
 
 // ── Prisma mock ─────────────────────────────────────────────────────
 const prismaMock = vi.hoisted(() => ({
@@ -46,7 +47,7 @@ const prismaMock = vi.hoisted(() => ({
     count: vi.fn().mockResolvedValue(0),
     findFirst: vi.fn(),
   },
-}));
+})) as unknown as PrismaMock;
 
 vi.mock('@src/utils/prisma', () => ({
   prisma: prismaMock,
@@ -57,30 +58,6 @@ vi.mock('@src/utils/prisma', () => ({
 const SESSION_CODE = '111111';
 const STUDENT_ID = 'attack-student-01';
 const STUDENT_NAME = 'Cheating Student';
-
-const activeSession = {
-  id: 'sess-atk',
-  code: SESSION_CODE,
-  isActive: true,
-  createdAt: new Date(),
-  durationMinutes: 60,
-  endedAt: null,
-};
-
-const setupMocks = (): void => {
-  prismaMock.session.findUnique.mockResolvedValue(activeSession as never);
-  prismaMock.session.findFirst.mockResolvedValue(activeSession as never);
-  prismaMock.session.findMany.mockResolvedValue([]);
-  prismaMock.student.upsert.mockResolvedValue({
-    id: 'stu-atk', studentId: STUDENT_ID, name: STUDENT_NAME,
-  } as never);
-  prismaMock.sessionStudent.upsert.mockResolvedValue({
-    id: 'ss-atk',
-    student: { studentId: STUDENT_ID, name: STUDENT_NAME },
-  } as never);
-  prismaMock.sessionStudent.update.mockResolvedValue({} as never);
-  prismaMock.sessionStudent.findMany.mockResolvedValue([] as never);
-};
 
 let violationCounter = 0;
 const mockViolationCreate = (): void => {
@@ -102,7 +79,7 @@ const connectStudent = (port: number): ReturnType<typeof connectClient> => {
 };
 
 const registerStudent = async (socket: Awaited<ReturnType<typeof connectClient>>): Promise<void> => {
-  setupMocks();
+  mockStudentRegistration(prismaMock, STUDENT_ID, STUDENT_NAME, 'stu-atk', 'ss-atk');
   await sharedRegisterStudent(socket, {
     studentId: STUDENT_ID,
     name: STUDENT_NAME,
@@ -132,7 +109,7 @@ describe('E2E: Tab Close → Internet → Return Attack', () => {
     clearDisconnectionCooldowns();
     vi.clearAllMocks();
     violationCounter = 0;
-    setupMocks();
+    applyDefaultMocks(prismaMock, { id: 'sess-atk', code: SESSION_CODE, durationMinutes: 60 });
     mockViolationCreate();
   });
 
@@ -266,7 +243,7 @@ describe('E2E: Tab Close → Internet → Return Attack', () => {
     const socket2 = await connectStudent(ctx.port);
 
     const registered = await new Promise<boolean>((resolve) => {
-      setupMocks();
+      mockStudentRegistration(prismaMock, STUDENT_ID, STUDENT_NAME, 'stu-atk', 'ss-atk');
       socket2.emit('register', {
         studentId: STUDENT_ID,
         name: STUDENT_NAME,

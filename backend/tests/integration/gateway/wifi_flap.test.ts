@@ -16,6 +16,8 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import { setDisconnectGraceMs, clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
 import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
 import { createTestSocketServer, cleanupTestServer, type TestServerContext } from '../../helpers/setup';
+import { mockStudentRegistration, applyDefaultMocks, type PrismaMock } from '../../helpers/prisma';
+import { connectClient, registerStudent } from '../../helpers/socketClient';
 
 // ── Prisma mock ─────────────────────────────────────────────────────
 const prismaMock = vi.hoisted(() => ({
@@ -56,7 +58,7 @@ const prismaMock = vi.hoisted(() => ({
   checkTarget: {
     findMany: vi.fn().mockResolvedValue([]),
   },
-}));
+})) as unknown as PrismaMock;
 
 vi.mock('@src/utils/prisma', () => ({
   prisma: prismaMock,
@@ -73,31 +75,10 @@ const registerData = {
   sessionCode: SESSION_CODE,
 };
 
-const setupStudentMocks = (): void => {
-  prismaMock.student.upsert.mockResolvedValue({
-    id: 'stu-flap',
-    studentId: STUDENT_ID,
-    name: STUDENT_NAME,
-  });
-  prismaMock.sessionStudent.upsert.mockResolvedValue({
-    id: 'ss-flap',
-    student: { studentId: STUDENT_ID, name: STUDENT_NAME },
-  });
-};
-
 const connectAndRegister = async (port: number): Promise<ClientSocket> => {
-  const socket = Client(`http://localhost:${port}`, {
-    reconnection: false,
-  });
-  await new Promise<void>((resolve) => socket.on('connect', resolve));
-
-  setupStudentMocks();
-
-  await new Promise<void>((resolve) => {
-    socket.emit('register', registerData);
-    socket.once('registered', () => resolve());
-  });
-
+  const socket = await connectClient(port, { reconnection: false });
+  mockStudentRegistration(prismaMock, STUDENT_ID, STUDENT_NAME, 'stu-flap', 'ss-flap');
+  await registerStudent(socket, registerData);
   return socket;
 };
 
@@ -123,21 +104,7 @@ describe('WiFi Flap — Transient Disconnect Regression', () => {
     vi.clearAllMocks();
     clearAllPendingDisconnects();
     clearDisconnectionCooldowns();
-
-    // Re-apply default session mocks
-    prismaMock.session.findUnique.mockResolvedValue({
-      id: 's1', code: SESSION_CODE, isActive: true,
-      createdAt: new Date(), durationMinutes: null, endedAt: null,
-    });
-    prismaMock.session.findFirst.mockResolvedValue({
-      id: 's1', code: SESSION_CODE, isActive: true,
-      createdAt: new Date(), durationMinutes: null, endedAt: null,
-    });
-    prismaMock.sessionStudent.update.mockResolvedValue({});
-    prismaMock.sessionStudent.findMany.mockResolvedValue([]);
-    prismaMock.violation.create.mockResolvedValue({
-      id: 'v-1', timestamp: new Date(), type: 'DISCONNECTION', details: '',
-    });
+    applyDefaultMocks(prismaMock);
   });
 
   // ─────────────────────────────────────────────────────────────────

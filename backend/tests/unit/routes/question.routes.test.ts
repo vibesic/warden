@@ -73,6 +73,11 @@ describe('Question Files API', () => {
     });
 
     it('should reject when no file provided', async () => {
+      mockSessionFindUnique.mockResolvedValue({
+        id: 'sess-1', code: '123456', isActive: true,
+        createdAt: new Date(), durationMinutes: 60, endedAt: null,
+      });
+
       const res = await request(app)
         .post('/api/session/123456/questions')
         .set('Authorization', `Bearer ${token}`);

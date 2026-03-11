@@ -2,6 +2,8 @@ import Client, { Socket as ClientSocket } from 'socket.io-client';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
 import { createTestSocketServer, cleanupTestServer, type TestServerContext } from '../../helpers/setup';
+import { mockStudentRegistration, applyDefaultMocks, type PrismaMock } from '../../helpers/prisma';
+import { registerStudent } from '../../helpers/socketClient';
 
 const prismaMock = vi.hoisted(() => ({
   student: {
@@ -17,13 +19,13 @@ const prismaMock = vi.hoisted(() => ({
     findFirst: vi.fn(),
   },
   session: {
-    findUnique: vi.fn().mockResolvedValue({ id: 's1', code: '123456', isActive: true, createdAt: new Date() }),
-    findFirst: vi.fn().mockResolvedValue({ id: 's1', code: '123456', isActive: true, createdAt: new Date() }),
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
     findMany: vi.fn().mockResolvedValue([]),
     update: vi.fn(),
     updateMany: vi.fn(),
   },
-}));
+})) as unknown as PrismaMock;
 
 vi.mock('@src/utils/prisma', () => ({
   prisma: prismaMock,
@@ -48,9 +50,7 @@ describe('Student Handlers - Edge Cases', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    prismaMock.session.findUnique.mockResolvedValue({
-      id: 's1', code: '123456', isActive: true, createdAt: new Date(),
-    });
+    applyDefaultMocks(prismaMock);
 
     clientSocket = Client(`http://localhost:${port}`);
     return new Promise<void>((resolve) => {
@@ -66,14 +66,8 @@ describe('Student Handlers - Edge Cases', () => {
 
   describe('sniffer:response edge cases', () => {
     it('should ignore sniffer:response when no pending challenge exists', async () => {
-      const registerData = { studentId: 'sniffer_no_pending', name: 'No Pending', sessionCode: '123456' };
-      prismaMock.student.upsert.mockResolvedValue({ id: 'stu-np', studentId: 'sniffer_no_pending', name: 'No Pending' } as never);
-      prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-np', student: { studentId: 'sniffer_no_pending', name: 'No Pending' } } as never);
-
-      await new Promise<void>((resolve) => {
-        clientSocket.emit('register', registerData);
-        clientSocket.once('registered', () => resolve());
-      });
+      mockStudentRegistration(prismaMock, 'sniffer_no_pending', 'No Pending', 'stu-np', 'ss-np');
+      await registerStudent(clientSocket, { studentId: 'sniffer_no_pending', name: 'No Pending', sessionCode: '123456' });
 
       // Send sniffer response without a pending challenge
       clientSocket.emit('sniffer:response', { challengeId: 'nonexistent', reachable: true });
@@ -88,14 +82,8 @@ describe('Student Handlers - Edge Cases', () => {
     });
 
     it('should ignore sniffer:response with mismatched challengeId', async () => {
-      const registerData = { studentId: 'sniffer_mismatch', name: 'Mismatch', sessionCode: '123456' };
-      prismaMock.student.upsert.mockResolvedValue({ id: 'stu-mm', studentId: 'sniffer_mismatch', name: 'Mismatch' } as never);
-      prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-mm', student: { studentId: 'sniffer_mismatch', name: 'Mismatch' } } as never);
-
-      await new Promise<void>((resolve) => {
-        clientSocket.emit('register', registerData);
-        clientSocket.once('registered', () => resolve());
-      });
+      mockStudentRegistration(prismaMock, 'sniffer_mismatch', 'Mismatch', 'stu-mm', 'ss-mm');
+      await registerStudent(clientSocket, { studentId: 'sniffer_mismatch', name: 'Mismatch', sessionCode: '123456' });
 
       // Set pending challenge on the server side
       const sockets = await io.fetchSockets();
@@ -120,14 +108,8 @@ describe('Student Handlers - Edge Cases', () => {
     });
 
     it('should ignore sniffer:response with invalid data format', async () => {
-      const registerData = { studentId: 'sniffer_invalid', name: 'Invalid', sessionCode: '123456' };
-      prismaMock.student.upsert.mockResolvedValue({ id: 'stu-inv', studentId: 'sniffer_invalid', name: 'Invalid' } as never);
-      prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-inv', student: { studentId: 'sniffer_invalid', name: 'Invalid' } } as never);
-
-      await new Promise<void>((resolve) => {
-        clientSocket.emit('register', registerData);
-        clientSocket.once('registered', () => resolve());
-      });
+      mockStudentRegistration(prismaMock, 'sniffer_invalid', 'Invalid', 'stu-inv', 'ss-inv');
+      await registerStudent(clientSocket, { studentId: 'sniffer_invalid', name: 'Invalid', sessionCode: '123456' });
 
       // Send invalid data
       clientSocket.emit('sniffer:response', { invalid: 'data' });
@@ -163,14 +145,8 @@ describe('Student Handlers - Edge Cases', () => {
     });
 
     it('should ignore invalid violation data', async () => {
-      const registerData = { studentId: 'violation_invalid', name: 'Invalid', sessionCode: '123456' };
-      prismaMock.student.upsert.mockResolvedValue({ id: 'stu-vi', studentId: 'violation_invalid', name: 'Invalid' } as never);
-      prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-vi', student: { studentId: 'violation_invalid', name: 'Invalid' } } as never);
-
-      await new Promise<void>((resolve) => {
-        clientSocket.emit('register', registerData);
-        clientSocket.once('registered', () => resolve());
-      });
+      mockStudentRegistration(prismaMock, 'violation_invalid', 'Invalid', 'stu-vi', 'ss-vi');
+      await registerStudent(clientSocket, { studentId: 'violation_invalid', name: 'Invalid', sessionCode: '123456' });
 
       // Send invalid violation data (type must be string)
       clientSocket.emit('report_violation', { type: 123 });
@@ -181,15 +157,9 @@ describe('Student Handlers - Edge Cases', () => {
     });
 
     it('should handle violation with details', async () => {
-      const registerData = { studentId: 'violation_detail', name: 'Detail', sessionCode: '123456' };
-      prismaMock.student.upsert.mockResolvedValue({ id: 'stu-vd', studentId: 'violation_detail', name: 'Detail' } as never);
-      prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-vd', student: { studentId: 'violation_detail', name: 'Detail' } } as never);
+      mockStudentRegistration(prismaMock, 'violation_detail', 'Detail', 'stu-vd', 'ss-vd');
       prismaMock.violation.create.mockResolvedValue({ timestamp: new Date(), type: 'INTERNET_ACCESS' } as never);
-
-      await new Promise<void>((resolve) => {
-        clientSocket.emit('register', registerData);
-        clientSocket.once('registered', () => resolve());
-      });
+      await registerStudent(clientSocket, { studentId: 'violation_detail', name: 'Detail', sessionCode: '123456' });
 
       clientSocket.emit('report_violation', { type: 'INTERNET_ACCESS', details: 'Detected internet access' });
 

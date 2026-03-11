@@ -1,5 +1,5 @@
 /**
- * Shared Prisma mock factory.
+ * Shared Prisma mock factory and integration test helpers.
  *
  * Creates a comprehensive mock of the Prisma client with all models
  * and methods used across the test suite. Each test file can import
@@ -96,3 +96,69 @@ export const createPrismaMock = (): PrismaMock => ({
   },
   $queryRaw: vi.fn(),
 });
+
+/**
+ * Default session object used across most integration tests.
+ * Matches the shape returned by `getSessionByCode` / `validateSession`.
+ */
+export const DEFAULT_SESSION = {
+  id: 's1',
+  code: '123456',
+  isActive: true,
+  createdAt: new Date(),
+  durationMinutes: null,
+  endedAt: null,
+};
+
+/**
+ * Apply the common default mock values used by most gateway integration
+ * tests. Call this in `beforeEach` after `vi.clearAllMocks()`.
+ *
+ * Sets up:
+ *  - session.findUnique / findFirst → DEFAULT_SESSION (or override)
+ *  - session.findMany → []
+ *  - violation.create → default violation
+ *  - sessionStudent.update → {}
+ *  - sessionStudent.findMany → []
+ */
+export const applyDefaultMocks = (
+  mock: PrismaMock,
+  sessionOverrides?: Partial<typeof DEFAULT_SESSION>,
+): void => {
+  const session = { ...DEFAULT_SESSION, createdAt: new Date(), ...sessionOverrides };
+  mock.session.findUnique.mockResolvedValue(session);
+  mock.session.findFirst.mockResolvedValue(session);
+  mock.session.findMany.mockResolvedValue([]);
+  mock.violation.create.mockResolvedValue({
+    id: 'v-default',
+    timestamp: new Date(),
+    type: 'DISCONNECTION',
+    details: '',
+    sessionStudentId: '',
+  });
+  mock.sessionStudent.update.mockResolvedValue({});
+  mock.sessionStudent.findMany.mockResolvedValue([]);
+};
+
+/**
+ * Set up Prisma mocks for a student registration flow.
+ * Eliminates the repeated pattern of mocking student.upsert +
+ * sessionStudent.upsert that appears in ~15 integration tests.
+ */
+export const mockStudentRegistration = (
+  mock: PrismaMock,
+  studentId: string,
+  name: string,
+  studentUUID: string = `stu-${studentId}`,
+  sessionStudentUUID: string = `ss-${studentId}`,
+): void => {
+  mock.student.upsert.mockResolvedValue({
+    id: studentUUID,
+    studentId,
+    name,
+  });
+  mock.sessionStudent.upsert.mockResolvedValue({
+    id: sessionStudentUUID,
+    student: { studentId, name },
+  });
+};

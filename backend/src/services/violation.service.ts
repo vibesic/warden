@@ -51,3 +51,15 @@ export const getRandomCheckTarget = async (): Promise<string | null> => {
   });
   return target?.url ?? null;
 };
+
+/**
+ * Return all enabled check-target URLs.
+ * Used by the /check-targets route to avoid direct Prisma access in routes.
+ */
+export const getEnabledCheckTargetUrls = async (): Promise<string[]> => {
+  const targets = await prisma.checkTarget.findMany({
+    where: { isEnabled: true },
+    select: { url: true },
+  });
+  return targets.map((t) => t.url);
+};

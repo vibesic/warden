@@ -6,6 +6,8 @@ import { clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
 import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
 import { app } from '@src/app';
 import { createTestSocketServer, cleanupTestServer, createTestSocketServerNoListen, type TestServerContext } from '../../helpers/setup';
+import { mockStudentRegistration, applyDefaultMocks, type PrismaMock } from '../../helpers/prisma';
+import { connectClient, connectTeacher, registerStudent as socketRegister } from '../../helpers/socketClient';
 
 /**
  * Security Tests — validates protection against student cheating vectors:
@@ -69,7 +71,7 @@ const prismaMock = vi.hoisted(() => ({
     findFirst: vi.fn(),
   },
   $queryRaw: vi.fn(),
-}));
+})) as unknown as PrismaMock;
 
 vi.mock('@src/utils/prisma', () => ({
   prisma: prismaMock,
@@ -96,63 +98,29 @@ describe('Security - Socket Layer', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    prismaMock.session.findUnique.mockResolvedValue({
-      id: 's1', code: '123456', isActive: true,
-      createdAt: new Date(), durationMinutes: null, endedAt: null,
-    });
-    prismaMock.session.findFirst.mockResolvedValue({
-      id: 's1', code: '123456', isActive: true,
-      createdAt: new Date(), durationMinutes: null, endedAt: null,
-    });
-    prismaMock.session.findMany.mockResolvedValue([]);
+    applyDefaultMocks(prismaMock);
     prismaMock.student.findMany.mockResolvedValue([]);
-    prismaMock.sessionStudent.findMany.mockResolvedValue([]);
     prismaMock.violation.create.mockResolvedValue({
       id: 'v-1', timestamp: new Date(), type: 'INTERNET_ACCESS', details: '',
     });
   });
 
-  const connectStudent = async (): Promise<ClientSocket> => {
-    const socket = Client(`http://localhost:${port}`);
-    await new Promise<void>((resolve) => socket.on('connect', resolve));
-    return socket;
-  };
-
-  const registerStudent = async (socket: ClientSocket, overrides?: Record<string, string>): Promise<void> => {
+  const register = async (socket: ClientSocket, overrides?: Record<string, string>): Promise<void> => {
     const data = {
       studentId: overrides?.studentId || 'stu1',
       name: overrides?.name || 'Test Student',
       sessionCode: overrides?.sessionCode || '123456',
     };
-    prismaMock.student.upsert.mockResolvedValue({
-      id: `stu-${data.studentId}`,
-      studentId: data.studentId,
-      name: data.name,
-    } as never);
-    prismaMock.sessionStudent.upsert.mockResolvedValue({
-      id: `ss-${data.studentId}`,
-      student: { studentId: data.studentId, name: data.name },
-    } as never);
-
-    await new Promise<void>((resolve) => {
-      socket.emit('register', data);
-      socket.once('registered', () => resolve());
-    });
-  };
-
-  const connectTeacher = async (): Promise<ClientSocket> => {
-    const token = generateTeacherToken();
-    const socket = Client(`http://localhost:${port}`, { auth: { token } });
-    await new Promise<void>((resolve) => socket.on('connect', resolve));
-    return socket;
+    mockStudentRegistration(prismaMock, data.studentId, data.name);
+    await socketRegister(socket, data);
   };
 
   // ─── 1. Dashboard events must NOT leak to student sockets ──────────────────
 
   describe('Dashboard event isolation', () => {
     it('should NOT send dashboard:alert to student sockets when a violation occurs', async () => {
-      const studentSocket = await connectStudent();
-      await registerStudent(studentSocket);
+      const studentSocket = await connectClient(port);
+      await register(studentSocket);
 
       // Listen for dashboard:alert on student socket (should NOT receive it)
       let studentReceivedAlert = false;
@@ -181,10 +149,10 @@ describe('Security - Socket Layer', () => {
     });
 
     it('should send dashboard:alert to teacher sockets in teacher room', async () => {
-      const studentSocket = await connectStudent();
-      await registerStudent(studentSocket, { studentId: 'stu-teacher-test' });
+      const studentSocket = await connectClient(port);
+      await register(studentSocket, { studentId: 'stu-teacher-test' });
 
-      const teacherSocket = await connectTeacher();
+      const teacherSocket = await connectTeacher(port);
 
       // Teacher joins the session's teacher room
       await new Promise<void>((resolve) => {
@@ -220,11 +188,11 @@ describe('Security - Socket Layer', () => {
     });
 
     it('should NOT send dashboard:update (STUDENT_LEFT) to other students', async () => {
-      const student1 = await connectStudent();
-      await registerStudent(student1, { studentId: 'stu-iso-1' });
+      const student1 = await connectClient(port);
+      await register(student1, { studentId: 'stu-iso-1' });
 
-      const student2 = await connectStudent();
-      await registerStudent(student2, { studentId: 'stu-iso-2' });
+      const student2 = await connectClient(port);
+      await register(student2, { studentId: 'stu-iso-2' });
 
       let student2ReceivedUpdate = false;
       student2.on('dashboard:update', () => {
@@ -246,8 +214,8 @@ describe('Security - Socket Layer', () => {
 
   describe('Violation type validation', () => {
     it('should reject invalid violation types', async () => {
-      const socket = await connectStudent();
-      await registerStudent(socket, { studentId: 'stu-enum-1' });
+      const socket = await connectClient(port);
+      await register(socket, { studentId: 'stu-enum-1' });
 
       vi.clearAllMocks();
 
@@ -265,8 +233,8 @@ describe('Security - Socket Layer', () => {
     });
 
     it('should accept valid violation types', async () => {
-      const socket = await connectStudent();
-      await registerStudent(socket, { studentId: 'stu-enum-2' });
+      const socket = await connectClient(port);
+      await register(socket, { studentId: 'stu-enum-2' });
 
       socket.emit('report_violation', { type: 'DISCONNECTION', details: 'Lost connection' });
 
@@ -282,8 +250,8 @@ describe('Security - Socket Layer', () => {
     });
 
     it('should reject violation with excessively long details', async () => {
-      const socket = await connectStudent();
-      await registerStudent(socket, { studentId: 'stu-enum-3' });
+      const socket = await connectClient(port);
+      await register(socket, { studentId: 'stu-enum-3' });
 
       vi.clearAllMocks();
 
@@ -306,8 +274,8 @@ describe('Security - Socket Layer', () => {
 
   describe('Server-pushed violation:detected event', () => {
     it('should emit violation:detected to student when sniffer catches internet access', async () => {
-      const socket = await connectStudent();
-      await registerStudent(socket, { studentId: 'stu-push-1' });
+      const socket = await connectClient(port);
+      await register(socket, { studentId: 'stu-push-1' });
 
       const sockets = await io.fetchSockets();
       const serverSocket = sockets.find((s) => s.data.sessionStudentId === 'ss-stu-push-1');
@@ -332,8 +300,8 @@ describe('Security - Socket Layer', () => {
     });
 
     it('should NOT emit violation:detected when sniffer says not reachable', async () => {
-      const socket = await connectStudent();
-      await registerStudent(socket, { studentId: 'stu-push-2' });
+      const socket = await connectClient(port);
+      await register(socket, { studentId: 'stu-push-2' });
 
       const sockets = await io.fetchSockets();
       const serverSocket = sockets.find((s) => s.data.sessionStudentId === 'ss-stu-push-2');
@@ -364,10 +332,10 @@ describe('Security - Socket Layer', () => {
 
   describe('Session end event isolation', () => {
     it('should send session:ended only to student room, not teacher room', async () => {
-      const studentSocket = await connectStudent();
-      await registerStudent(studentSocket, { studentId: 'stu-end-1' });
+      const studentSocket = await connectClient(port);
+      await register(studentSocket, { studentId: 'stu-end-1' });
 
-      const teacherSocket = await connectTeacher();
+      const teacherSocket = await connectTeacher(port);
 
       prismaMock.session.update.mockResolvedValue({
         id: 's1', code: '123456', isActive: false,

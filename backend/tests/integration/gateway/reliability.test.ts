@@ -1,8 +1,9 @@
 import Client, { Socket as ClientSocket } from 'socket.io-client';
 import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach, vi } from 'vitest';
-import { generateTeacherToken } from '@src/services/auth.service';
 import { clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
 import { createTestSocketServer, cleanupTestServer, type TestServerContext } from '../../helpers/setup';
+import { mockStudentRegistration, applyDefaultMocks, type PrismaMock } from '../../helpers/prisma';
+import { connectClient, connectTeacher, registerStudent } from '../../helpers/socketClient';
 
 /**
  * Reliability tests: stale session cleanup, timer expiry auto-end,
@@ -35,7 +36,7 @@ const prismaMock = vi.hoisted(() => ({
     count: vi.fn().mockResolvedValue(0),
     findFirst: vi.fn(),
   },
-}));
+})) as unknown as PrismaMock;
 
 vi.mock('@src/utils/prisma', () => ({
   prisma: prismaMock,
@@ -57,44 +58,16 @@ describe('Reliability Tests', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-
-    // Default session mock
-    const defaultSession = {
-      id: 's1',
-      code: '123456',
-      isActive: true,
-      createdAt: new Date(),
-      durationMinutes: 60,
-    };
-    prismaMock.session.findUnique.mockResolvedValue(defaultSession);
-    prismaMock.session.findFirst.mockResolvedValue(defaultSession);
-    prismaMock.session.findMany.mockResolvedValue([]);
-    prismaMock.sessionStudent.findMany.mockResolvedValue([]);
+    applyDefaultMocks(prismaMock, { durationMinutes: 60 });
   });
 
   describe('Session End — Student Notification', () => {
     it('should send session:ended to students when teacher ends session', async () => {
-      const token = generateTeacherToken();
-      const teacherSocket = Client(`http://localhost:${port}`, { auth: { token } });
-      const studentSocket = Client(`http://localhost:${port}`);
+      const teacherSocket = await connectTeacher(port);
+      const studentSocket = await connectClient(port);
 
-      await Promise.all([
-        new Promise<void>((r) => teacherSocket.on('connect', r)),
-        new Promise<void>((r) => studentSocket.on('connect', r)),
-      ]);
-
-      // Mock student registration
-      prismaMock.student.upsert.mockResolvedValue({ id: 'stu-1', studentId: 'S001', name: 'Alice' });
-      prismaMock.sessionStudent.upsert.mockResolvedValue({
-        id: 'ss-1',
-        student: { studentId: 'S001', name: 'Alice' },
-      });
-
-      // Register student
-      await new Promise<void>((resolve) => {
-        studentSocket.emit('register', { studentId: 'S001', name: 'Alice', sessionCode: '123456' });
-        studentSocket.once('registered', () => resolve());
-      });
+      mockStudentRegistration(prismaMock, 'S001', 'Alice');
+      await registerStudent(studentSocket, { studentId: 'S001', name: 'Alice', sessionCode: '123456' });
 
       // Teacher joins session dashboard
       teacherSocket.emit('dashboard:join_session', { sessionCode: '123456' });
@@ -133,20 +106,10 @@ describe('Reliability Tests', () => {
 
   describe('Heartbeat — isActive Guard', () => {
     it('should ignore heartbeat if session is no longer active', async () => {
-      const studentSocket = Client(`http://localhost:${port}`);
-      await new Promise<void>((r) => studentSocket.on('connect', r));
+      const studentSocket = await connectClient(port);
 
-      prismaMock.student.upsert.mockResolvedValue({ id: 'stu-2', studentId: 'S002', name: 'Bob' });
-      prismaMock.sessionStudent.upsert.mockResolvedValue({
-        id: 'ss-2',
-        student: { studentId: 'S002', name: 'Bob' },
-      });
-
-      // Register student
-      await new Promise<void>((resolve) => {
-        studentSocket.emit('register', { studentId: 'S002', name: 'Bob', sessionCode: '123456' });
-        studentSocket.once('registered', () => resolve());
-      });
+      mockStudentRegistration(prismaMock, 'S002', 'Bob');
+      await registerStudent(studentSocket, { studentId: 'S002', name: 'Bob', sessionCode: '123456' });
 
       // Session becomes inactive after registration
       prismaMock.session.findUnique.mockResolvedValue({
@@ -174,20 +137,10 @@ describe('Reliability Tests', () => {
 
   describe('Violation — isActive Guard', () => {
     it('should ignore report_violation if session is no longer active', async () => {
-      const studentSocket = Client(`http://localhost:${port}`);
-      await new Promise<void>((r) => studentSocket.on('connect', r));
+      const studentSocket = await connectClient(port);
 
-      prismaMock.student.upsert.mockResolvedValue({ id: 'stu-3', studentId: 'S003', name: 'Charlie' });
-      prismaMock.sessionStudent.upsert.mockResolvedValue({
-        id: 'ss-3',
-        student: { studentId: 'S003', name: 'Charlie' },
-      });
-
-      // Register
-      await new Promise<void>((resolve) => {
-        studentSocket.emit('register', { studentId: 'S003', name: 'Charlie', sessionCode: '123456' });
-        studentSocket.once('registered', () => resolve());
-      });
+      mockStudentRegistration(prismaMock, 'S003', 'Charlie');
+      await registerStudent(studentSocket, { studentId: 'S003', name: 'Charlie', sessionCode: '123456' });
 
       // Session becomes inactive
       prismaMock.session.findUnique.mockResolvedValue({
@@ -212,19 +165,10 @@ describe('Reliability Tests', () => {
 
   describe('Disconnect — isActive Guard', () => {
     it('should not create violation on disconnect if session has ended', async () => {
-      const studentSocket = Client(`http://localhost:${port}`);
-      await new Promise<void>((r) => studentSocket.on('connect', r));
+      const studentSocket = await connectClient(port);
 
-      prismaMock.student.upsert.mockResolvedValue({ id: 'stu-4', studentId: 'S004', name: 'Diana' });
-      prismaMock.sessionStudent.upsert.mockResolvedValue({
-        id: 'ss-4',
-        student: { studentId: 'S004', name: 'Diana' },
-      });
-
-      await new Promise<void>((resolve) => {
-        studentSocket.emit('register', { studentId: 'S004', name: 'Diana', sessionCode: '123456' });
-        studentSocket.once('registered', () => resolve());
-      });
+      mockStudentRegistration(prismaMock, 'S004', 'Diana');
+      await registerStudent(studentSocket, { studentId: 'S004', name: 'Diana', sessionCode: '123456' });
 
       // Set session as inactive before disconnect
       prismaMock.session.findUnique.mockResolvedValue({
@@ -254,8 +198,7 @@ describe('Reliability Tests', () => {
 
   describe('Registration — Session Validation', () => {
     it('should reject registration for ended session', async () => {
-      const studentSocket = Client(`http://localhost:${port}`);
-      await new Promise<void>((r) => studentSocket.on('connect', r));
+      const studentSocket = await connectClient(port);
 
       prismaMock.session.findUnique.mockResolvedValue({
         id: 's1',
@@ -281,8 +224,7 @@ describe('Reliability Tests', () => {
     });
 
     it('should reject registration with non-existent session code', async () => {
-      const studentSocket = Client(`http://localhost:${port}`);
-      await new Promise<void>((r) => studentSocket.on('connect', r));
+      const studentSocket = await connectClient(port);
 
       prismaMock.session.findUnique.mockResolvedValue(null);
 
@@ -401,9 +343,7 @@ describe('Reliability Tests', () => {
 
   describe('Teacher Session State with Clock Data', () => {
     it('should include serverTime in session_state for clock skew compensation', async () => {
-      const token = generateTeacherToken();
-      const teacherSocket = Client(`http://localhost:${port}`, { auth: { token } });
-      await new Promise<void>((r) => teacherSocket.on('connect', r));
+      const teacherSocket = await connectTeacher(port);
 
       const sessionWithStudents = {
         id: 's1',

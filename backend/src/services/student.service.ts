@@ -82,6 +82,22 @@ export const getSessionStudentsForSession = async (sessionId: string): Promise<A
   });
 };
 
+/**
+ * Find a SessionStudent by session ID and student transaction ID.
+ * Used by the upload route to verify a student belongs to a session.
+ */
+export const findSessionStudentByStudentId = async (
+  sessionId: string,
+  studentTxId: string,
+): Promise<SessionStudent | null> => {
+  return prisma.sessionStudent.findFirst({
+    where: {
+      session: { id: sessionId },
+      student: { studentId: studentTxId },
+    },
+  });
+};
+
 export const findDeadHeartbeats = async (thresholdMs: number = 120_000): Promise<Array<SessionStudent & { student: { studentId: string; name: string }; session: { id: string; code: string; isActive: boolean } | null }>> => {
   const timeoutThreshold = new Date(Date.now() - thresholdMs);
 

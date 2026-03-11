@@ -1,9 +1,10 @@
 import Client, { Socket as ClientSocket } from 'socket.io-client';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import { generateTeacherToken } from '@src/services/auth.service';
 import { setDisconnectGraceMs, clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
 import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
 import { createTestSocketServer, cleanupTestServer, type TestServerContext } from '../../helpers/setup';
+import { mockStudentRegistration, applyDefaultMocks, type PrismaMock } from '../../helpers/prisma';
+import { connectClient, connectTeacher, registerStudent } from '../../helpers/socketClient';
 
 /**
  * Scalability tests: multiple concurrent students, rapid heartbeats,
@@ -36,7 +37,7 @@ const prismaMock = vi.hoisted(() => ({
     count: vi.fn().mockResolvedValue(0),
     findFirst: vi.fn(),
   },
-}));
+})) as unknown as PrismaMock;
 
 vi.mock('@src/utils/prisma', () => ({
   prisma: prismaMock,
@@ -60,17 +61,7 @@ describe('Scalability Tests', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    const defaultSession = {
-      id: 's1',
-      code: '123456',
-      isActive: true,
-      createdAt: new Date(),
-      durationMinutes: 60,
-    };
-    prismaMock.session.findUnique.mockResolvedValue(defaultSession);
-    prismaMock.session.findFirst.mockResolvedValue(defaultSession);
-    prismaMock.session.findMany.mockResolvedValue([]);
-    prismaMock.sessionStudent.findMany.mockResolvedValue([]);
+    applyDefaultMocks(prismaMock, { durationMinutes: 60 });
   });
 
   describe('Multiple Concurrent Students', () => {
@@ -131,11 +122,9 @@ describe('Scalability Tests', () => {
 
     it('should deliver teacher alerts from multiple students concurrently', async () => {
       const STUDENT_COUNT = 5;
-      const token = generateTeacherToken();
 
       // Connect teacher
-      const teacherSocket = Client(`http://localhost:${port}`, { auth: { token } });
-      await new Promise<void>((r) => teacherSocket.on('connect', r));
+      const teacherSocket = await connectTeacher(port);
 
       prismaMock.session.findUnique.mockResolvedValue({
         id: 's1',
@@ -208,20 +197,12 @@ describe('Scalability Tests', () => {
 
   describe('Rapid Heartbeats', () => {
     it('should handle 20 rapid heartbeats from a single student', async () => {
-      const socket = Client(`http://localhost:${port}`);
-      await new Promise<void>((r) => socket.on('connect', r));
+      const socket = await connectClient(port);
 
-      prismaMock.student.upsert.mockResolvedValue({ id: 'stu-hb', studentId: 'HB01', name: 'Heartbeat' });
-      prismaMock.sessionStudent.upsert.mockResolvedValue({
-        id: 'ss-hb',
-        student: { studentId: 'HB01', name: 'Heartbeat' },
-      });
+      mockStudentRegistration(prismaMock, 'HB01', 'Heartbeat');
       prismaMock.sessionStudent.update.mockResolvedValue({});
 
-      await new Promise<void>((resolve) => {
-        socket.emit('register', { studentId: 'HB01', name: 'Heartbeat', sessionCode: '123456' });
-        socket.once('registered', () => resolve());
-      });
+      await registerStudent(socket, { studentId: 'HB01', name: 'Heartbeat', sessionCode: '123456' });
 
       prismaMock.sessionStudent.update.mockClear();
 
@@ -245,10 +226,8 @@ describe('Scalability Tests', () => {
   describe('Teacher Dashboard Under Load', () => {
     it('should receive STUDENT_JOINED updates from multiple simultaneous connections', async () => {
       const STUDENT_COUNT = 5;
-      const token = generateTeacherToken();
 
-      const teacherSocket = Client(`http://localhost:${port}`, { auth: { token } });
-      await new Promise<void>((r) => teacherSocket.on('connect', r));
+      const teacherSocket = await connectTeacher(port);
 
       prismaMock.session.findUnique.mockResolvedValue({
         id: 's1',
@@ -310,9 +289,7 @@ describe('Scalability Tests', () => {
     });
 
     it('should handle session_state with many students', async () => {
-      const token = generateTeacherToken();
-      const teacherSocket = Client(`http://localhost:${port}`, { auth: { token } });
-      await new Promise<void>((r) => teacherSocket.on('connect', r));
+      const teacherSocket = await connectTeacher(port);
 
       // Mock a session with 20 students
       const manyStudents = Array.from({ length: 20 }, (_, i) => ({

@@ -4,6 +4,8 @@ import { generateTeacherToken } from '@src/services/auth.service';
 import { setDisconnectGraceMs, clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
 import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
 import { createTestSocketServer, cleanupTestServer, type TestServerContext } from '../../helpers/setup';
+import { mockStudentRegistration, type PrismaMock } from '../../helpers/prisma';
+import { registerStudent } from '../../helpers/socketClient';
 
 // Mock Prisma
 // We must mock '../utils/prisma' BEFORE importing the module that uses it
@@ -30,7 +32,7 @@ const prismaMock = vi.hoisted(() => ({
     updateMany: vi.fn(),
     count: vi.fn()
   }
-}));
+})) as unknown as PrismaMock;
 
 vi.mock('@src/utils/prisma', () => ({
   prisma: prismaMock,
@@ -78,14 +80,7 @@ describe('Socket Gateway', () => {
   it('should register a new student and emit registered event', async () => {
     const studentData = { studentId: 'test_student_1', name: 'Test Student', sessionCode: '123456' };
 
-    // Setup Mock
-    // The socket handler calls createSession... wait, register does NOT create session. 
-    // It calls student.upsert.
-    // However, if we look at socket.ts, it likely validates the session exists via validateSession OR creates it?
-    // Let's assume validation passes or mock whatever is needed. 
-    // Wait, existing code might need session validation mockery if it does that.
-    prismaMock.student.upsert.mockResolvedValue({ id: 'stu-1', studentId: 'test_student_1', name: 'Test Student' } as any);
-    prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-1', student: { studentId: 'test_student_1', name: 'Test Student' } } as any);
+    mockStudentRegistration(prismaMock, 'test_student_1', 'Test Student', 'stu-1', 'ss-1');
 
     return new Promise<void>((resolve, reject) => {
       clientSocket.emit('register', studentData);
@@ -106,14 +101,10 @@ describe('Socket Gateway', () => {
     const heartbeatData = { studentId: 'test_student_2' };
     const registerData = { studentId: 'test_student_2', name: 'Test', sessionCode: '123456' };
 
-    prismaMock.student.upsert.mockResolvedValue({ id: 'stu-2', studentId: 'test_student_2', name: 'Test' } as any);
-    prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-2', student: { studentId: 'test_student_2', name: 'Test' } } as any);
+    mockStudentRegistration(prismaMock, 'test_student_2', 'Test', 'stu-2', 'ss-2');
     prismaMock.sessionStudent.update.mockResolvedValue({} as any);
 
-    await new Promise<void>(resolve => {
-      clientSocket.emit('register', registerData);
-      clientSocket.once('registered', () => resolve());
-    });
+    await registerStudent(clientSocket, registerData);
 
     clientSocket.emit('heartbeat', heartbeatData);
 
@@ -135,14 +126,10 @@ describe('Socket Gateway', () => {
       details: 'Google detected'
     };
 
-    prismaMock.student.upsert.mockResolvedValue({ id: 'stu-3', studentId: 'test_student_3', name: 'Violator' } as any);
-    prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-3', student: { studentId: 'test_student_3', name: 'Violator' } } as any);
+    mockStudentRegistration(prismaMock, 'test_student_3', 'Violator', 'stu-3', 'ss-3');
     prismaMock.violation.create.mockResolvedValue({ timestamp: new Date() } as any);
 
-    await new Promise<void>(resolve => {
-      clientSocket.emit('register', registerData);
-      clientSocket.once('registered', () => resolve());
-    });
+    await registerStudent(clientSocket, registerData);
 
     return new Promise<void>((resolve) => {
       clientSocket.emit('report_violation', violationData);
@@ -325,15 +312,11 @@ describe('Socket Gateway', () => {
 
   it('should process sniffer:response and create violation when reachable is true', async () => {
     const registerData = { studentId: 'sniffer_student', name: 'Sniffer Test', sessionCode: '123456' };
-    prismaMock.student.upsert.mockResolvedValue({ id: 'stu-sniffer', studentId: 'sniffer_student', name: 'Sniffer Test' } as any);
-    prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-sniffer', student: { studentId: 'sniffer_student', name: 'Sniffer Test' } } as any);
+    mockStudentRegistration(prismaMock, 'sniffer_student', 'Sniffer Test', 'stu-sniffer', 'ss-sniffer');
     prismaMock.violation.create.mockResolvedValue({ timestamp: new Date(), type: 'INTERNET_ACCESS' } as any);
 
     // Register the student
-    await new Promise<void>(resolve => {
-      clientSocket.emit('register', registerData);
-      clientSocket.once('registered', () => resolve());
-    });
+    await registerStudent(clientSocket, registerData);
 
     // Manually set the pending challenge on the server socket
     // We do this by emitting a sniffer:response that matches what we'll set
@@ -363,13 +346,9 @@ describe('Socket Gateway', () => {
 
   it('should NOT create violation when sniffer:response reachable is false', async () => {
     const registerData = { studentId: 'sniffer_safe', name: 'Safe Student', sessionCode: '123456' };
-    prismaMock.student.upsert.mockResolvedValue({ id: 'stu-safe', studentId: 'sniffer_safe', name: 'Safe Student' } as any);
-    prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-safe', student: { studentId: 'sniffer_safe', name: 'Safe Student' } } as any);
+    mockStudentRegistration(prismaMock, 'sniffer_safe', 'Safe Student', 'stu-safe', 'ss-safe');
 
-    await new Promise<void>(resolve => {
-      clientSocket.emit('register', registerData);
-      clientSocket.once('registered', () => resolve());
-    });
+    await registerStudent(clientSocket, registerData);
 
     const sockets = await io.fetchSockets();
     const targetSocket = sockets.find(s => s.data.sessionStudentId === 'ss-safe');
@@ -395,8 +374,7 @@ describe('Socket Gateway', () => {
 
   it('should create DISCONNECTION violation when student disconnects', async () => {
     const registerData = { studentId: 'disconnect_student', name: 'Disconnect Test', sessionCode: '123456' };
-    prismaMock.student.upsert.mockResolvedValue({ id: 'stu-disconnect', studentId: 'disconnect_student', name: 'Disconnect Test' } as any);
-    prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-disconnect', student: { studentId: 'disconnect_student', name: 'Disconnect Test' } } as any);
+    mockStudentRegistration(prismaMock, 'disconnect_student', 'Disconnect Test', 'stu-disconnect', 'ss-disconnect');
     prismaMock.sessionStudent.update.mockResolvedValue({} as any);
     prismaMock.violation.create.mockResolvedValue({
       timestamp: new Date(),
@@ -406,10 +384,7 @@ describe('Socket Gateway', () => {
     } as any);
 
     // Register the student first
-    await new Promise<void>(resolve => {
-      clientSocket.emit('register', registerData);
-      clientSocket.once('registered', () => resolve());
-    });
+    await registerStudent(clientSocket, registerData);
 
     // Disconnect the student (simulates closing tab)
     clientSocket.disconnect();
@@ -433,8 +408,7 @@ describe('Socket Gateway', () => {
 
   it('should NOT create DISCONNECTION violation when student reconnects within grace period', async () => {
     const registerData = { studentId: 'refresh_student', name: 'Refresh Test', sessionCode: '123456' };
-    prismaMock.student.upsert.mockResolvedValue({ id: 'stu-refresh', studentId: 'refresh_student', name: 'Refresh Test' } as any);
-    prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-refresh', student: { studentId: 'refresh_student', name: 'Refresh Test' } } as any);
+    mockStudentRegistration(prismaMock, 'refresh_student', 'Refresh Test', 'stu-refresh', 'ss-refresh');
     prismaMock.sessionStudent.update.mockResolvedValue({} as any);
 
     // Register the student
@@ -456,13 +430,9 @@ describe('Socket Gateway', () => {
     const reconnectedSocket = Client(`http://localhost:${port}`);
     await new Promise<void>(r => reconnectedSocket.on('connect', r));
 
-    prismaMock.student.upsert.mockResolvedValue({ id: 'stu-refresh', studentId: 'refresh_student', name: 'Refresh Test' } as any);
-    prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-refresh', student: { studentId: 'refresh_student', name: 'Refresh Test' } } as any);
+    mockStudentRegistration(prismaMock, 'refresh_student', 'Refresh Test', 'stu-refresh', 'ss-refresh');
 
-    await new Promise<void>(resolve => {
-      reconnectedSocket.emit('register', registerData);
-      reconnectedSocket.once('registered', () => resolve());
-    });
+    await registerStudent(reconnectedSocket, registerData);
 
     // Wait beyond the grace period to confirm no violation fires
     await new Promise(r => setTimeout(r, 200));
@@ -488,15 +458,11 @@ describe('Socket Gateway', () => {
       );
 
     const registerData = { studentId: 'race_student', name: 'Race Test', sessionCode: '123456' };
-    prismaMock.student.upsert.mockResolvedValue({ id: 'stu-race', studentId: 'race_student', name: 'Race Test' } as any);
-    prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-race', student: { studentId: 'race_student', name: 'Race Test' } } as any);
+    mockStudentRegistration(prismaMock, 'race_student', 'Race Test', 'stu-race', 'ss-race');
     prismaMock.sessionStudent.update.mockResolvedValue({} as any);
 
     // Register student
-    await new Promise<void>(resolve => {
-      clientSocket.emit('register', registerData);
-      clientSocket.once('registered', () => resolve());
-    });
+    await registerStudent(clientSocket, registerData);
 
     // Disconnect - starts grace timer (100ms)
     clientSocket.disconnect();
@@ -511,13 +477,9 @@ describe('Socket Gateway', () => {
     const reconnectSocket = Client(`http://localhost:${port}`);
     await new Promise<void>(r => reconnectSocket.on('connect', r));
 
-    prismaMock.student.upsert.mockResolvedValue({ id: 'stu-race', studentId: 'race_student', name: 'Race Test' } as any);
-    prismaMock.sessionStudent.upsert.mockResolvedValue({ id: 'ss-race', student: { studentId: 'race_student', name: 'Race Test' } } as any);
+    mockStudentRegistration(prismaMock, 'race_student', 'Race Test', 'stu-race', 'ss-race');
 
-    await new Promise<void>(resolve => {
-      reconnectSocket.emit('register', registerData);
-      reconnectSocket.once('registered', () => resolve());
-    });
+    await registerStudent(reconnectSocket, registerData);
 
     // Wait for the slow DB call to resolve and the timer callback to complete
     await new Promise(r => setTimeout(r, 600));

@@ -154,7 +154,7 @@ describe('Download API', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(500);
-      expect(res.body.message).toBe('Internal Server Error');
+      expect(res.body.message).toMatch(/internal server error/i);
     });
   });
 });

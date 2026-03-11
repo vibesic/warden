@@ -28,7 +28,7 @@ export const createSubmission = async (params: CreateSubmissionParams): Promise<
   });
 };
 
-export const getSubmissionsForSession = async (sessionId: string) => {
+export const getSubmissionsForSession = async (sessionId: string): Promise<Array<Submission & { sessionStudent: { student: { studentId: string; name: string } } }>> => {
   return prisma.submission.findMany({
     where: { sessionId },
     include: {
@@ -44,12 +44,25 @@ export const getSubmissionsForSession = async (sessionId: string) => {
   });
 };
 
-export const getSubmissionsForStudent = async (sessionStudentId: string, sessionId: string) => {
+export const getSubmissionsForStudent = async (sessionStudentId: string, sessionId: string): Promise<Submission[]> => {
   return prisma.submission.findMany({
     where: {
       sessionStudentId,
       sessionId,
     },
     orderBy: { createdAt: 'desc' },
+  });
+};
+
+/**
+ * Find a submission by its stored filename within a session.
+ * Used by the download route to verify file ownership.
+ */
+export const findSubmissionByStoredName = async (
+  storedName: string,
+  sessionId: string,
+): Promise<Submission | null> => {
+  return prisma.submission.findFirst({
+    where: { storedName, sessionId },
   });
 };
