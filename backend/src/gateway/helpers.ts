@@ -11,14 +11,15 @@ import { Server, Socket } from 'socket.io';
 import { logger } from '../utils/logger';
 import { createViolation, getLatestDisconnectionTime } from '../services/violation.service';
 import { verifyTeacherToken } from '../services/auth.service';
+import { DISCONNECTION_COOLDOWN_MS } from './constants';
 import type { ViolationType, ViolationReason } from '../types/schemas';
 
 /**
  * Cooldown period (ms) for DISCONNECTION violations per student.
  * Prevents the heartbeat checker and socket-disconnect handler from
  * spamming DISCONNECTION events when WiFi flaps repeatedly.
+ * Imported from gateway/constants.ts.
  */
-const DISCONNECTION_COOLDOWN_MS = 300_000; // 5 minutes
 
 /**
  * Tracks the last DISCONNECTION violation timestamp per sessionStudentId.

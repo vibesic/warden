@@ -12,6 +12,7 @@ import {
 import { checkSocketRateLimit } from './socketRateLimiter';
 import { createViolation } from '../services/violation.service';
 import { parseDeviceInfo } from '../utils/device';
+import { DISCONNECT_GRACE_MS, PENDING_DISCONNECT_SWEEP_INTERVAL_MS } from './constants';
 
 /**
  * Grace period (ms) before a disconnect is recorded as a violation.
@@ -21,7 +22,7 @@ import { parseDeviceInfo } from '../utils/device';
  * is cancelled.  Set to 45 s to accommodate slow reconnections on
  * congested classroom networks.
  */
-let disconnectGraceMs = 45_000;
+let disconnectGraceMs = DISCONNECT_GRACE_MS;
 
 /**
  * Override the grace period duration. Intended for tests so they do not
@@ -40,7 +41,7 @@ interface PendingDisconnect {
 const pendingDisconnects = new Map<string, PendingDisconnect>();
 
 let sweepInterval: NodeJS.Timeout | null = null;
-const SWEEP_INTERVAL_MS = 60_000;
+const SWEEP_INTERVAL_MS = PENDING_DISCONNECT_SWEEP_INTERVAL_MS;
 
 /**
  * Start a periodic sweep that removes stale pendingDisconnect entries.

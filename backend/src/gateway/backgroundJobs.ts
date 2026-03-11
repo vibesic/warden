@@ -4,16 +4,18 @@ import { findDeadHeartbeats, markStudentOffline } from '../services/student.serv
 import { getRandomCheckTarget } from '../services/violation.service';
 import { getExpiredSessions, endSessionById } from '../services/session.service';
 import { createAndBroadcastViolation, broadcastStudentLeft } from './helpers';
-
-const HEARTBEAT_CHECK_INTERVAL_MS = 60_000;
-const SNIFFER_CHALLENGE_INTERVAL_MS = 60000;
-const SNIFFER_RESPONSE_TIMEOUT_MS = 15000;
-const TIMER_CHECK_INTERVAL_MS = 3000;
+import {
+  HEARTBEAT_CHECK_INTERVAL_MS,
+  HEARTBEAT_DEAD_THRESHOLD_MS,
+  SNIFFER_CHALLENGE_INTERVAL_MS,
+  SNIFFER_RESPONSE_TIMEOUT_MS,
+  TIMER_CHECK_INTERVAL_MS,
+} from './constants';
 
 export const startHeartbeatChecker = (io: Server): NodeJS.Timeout => {
   return setInterval(async () => {
     try {
-      const deadStudents = await findDeadHeartbeats(120_000);
+      const deadStudents = await findDeadHeartbeats(HEARTBEAT_DEAD_THRESHOLD_MS);
 
       for (const deadStudent of deadStudents) {
         // Skip students whose session has already ended — no point

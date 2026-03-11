@@ -9,6 +9,7 @@ import { validateSession } from '../services/session.service';
 import { requireTeacherAuth } from '../middleware/authMiddleware';
 import { sessionValidationRateLimiter } from '../middleware/rateLimiter';
 import { PUBLIC_DOMAINS } from '../utils/domainList';
+import { fisherYatesShuffle } from '../utils/shuffle';
 
 const router = Router();
 
@@ -31,12 +32,12 @@ router.get('/check-targets', requireTeacherAuth, async (_req: Request, res: Resp
       where: { isEnabled: true },
       select: { url: true },
     });
-    const shuffled = allTargets.sort(() => 0.5 - Math.random());
+    const shuffled = fisherYatesShuffle(allTargets);
     const urls = shuffled.slice(0, 3).map((t) => t.url);
     res.json({ domains: urls });
   } catch (error) {
     logger.error({ error }, 'Error fetching check targets');
-    const shuffled = [...PUBLIC_DOMAINS].sort(() => 0.5 - Math.random());
+    const shuffled = fisherYatesShuffle(PUBLIC_DOMAINS);
     res.json({ domains: shuffled.slice(0, 3) });
   }
 });

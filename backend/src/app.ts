@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
 import { prisma } from './utils/prisma';
-import { logger } from './utils/logger';
+import { logger, requestLogger } from './utils/logger';
 import { PUBLIC_DOMAINS } from './utils/domainList';
 import { isProductionMode, corsOriginCallback } from './utils/config';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
@@ -52,6 +52,9 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+/* ── Request logging ──────────────────────────────────────────── */
+app.use(requestLogger);
 
 /* ── Rate limiting ───────────────────────────────────────────── */
 app.use('/api', generalRateLimiter);
