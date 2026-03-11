@@ -19,10 +19,8 @@ export default defineConfig({
     testTimeout: 15000,
     retry: 1,
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
+    forks: {
+      singleFork: true,
     },
     coverage: {
       provider: 'v8',
