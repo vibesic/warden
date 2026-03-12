@@ -1,48 +1,31 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useTeacherSocket, Violation, StudentStatus } from '../hooks/useTeacherSocket';
-import { useCurrentTime } from '../hooks/useCurrentTime';
-import { AlertTriangle, Wifi, WifiOff, Download, Upload, Trash2, Monitor, Smartphone, Tablet, FileText } from 'lucide-react';
+import { useTeacherSocket } from '../hooks/useTeacherSocket';
+import type { Violation } from '../hooks/useTeacherSocket';
+import { useSessionTimer } from '../hooks/useSessionTimer';
+import { useQuestionFiles } from '../hooks/useQuestionFiles';
+import { useSubmissions } from '../hooks/useSubmissions';
 import { ConfirmationModal } from './common/ConfirmationModal';
-import { Modal } from './common/Modal';
 import { Header } from './layout/Header';
-import { Table, TableColumn } from './common/Table';
-import { Card } from './common/Card';
-import { API_BASE_URL } from '../config/api';
-import { formatDuration, formatFileSize, formatHMS } from '../utils/format';
-
-interface QuestionFileItem {
-    id: string;
-    originalName: string;
-    sizeBytes: number;
-    createdAt: string;
-}
-
-interface SubmissionItem {
-    id: string;
-    originalName: string;
-    storedName: string;
-    mimeType: string | null;
-    sizeBytes: number;
-    createdAt: string;
-    student: { studentId: string; name: string };
-}
-import { StatusBadge } from './common/StatusBadge';
+import { SessionHeader } from './session/SessionHeader';
+import { StudentGrid } from './session/StudentGrid';
+import { StudentHistoryTable } from './session/StudentHistoryTable';
+import { QuestionFilesPanel } from './session/QuestionFilesPanel';
+import { SubmissionsPanel } from './session/SubmissionsPanel';
+import { ViolationLogModal } from './session/ViolationLogModal';
 
 export const SessionDetail: React.FC = () => {
     const { sessionCode } = useParams<{ sessionCode: string }>();
     const navigate = useNavigate();
     const { isConnected, students, activeSession, isAuthError, serverTimeOffset, endSession } = useTeacherSocket(sessionCode);
-    const [selectedStudent, setSelectedStudent] = useState<{ name: string, violations: Violation[] } | null>(null);
+    const { formatElapsedTime, formatRemainingTime, getRemainingMs } = useSessionTimer(serverTimeOffset);
+    const { questionFiles, questionUploading, questionUploadError, handleQuestionUpload, handleQuestionDelete, handleQuestionDownload } = useQuestionFiles(sessionCode || '');
+    const { submissions, handleDownload: handleSubmissionDownload } = useSubmissions(sessionCode);
+
+    const [selectedStudent, setSelectedStudent] = useState<{ name: string; violations: Violation[] } | null>(null);
     const [showEndSessionModal, setShowEndSessionModal] = useState(false);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
-    const currentTime = useCurrentTime();
-    const [submissions, setSubmissions] = useState<SubmissionItem[]>([]);
     const [connectionFilter, setConnectionFilter] = useState<'all' | 'online' | 'offline'>('all');
-    const [questionFiles, setQuestionFiles] = useState<QuestionFileItem[]>([]);
-    const [questionUploading, setQuestionUploading] = useState(false);
-    const [questionUploadError, setQuestionUploadError] = useState('');
-    const questionFileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (isAuthError) {
@@ -52,134 +35,13 @@ export const SessionDetail: React.FC = () => {
         }
     }, [isAuthError, navigate]);
 
-    const fetchSubmissions = useCallback(async () => {
-        if (!sessionCode) return;
-        try {
-            const token = localStorage.getItem('teacherToken') || '';
-            const res = await fetch(`${API_BASE_URL}/api/submissions/${sessionCode}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const data = await res.json();
-            if (data.success) {
-                setSubmissions(data.data);
-            }
-        } catch {
-            // Silently fail — submissions are supplementary
-        }
-    }, [sessionCode]);
-
-    // Poll submissions every 15 seconds
-    useEffect(() => {
-        fetchSubmissions();
-        const interval = setInterval(fetchSubmissions, 15000);
-        return () => clearInterval(interval);
-    }, [fetchSubmissions]);
-
-    const fetchQuestionFiles = useCallback(async () => {
-        if (!sessionCode) return;
-        try {
-            const res = await fetch(`${API_BASE_URL}/api/session/${sessionCode}/questions`);
-            const data = await res.json();
-            if (data.success) {
-                setQuestionFiles(data.data);
-            }
-        } catch {
-            // Silently fail
-        }
-    }, [sessionCode]);
-
-    useEffect(() => {
-        fetchQuestionFiles();
-    }, [fetchQuestionFiles]);
-
-    const handleQuestionUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file || !sessionCode) return;
-
-        setQuestionUploading(true);
-        setQuestionUploadError('');
-
-        try {
-            const token = localStorage.getItem('teacherToken') || '';
-            const formData = new FormData();
-            formData.append('file', file);
-
-            const res = await fetch(`${API_BASE_URL}/api/session/${sessionCode}/questions`, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${token}` },
-                body: formData,
-            });
-
-            const data = await res.json();
-            if (data.success) {
-                setQuestionFiles((prev) => [...prev, data.data]);
-            } else {
-                setQuestionUploadError(data.message || 'Upload failed');
-            }
-        } catch {
-            setQuestionUploadError('Upload failed. Check your connection.');
-        } finally {
-            setQuestionUploading(false);
-            if (questionFileInputRef.current) questionFileInputRef.current.value = '';
-        }
-    };
-
-    const handleQuestionDelete = async (fileId: string) => {
-        if (!sessionCode) return;
-        try {
-            const token = localStorage.getItem('teacherToken') || '';
-            const res = await fetch(`${API_BASE_URL}/api/session/${sessionCode}/questions/${fileId}`, {
-                method: 'DELETE',
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const data = await res.json();
-            if (data.success) {
-                setQuestionFiles((prev) => prev.filter((f) => f.id !== fileId));
-            }
-        } catch {
-            // Silently fail
-        }
-    };
-
-    const handleQuestionDownload = (fileId: string) => {
-        window.open(`${API_BASE_URL}/api/session/${sessionCode}/questions/${fileId}/download`, '_blank');
-    };
-
-    const formatElapsedTime = useCallback((start: string): string => {
-        const serverNow = currentTime.getTime() + serverTimeOffset;
-        return formatHMS(serverNow - new Date(start).getTime());
-    }, [currentTime, serverTimeOffset]);
-
-    const formatRemainingTime = useCallback((start: string, durationMin: number): string => {
-        const endsAt = new Date(start).getTime() + durationMin * 60_000;
-        const serverNow = currentTime.getTime() + serverTimeOffset;
-        return formatHMS(endsAt - serverNow);
-    }, [currentTime, serverTimeOffset]);
-
-    const getRemainingMs = useCallback((start: string, durationMin: number): number => {
-        const endsAt = new Date(start).getTime() + durationMin * 60_000;
-        const serverNow = currentTime.getTime() + serverTimeOffset;
-        return endsAt - serverNow;
-    }, [currentTime, serverTimeOffset]);
-
-    const handleDownload = (storedName: string) => {
-        const token = localStorage.getItem('teacherToken') || '';
-        window.open(`${API_BASE_URL}/api/submissions/${sessionCode}/download/${storedName}?token=${token}`, '_blank');
-    };
-
-    const getDeviceIcon = (deviceType?: string) => {
-        switch (deviceType) {
-            case 'mobile': return <Smartphone size={14} />;
-            case 'tablet': return <Tablet size={14} />;
-            default: return <Monitor size={14} />;
-        }
-    };
-
     const sortedStudents = Object.values(students).sort((a, b) => a.studentId.localeCompare(b.studentId));
-
-    const handleEndSessionClick = () => {
-        setShowEndSessionModal(true);
-    };
+    const onlineCount = sortedStudents.filter(s => s.isOnline).length;
+    const filteredStudents = sortedStudents.filter((s) => {
+        if (connectionFilter === 'online') return s.isOnline;
+        if (connectionFilter === 'offline') return !s.isOnline;
+        return true;
+    });
 
     const confirmEndSession = () => {
         endSession();
@@ -197,87 +59,10 @@ export const SessionDetail: React.FC = () => {
 
     const confirmLogout = () => {
         if (activeSession?.isActive) {
-            endSession(); // End session on logout
+            endSession();
         }
         navigate('/teacher/login');
     };
-
-    const onlineCount = sortedStudents.filter(s => s.isOnline).length;
-
-    const filteredStudents = sortedStudents.filter((s) => {
-        if (connectionFilter === 'online') return s.isOnline;
-        if (connectionFilter === 'offline') return !s.isOnline;
-        return true;
-    });
-
-    const violationColumns: TableColumn<Violation>[] = [
-        {
-            header: 'Time',
-            className: 'px-4 py-3 whitespace-nowrap text-gray-600',
-            cell: (v) => new Date(v.timestamp).toLocaleTimeString()
-        },
-        {
-            header: 'Type',
-            className: 'px-4 py-3 font-bold text-red-600',
-            cell: (v) => v.type.replace(/_/g, ' ')
-        },
-        {
-            header: 'Reason',
-            className: 'px-4 py-3 font-medium text-orange-700',
-            cell: (v) => v.reason ? v.reason.replace(/_/g, ' ') : '-'
-        },
-        {
-            header: 'Details',
-            className: 'px-4 py-3 text-gray-700',
-            cell: (v) => v.details || '-'
-        }
-    ];
-
-    const studentHistoryColumns: TableColumn<StudentStatus>[] = [
-        {
-            header: 'Name',
-            className: 'font-medium text-gray-900',
-            cell: (s) => s.name || 'Unknown'
-        },
-        {
-            header: 'Student ID',
-            cell: (s) => <span className="font-mono text-gray-600">{s.studentId}</span>
-        },
-        {
-            header: 'Device',
-            cell: (s) => (
-                <div className="flex items-center gap-1.5 text-gray-500" title={`${s.deviceOs || 'Unknown'} · ${s.deviceBrowser || 'Unknown'}`}>
-                    {getDeviceIcon(s.deviceType)}
-                    <span className="text-xs">{s.deviceOs || 'Unknown'}</span>
-                </div>
-            )
-        },
-        {
-            header: 'Violations',
-            cell: (s) => s.violations.length > 0 ? (
-                <div
-                    onClick={() => setSelectedStudent({ name: s.name || s.studentId, violations: s.violations })}
-                    className="cursor-pointer inline-block"
-                >
-                    <StatusBadge status="error" text={`${s.violations.length}`} />
-                </div>
-            ) : (
-                <StatusBadge status="success" text="Clean" />
-            )
-        },
-        {
-            header: 'Join Time',
-            cell: (s) => s.joinedAt ? new Date(s.joinedAt).toLocaleTimeString() : '-'
-        },
-        {
-            header: 'Exit Time',
-            cell: (s) => s.lastSeenAt ? new Date(s.lastSeenAt).toLocaleTimeString() : '-'
-        },
-        {
-            header: 'Duration',
-            cell: (s) => formatDuration(s.joinedAt, s.lastSeenAt)
-        }
-    ];
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -311,365 +96,52 @@ export const SessionDetail: React.FC = () => {
                     onCancel={() => setShowLogoutModal(false)}
                 />
 
-                <section className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
-                    <div className="w-full flex flex-wrap items-center justify-between gap-6">
-                        {/* Session Code */}
-                        <div>
-                            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Session Code</h2>
-                            <div className="text-2xl font-mono font-bold text-indigo-600 tracking-widest">{sessionCode}</div>
-                        </div>
-
-                        {activeSession?.isActive && activeSession.createdAt ? (
-                            <>
-                                {/* Started At */}
-                                <div>
-                                    <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Started At</h2>
-                                    <div className="text-lg font-medium text-gray-700">
-                                        {new Date(activeSession.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                    </div>
-                                </div>
-
-                                {/* Timer: show countdown if duration set, otherwise elapsed */}
-                                {activeSession.durationMinutes ? (
-                                    <div>
-                                        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Time Remaining</h2>
-                                        {getRemainingMs(activeSession.createdAt, activeSession.durationMinutes) <= 0 ? (
-                                            <div className="text-lg font-bold text-rose-500 animate-pulse">
-                                                Ending session...
-                                            </div>
-                                        ) : (
-                                            <div className={`text-2xl font-mono font-bold tabular-nums ${getRemainingMs(activeSession.createdAt, activeSession.durationMinutes) <= 300_000
-                                                ? 'text-rose-500'
-                                                : 'text-emerald-500'
-                                                }`}>
-                                                {formatRemainingTime(activeSession.createdAt, activeSession.durationMinutes)}
-                                            </div>
-                                        )}
-                                        <div className="text-xs text-gray-400 mt-0.5">
-                                            of {activeSession.durationMinutes} min
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div>
-                                        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Time Elapsed</h2>
-                                        <div className="text-2xl font-mono font-bold text-emerald-500 tabular-nums">
-                                            {formatElapsedTime(activeSession.createdAt)}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* End Session Button */}
-                                <div>
-                                    <button
-                                        onClick={handleEndSessionClick}
-                                        className="bg-rose-50 hover:bg-rose-100 text-rose-600 border-2 border-rose-200 font-bold py-3 px-6 rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap"
-                                    >
-                                        End Session
-                                    </button>
-                                </div>
-                            </>
-                        ) : (activeSession && !activeSession.isActive && (
-                            <>
-                                {/* Start Date */}
-                                <div>
-                                    <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Start Date</h2>
-                                    <div className="text-lg font-medium text-gray-600">
-                                        {new Date(activeSession.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                    </div>
-                                </div>
-
-                                {/* End Date */}
-                                <div>
-                                    <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">End Date</h2>
-                                    <div className="text-lg font-medium text-gray-600">
-                                        {activeSession.endedAt ? new Date(activeSession.endedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}
-                                    </div>
-                                </div>
-
-                                {/* Duration */}
-                                <div>
-                                    <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Duration</h2>
-                                    <div className="text-lg font-bold text-emerald-600">
-                                        {formatDuration(activeSession.createdAt, activeSession.endedAt)}
-                                    </div>
-                                </div>
-
-                                {/* Students */}
-                                <div>
-                                    <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Students</h2>
-                                    <div className="text-lg font-bold text-black pl-1">
-                                        {sortedStudents.length}
-                                    </div>
-                                </div>
-                            </>
-                        ))}
-                    </div>
-                </section>
+                <SessionHeader
+                    sessionCode={sessionCode}
+                    activeSession={activeSession}
+                    sortedStudentsCount={sortedStudents.length}
+                    formatElapsedTime={formatElapsedTime}
+                    formatRemainingTime={formatRemainingTime}
+                    getRemainingMs={getRemainingMs}
+                    onEndSession={() => setShowEndSessionModal(true)}
+                />
 
                 {activeSession?.isActive ? (
-                    <section>
-                        <div className="flex justify-between items-center mb-4 px-6">
-                            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide">
-                                Connected Students ({onlineCount} out of {sortedStudents.length})
-                            </h2>
-                            <div className="flex gap-4 text-sm items-center">
-                                <select
-                                    value={connectionFilter}
-                                    onChange={(e) => setConnectionFilter(e.target.value as 'all' | 'online' | 'offline')}
-                                    className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    aria-label="Filter by status"
-                                >
-                                    <option value="all">All Students</option>
-                                    <option value="online">Online Only</option>
-                                    <option value="offline">Offline Only</option>
-                                </select>
-                                <div className="flex items-center gap-1">
-                                    <Wifi size={16} className="text-green-500" /> <span className="text-xs text-gray-500">Online</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                    <WifiOff size={16} className="text-gray-400" /> <span className="text-xs text-gray-500">Offline</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {filteredStudents.map(student => (
-                                <div key={student.studentId} className={`relative p-5 rounded-lg border-2 transition-all ${student.isOnline ? 'bg-white border-green-100 shadow-sm' : 'bg-gray-50 border-gray-200 opacity-75'
-                                    }`}>
-                                    <div className="flex justify-between items-start">
-                                        {/* Name (Top Left) */}
-                                        <h3 className="font-bold text-gray-800 text-lg truncate pr-2" title={student.name}>{student.name || 'Unknown'}</h3>
-
-                                        {/* Wifi Symbol (Top Right) */}
-                                        <div className={`${student.isOnline ? 'text-green-500' : 'text-gray-400'}`}>
-                                            {student.isOnline ? <Wifi size={20} /> : <WifiOff size={20} />}
-                                        </div>
-                                    </div>
-
-                                    {/* Device Info */}
-                                    <div className="flex items-center gap-1.5 mt-1 text-xs text-gray-400" title={`${student.deviceOs || 'Unknown OS'} · ${student.deviceBrowser || 'Unknown Browser'}`}>
-                                        {getDeviceIcon(student.deviceType)}
-                                        <span className="truncate">{student.deviceOs || 'Unknown'} · {student.deviceBrowser || 'Unknown'}</span>
-                                    </div>
-
-                                    <div className="flex items-end justify-between mt-1">
-                                        {/* Student ID (Bottom Left) */}
-                                        <p className="text-sm font-mono font-bold text-gray-500">{student.studentId}</p>
-
-                                        {/* Violation Count (Bottom Right) */}
-                                        {student.violations.length > 0 ? (
-                                            <button
-                                                onClick={() => setSelectedStudent({ name: student.name || student.studentId, violations: student.violations })}
-                                                className="flex items-center gap-1.5 px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded-full transition-colors border border-red-200"
-                                            >
-                                                <AlertTriangle size={14} />
-                                                <span className="text-xs font-bold">{student.violations.length} Violations</span>
-                                            </button>
-                                        ) : (
-                                            <div className="h-6"></div> /* Spacer to keep height consistent if no violations */
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-
-                            {filteredStudents.length === 0 && (
-                                <div className="col-span-full py-12 text-center bg-white rounded border border-dashed border-gray-300 text-gray-400">
-                                    {sortedStudents.length === 0
-                                        ? (activeSession?.isActive ? 'Waiting for students to join...' : 'No data recorded for this session.')
-                                        : `No ${connectionFilter} students.`
-                                    }
-                                </div>
-                            )}
-                        </div>
-                    </section>
+                    <StudentGrid
+                        filteredStudents={filteredStudents}
+                        sortedStudentsCount={sortedStudents.length}
+                        onlineCount={onlineCount}
+                        connectionFilter={connectionFilter}
+                        onFilterChange={setConnectionFilter}
+                        onSelectStudent={setSelectedStudent}
+                        activeSession={activeSession}
+                    />
                 ) : (
-                    <section>
-                        <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4 pl-6">Student Participation History</h2>
-                        <Card className="border-gray-200 overflow-hidden" padding="none">
-                            <Table
-                                data={sortedStudents}
-                                columns={studentHistoryColumns}
-                                keyExtractor={(s) => s.studentId}
-                                emptyMessage="No students participated in this session."
-                            />
-                        </Card>
-                    </section>
+                    <StudentHistoryTable
+                        students={sortedStudents}
+                        onSelectStudent={setSelectedStudent}
+                    />
                 )}
 
-                {/* Question Files Section */}
-                <section className="mt-8">
-                    <div className="flex justify-between items-center mb-4 px-6">
-                        <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide">
-                            Question Files ({questionFiles.length})
-                        </h2>
-                        {activeSession?.isActive && (
-                            <div>
-                                <input
-                                    ref={questionFileInputRef}
-                                    type="file"
-                                    onChange={handleQuestionUpload}
-                                    className="hidden"
-                                    id="question-file-upload"
-                                />
-                                <label
-                                    htmlFor="question-file-upload"
-                                    className={`inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg cursor-pointer hover:bg-indigo-700 transition-colors ${questionUploading ? 'opacity-50 pointer-events-none' : ''}`}
-                                >
-                                    <Upload size={14} />
-                                    {questionUploading ? 'Uploading...' : 'Upload Question File'}
-                                </label>
-                            </div>
-                        )}
-                    </div>
-                    {questionUploadError && (
-                        <p className="text-red-500 text-xs px-6 mb-2">{questionUploadError}</p>
-                    )}
-                    <Card className="border-gray-200 overflow-hidden" padding="none">
-                        {questionFiles.length > 0 ? (
-                            <Table
-                                data={questionFiles}
-                                columns={[
-                                    {
-                                        header: 'File',
-                                        cell: (f: QuestionFileItem) => (
-                                            <div className="flex items-center gap-2">
-                                                <FileText size={16} className="text-indigo-500 flex-shrink-0" />
-                                                <span className="text-gray-800 truncate max-w-xs" title={f.originalName}>
-                                                    {f.originalName}
-                                                </span>
-                                            </div>
-                                        ),
-                                    },
-                                    {
-                                        header: 'Size',
-                                        cell: (f: QuestionFileItem) => (
-                                            <span className="text-gray-600 text-sm">{formatFileSize(f.sizeBytes)}</span>
-                                        ),
-                                    },
-                                    {
-                                        header: 'Uploaded',
-                                        cell: (f: QuestionFileItem) => (
-                                            <span className="text-gray-600 text-sm whitespace-nowrap">
-                                                {new Date(f.createdAt).toLocaleTimeString()}
-                                            </span>
-                                        ),
-                                    },
-                                    {
-                                        header: '',
-                                        cell: (f: QuestionFileItem) => (
-                                            <div className="flex items-center gap-1">
-                                                <button
-                                                    onClick={() => handleQuestionDownload(f.id)}
-                                                    className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
-                                                    title="Download"
-                                                >
-                                                    <Download size={16} />
-                                                </button>
-                                                {activeSession?.isActive && (
-                                                    <button
-                                                        onClick={() => handleQuestionDelete(f.id)}
-                                                        className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"
-                                                        title="Delete"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        ),
-                                    },
-                                ]}
-                                keyExtractor={(f: QuestionFileItem) => f.id}
-                                emptyMessage=""
-                            />
-                        ) : (
-                            <div className="py-8 text-center text-gray-400 text-sm">
-                                {activeSession?.isActive
-                                    ? 'No question files uploaded yet. Use the button above to add files.'
-                                    : 'No question files were uploaded for this session.'}
-                            </div>
-                        )}
-                    </Card>
-                </section>
+                <QuestionFilesPanel
+                    questionFiles={questionFiles}
+                    isActive={activeSession?.isActive ?? false}
+                    questionUploading={questionUploading}
+                    questionUploadError={questionUploadError}
+                    onUpload={handleQuestionUpload}
+                    onDelete={handleQuestionDelete}
+                    onDownload={handleQuestionDownload}
+                />
 
-                {/* Submissions Section */}
-                {submissions.length > 0 && (
-                    <section className="mt-8">
-                        <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4 pl-6">
-                            Student Submissions ({submissions.length})
-                        </h2>
-                        <Card className="border-gray-200 overflow-hidden" padding="none">
-                            <Table
-                                data={submissions}
-                                columns={[
-                                    {
-                                        header: 'Student',
-                                        cell: (s: SubmissionItem) => (
-                                            <div>
-                                                <div className="font-medium text-gray-900">{s.student.name}</div>
-                                                <div className="text-xs font-mono text-gray-500">{s.student.studentId}</div>
-                                            </div>
-                                        ),
-                                    },
-                                    {
-                                        header: 'File',
-                                        cell: (s: SubmissionItem) => (
-                                            <span className="text-gray-800 truncate block max-w-xs" title={s.originalName}>
-                                                {s.originalName}
-                                            </span>
-                                        ),
-                                    },
-                                    {
-                                        header: 'Size',
-                                        cell: (s: SubmissionItem) => (
-                                            <span className="text-gray-600 text-sm">{formatFileSize(s.sizeBytes)}</span>
-                                        ),
-                                    },
-                                    {
-                                        header: 'Uploaded',
-                                        cell: (s: SubmissionItem) => (
-                                            <span className="text-gray-600 text-sm whitespace-nowrap">
-                                                {new Date(s.createdAt).toLocaleTimeString()}
-                                            </span>
-                                        ),
-                                    },
-                                    {
-                                        header: '',
-                                        cell: (s: SubmissionItem) => (
-                                            <button
-                                                onClick={() => handleDownload(s.storedName)}
-                                                className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
-                                                title="Download"
-                                            >
-                                                <Download size={16} />
-                                            </button>
-                                        ),
-                                    },
-                                ]}
-                                keyExtractor={(s: SubmissionItem) => s.id}
-                                emptyMessage="No submissions yet."
-                            />
-                        </Card>
-                    </section>
-                )}
+                <SubmissionsPanel
+                    submissions={submissions}
+                    onDownload={handleSubmissionDownload}
+                />
 
-                {selectedStudent && (
-                    <Modal
-                        isOpen={!!selectedStudent}
-                        onClose={() => setSelectedStudent(null)}
-                        title={`Violation Log: ${selectedStudent.name}`}
-                        size="xl"
-                        headerClassName="bg-red-50 text-red-800"
-                    >
-                        <Table
-                            data={selectedStudent.violations}
-                            columns={violationColumns}
-                            keyExtractor={(_, index) => index}
-                            emptyMessage="No violations recorded."
-                            className="w-full text-sm text-left"
-                            rowClassName="hover:bg-red-50/30"
-                        />
-                    </Modal>
-                )}
+                <ViolationLogModal
+                    selectedStudent={selectedStudent}
+                    onClose={() => setSelectedStudent(null)}
+                />
             </div>
         </div>
     );

@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { useInternetSniffer } from '../hooks/useInternetSniffer';
 import { useExamSocket } from '../hooks/useExamSocket';
 import { useCurrentTime } from '../hooks/useCurrentTime';
-import { API_BASE_URL } from '../config/api';
+import { useQuestionFiles } from '../hooks/useQuestionFiles';
 import { formatHMS } from '../utils/format';
 import type { QuestionFileItem } from '../types/exam';
 
@@ -50,7 +50,7 @@ export const ExamSessionProvider: React.FC<ProviderProps> = ({
   const [serverViolation, setServerViolation] = useState(false);
   const [sessionEnded, setSessionEnded] = useState(false);
   const [violationReported, setViolationReported] = useState(false);
-  const [questionFiles, setQuestionFiles] = useState<QuestionFileItem[]>([]);
+  const { questionFiles } = useQuestionFiles(sessionCode);
   const currentTime = useCurrentTime();
 
   const handleSessionEnded = useCallback(() => {
@@ -75,22 +75,6 @@ export const ExamSessionProvider: React.FC<ProviderProps> = ({
     const diff = endsAt - currentTime.getTime();
     return formatHMS(diff);
   })();
-
-  // Fetch question files once on mount
-  useEffect(() => {
-    const fetchQuestionFiles = async (): Promise<void> => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/session/${sessionCode}/questions`);
-        const data = await res.json();
-        if (data.success) {
-          setQuestionFiles(data.data);
-        }
-      } catch {
-        // Silently fail
-      }
-    };
-    fetchQuestionFiles();
-  }, [sessionCode]);
 
   // Show error if registration fails
   useEffect(() => {
