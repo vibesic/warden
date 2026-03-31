@@ -2,18 +2,22 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { registerStudent, updateHeartbeat, markStudentOffline, getSessionStudentsForSession, findDeadHeartbeats } from '@src/services/student.service';
 import { prisma } from '@src/utils/prisma';
 
-vi.mock('@src/utils/prisma', () => ({
-  prisma: {
-    student: {
-      upsert: vi.fn(),
-    },
-    sessionStudent: {
-      upsert: vi.fn(),
-      update: vi.fn(),
-      findMany: vi.fn(),
-    },
-  },
-}));
+vi.mock('@src/utils/prisma', () => {
+  const studentMock = { upsert: vi.fn() };
+  const sessionStudentMock = { upsert: vi.fn(), update: vi.fn(), findMany: vi.fn() };
+  return {
+    prisma: {
+      $transaction: vi.fn(async (callback) => {
+        return callback({ 
+          student: studentMock, 
+          sessionStudent: sessionStudentMock 
+        });
+      }),
+      student: studentMock,
+      sessionStudent: sessionStudentMock,
+    }
+  };
+});
 
 describe('Student Service', () => {
   beforeEach(() => {
