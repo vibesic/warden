@@ -63,8 +63,12 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
   const [students, setStudents] = useState<Record<string, StudentStatus>>({});
   const [activeSession, setActiveSession] = useState<Session | null>(null);
   const [history, setHistory] = useState<Session[]>([]);
-  // Use state to track current session code if we want to switch rooms? 
-  // But hook is re-initialized if sessionCode prop changes because of dependency array.
+
+  // Keep a ref of sessionCode for use inside socket event listeners without recreating the connection
+  const sessionCodeRef = useRef(sessionCode);
+  useEffect(() => {
+    sessionCodeRef.current = sessionCode;
+  }, [sessionCode]);
 
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,17 +79,15 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
     const token = sessionStorage.getItem('teacherToken') || '';
     socketRef.current = io(SOCKET_URL, {
       auth: { token },
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 10000,
     });
     const socket = socketRef.current;
 
     const setupListeners = () => {
       socket.on('connect', () => {
         setIsConnected(true);
-        if (sessionCode) {
-          socket.emit('dashboard:join_session', { sessionCode });
-        } else {
-          socket.emit('dashboard:join_overview');
-        }
       });
 
       socket.on('dashboard:overview', (data: { activeSession: Session | null, history: Session[] }) => {
@@ -119,7 +121,7 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
 
       socket.on('dashboard:session_created', (session: Session) => {
         // If in overview, update active session
-        if (!sessionCode) {
+        if (!sessionCodeRef.current) {
           setActiveSession(session);
           // Also add to history if not there? But usually it's active.
         }
@@ -131,46 +133,52 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
       });
 
       socket.on('dashboard:update', (data: DashboardUpdatePayload) => {
-        if (!sessionCode) return;
-
         setStudents(prev => {
-          const newState = { ...prev };
           if (data.type === 'STUDENT_JOINED') {
-            if (newState[data.studentId]) {
-              newState[data.studentId] = {
-                ...newState[data.studentId],
-                isOnline: true,
-                name: data.name || newState[data.studentId].name,
-                deviceType: data.deviceType || newState[data.studentId].deviceType,
-                deviceOs: data.deviceOs || newState[data.studentId].deviceOs,
-                deviceBrowser: data.deviceBrowser || newState[data.studentId].deviceBrowser,
+            const student = prev[data.studentId];
+            if (student) {
+              return {
+                ...prev,
+                [data.studentId]: {
+                  ...student,
+                  isOnline: true,
+                  name: data.name || student.name,
+                  deviceType: data.deviceType || student.deviceType,
+                  deviceOs: data.deviceOs || student.deviceOs,
+                  deviceBrowser: data.deviceBrowser || student.deviceBrowser,
+                }
               };
             } else {
-              newState[data.studentId] = {
-                studentId: data.studentId,
-                name: data.name,
-                isOnline: true,
-                deviceType: data.deviceType,
-                deviceOs: data.deviceOs,
-                deviceBrowser: data.deviceBrowser,
-                violations: []
+              return {
+                ...prev,
+                [data.studentId]: {
+                  studentId: data.studentId,
+                  name: data.name,
+                  isOnline: true,
+                  deviceType: data.deviceType,
+                  deviceOs: data.deviceOs,
+                  deviceBrowser: data.deviceBrowser,
+                  violations: []
+                }
               };
             }
           } else if (data.type === 'STUDENT_LEFT') {
-            if (newState[data.studentId]) {
-              newState[data.studentId] = {
-                ...newState[data.studentId],
-                isOnline: false
+            const student = prev[data.studentId];
+            if (student) {
+              return {
+                ...prev,
+                [data.studentId]: {
+                  ...student,
+                  isOnline: false
+                }
               };
             }
           }
-          return newState;
+          return prev;
         });
       });
 
       socket.on('dashboard:alert', (data: DashboardAlertPayload) => {
-        if (!sessionCode) return;
-
         setStudents(prev => {
           const student = prev[data.studentId];
           if (!student) return prev;
@@ -203,7 +211,17 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
     return () => {
       socket.disconnect();
     };
-  }, [sessionCode]);
+  }, []); // Re-evaluated socket instantiation only on mount
+
+  // Join the correct room dynamically
+  useEffect(() => {
+    if (!isConnected || !socketRef.current) return;
+    if (sessionCode) {
+      socketRef.current.emit('dashboard:join_session', { sessionCode });
+    } else {
+      socketRef.current.emit('dashboard:join_overview');
+    }
+  }, [isConnected, sessionCode]);
 
   const createSession = useCallback((durationMinutes?: number) => {
     socketRef.current?.emit('teacher:create_session', durationMinutes ? { durationMinutes } : {});
