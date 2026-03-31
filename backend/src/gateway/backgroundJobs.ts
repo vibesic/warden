@@ -17,34 +17,36 @@ export const startHeartbeatChecker = (io: Server): NodeJS.Timeout => {
     try {
       const deadStudents = await findDeadHeartbeats(HEARTBEAT_DEAD_THRESHOLD_MS);
 
-      for (const deadStudent of deadStudents) {
-        // Skip students whose session has already ended — no point
-        // creating violations or broadcasting updates.
-        if (!deadStudent.session?.isActive) {
+      await Promise.allSettled(
+        deadStudents.map(async (deadStudent) => {
+          // Skip students whose session has already ended — no point
+          // creating violations or broadcasting updates.
+          if (!deadStudent.session?.isActive) {
+            await markStudentOffline(deadStudent.id);
+            return;
+          }
+
+          logger.info({ studentId: deadStudent.student.studentId }, 'Heartbeat missed');
+
           await markStudentOffline(deadStudent.id);
-          continue;
-        }
 
-        logger.info({ studentId: deadStudent.student.studentId }, 'Heartbeat missed');
+          broadcastStudentLeft(io, deadStudent.session.code, deadStudent.student.studentId);
 
-        await markStudentOffline(deadStudent.id);
-
-        broadcastStudentLeft(io, deadStudent.session.code, deadStudent.student.studentId);
-
-        // createAndBroadcastViolation already enforces a per-student
-        // DISCONNECTION cooldown, so rapid WiFi flaps won't spam.
-        await createAndBroadcastViolation(
-          io,
-          deadStudent.session.code,
-          deadStudent.student.studentId,
-          {
-            sessionStudentId: deadStudent.id,
-            type: 'DISCONNECTION',
-            reason: 'HEARTBEAT_TIMEOUT',
-            details: 'Heartbeat timeout — no heartbeat received for >120 s',
-          },
-        );
-      }
+          // createAndBroadcastViolation already enforces a per-student
+          // DISCONNECTION cooldown, so rapid WiFi flaps won't spam.
+          await createAndBroadcastViolation(
+            io,
+            deadStudent.session.code,
+            deadStudent.student.studentId,
+            {
+              sessionStudentId: deadStudent.id,
+              type: 'DISCONNECTION',
+              reason: 'HEARTBEAT_TIMEOUT',
+              details: 'Heartbeat timeout — no heartbeat received for >120 s',
+            },
+          );
+        })
+      );
     } catch (error) {
       logger.error({ error }, 'Heartbeat check error');
     }
@@ -57,30 +59,32 @@ export const startSnifferChallenger = (io: Server): NodeJS.Timeout => {
       const sockets = await io.fetchSockets();
 
       // Phase 1: Check for unanswered challenges from the PREVIOUS cycle
-      for (const s of sockets) {
-        if (!s.data.sessionStudentId) continue;
-        const pending = s.data.pendingChallenge;
-        if (pending && (Date.now() - pending.issuedAt > SNIFFER_RESPONSE_TIMEOUT_MS)) {
-          logger.warn(
-            { studentId: s.data.studentId, challengeId: pending.challengeId },
-            'Sniffer challenge timed out — no response from student'
-          );
+      await Promise.allSettled(
+        sockets.map(async (s) => {
+          if (!s.data.sessionStudentId) return;
+          const pending = s.data.pendingChallenge;
+          if (pending && (Date.now() - pending.issuedAt > SNIFFER_RESPONSE_TIMEOUT_MS)) {
+            logger.warn(
+              { studentId: s.data.studentId, challengeId: pending.challengeId },
+              'Sniffer challenge timed out — no response from student'
+            );
 
-          s.data.snifferTimeoutCount = (s.data.snifferTimeoutCount || 0) + 1;
+            s.data.snifferTimeoutCount = (s.data.snifferTimeoutCount || 0) + 1;
 
-          const sessionCode = s.data.sessionCode as string | undefined;
-          if (sessionCode) {
-            await createAndBroadcastViolation(io, sessionCode, s.data.studentId as string, {
-              sessionStudentId: s.data.sessionStudentId as string,
-              type: 'SNIFFER_TIMEOUT',
-              reason: 'NO_RESPONSE',
-              details: `No response to sniffer challenge within ${SNIFFER_RESPONSE_TIMEOUT_MS / 1000}s (target: ${pending.targetUrl}). Consecutive timeouts: ${s.data.snifferTimeoutCount}`,
-            });
+            const sessionCode = s.data.sessionCode as string | undefined;
+            if (sessionCode) {
+              await createAndBroadcastViolation(io, sessionCode, s.data.studentId as string, {
+                sessionStudentId: s.data.sessionStudentId as string,
+                type: 'SNIFFER_TIMEOUT',
+                reason: 'NO_RESPONSE',
+                details: `No response to sniffer challenge within ${SNIFFER_RESPONSE_TIMEOUT_MS / 1000}s (target: ${pending.targetUrl}). Consecutive timeouts: ${s.data.snifferTimeoutCount}`,
+              });
+            }
+
+            delete s.data.pendingChallenge;
           }
-
-          delete s.data.pendingChallenge;
-        }
-      }
+        })
+      );
 
       // Phase 2: Issue new challenge
       const targetUrl = await getRandomCheckTarget();
