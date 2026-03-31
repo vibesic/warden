@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, Outlet } from 'react-router-dom';
 import { API_BASE_URL } from './config/api';
 
 const SecureExamMonitor = React.lazy(() =>
@@ -83,7 +83,7 @@ const StudentExamPage = () => {
 };
 
 // Wrapper for Teacher Views — validates token on mount
-const TeacherRoute = ({ children }: { children: React.ReactNode }) => {
+const TeacherRoute = () => {
     const [status, setStatus] = useState<'checking' | 'valid' | 'invalid'>('checking');
 
     useEffect(() => {
@@ -94,8 +94,11 @@ const TeacherRoute = ({ children }: { children: React.ReactNode }) => {
             return;
         }
 
+        const abortController = new AbortController();
+
         fetch(`${API_BASE_URL}/api/auth/verify`, {
             headers: { Authorization: `Bearer ${token}` },
+            signal: abortController.signal,
         })
             .then(res => {
                 if (res.ok) {
@@ -106,15 +109,20 @@ const TeacherRoute = ({ children }: { children: React.ReactNode }) => {
                     setStatus('invalid');
                 }
             })
-            .catch(() => {
+            .catch((err) => {
+                if (err.name === 'AbortError') return;
                 // Network error — allow through, socket will handle auth
                 setStatus('valid');
             });
+
+        return () => {
+            abortController.abort();
+        };
     }, []);
 
     if (status === 'checking') return null;
     if (status === 'invalid') return <Navigate to="/teacher/login" replace />;
-    return <>{children}</>;
+    return <Outlet />;
 };
 
 const AppContent = () => {
@@ -158,17 +166,15 @@ const AppContent = () => {
 
                 <Route path="/student/exam" element={<StudentExamPage />} />
 
-                <Route path="/teacher" element={
-                    <TeacherRoute>
+                <Route element={<TeacherRoute />}>
+                    <Route path="/teacher" element={
                         <TeacherDashboard onLogout={teacherLogout} />
-                    </TeacherRoute>
-                } />
-
-                <Route path="/teacher/session/:sessionCode" element={
-                    <TeacherRoute>
+                    } />
+                    
+                    <Route path="/teacher/session/:sessionCode" element={
                         <SessionDetail />
-                    </TeacherRoute>
-                } />
+                    } />
+                </Route>
 
                 <Route path="/" element={<Navigate to="/student/login" replace />} />
             </Routes>
