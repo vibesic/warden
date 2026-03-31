@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { useInternetSniffer } from '../hooks/useInternetSniffer';
 import { useExamSocket } from '../hooks/useExamSocket';
 import { useCurrentTime } from '../hooks/useCurrentTime';
@@ -116,7 +116,7 @@ export const ExamSessionProvider: React.FC<ProviderProps> = ({
     }
   }, [isViolating, isSecure, serverViolation, reportViolation, violationReported, sessionEnded]);
 
-  const value: ExamSessionState = {
+  const value = useMemo<ExamSessionState>(() => ({
     studentId,
     studentName,
     sessionCode,
@@ -128,7 +128,19 @@ export const ExamSessionProvider: React.FC<ProviderProps> = ({
     questionFiles,
     reportViolation,
     onLogout,
-  };
+  }), [
+    studentId,
+    studentName,
+    sessionCode,
+    isConnected,
+    isViolating,
+    sessionEnded,
+    showEndModal,
+    remainingTime,
+    questionFiles,
+    reportViolation,
+    onLogout,
+  ]);
 
   return (
     <ExamSessionContext.Provider value={value}>

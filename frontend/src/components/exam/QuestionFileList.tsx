@@ -5,7 +5,7 @@ import { useExamSession } from '../../contexts/ExamSessionContext';
 
 export type { QuestionFileItem } from '../../types/exam';
 
-export const QuestionFileList: React.FC = () => {
+export const QuestionFileList: React.FC = React.memo(() => {
   const { sessionCode, questionFiles } = useExamSession();
   const handleDownload = useCallback((fileId: string) => {
     window.open(`${API_BASE_URL}/api/session/${sessionCode}/questions/${fileId}/download`, '_blank');
@@ -30,4 +30,4 @@ export const QuestionFileList: React.FC = () => {
       </div>
     </div>
   );
-};
+});

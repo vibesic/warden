@@ -10,7 +10,7 @@ interface UploadedFile {
   createdAt: string;
 }
 
-export const FileUploadSection: React.FC = () => {
+export const FileUploadSection: React.FC = React.memo(() => {
   const { sessionCode, studentId } = useExamSession();
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -80,4 +80,4 @@ export const FileUploadSection: React.FC = () => {
       )}
     </div>
   );
-};
+});
