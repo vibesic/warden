@@ -203,20 +203,19 @@ describe('WiFi Flap — Transient Disconnect Regression', () => {
   });
 
   // ─────────────────────────────────────────────────────────────────
-  // Scenario 4:  Student marked offline on disconnect, back online
-  //              on reconnect
+  // Scenario 4:  Student avoids offline marking if reconnecting quickly
   // ─────────────────────────────────────────────────────────────────
-  it('should mark student offline then re-online during reconnect cycle', async () => {
+  it('should not mark student offline immediately on unexpected disconnect', async () => {
     const s1 = await connectAndRegister(port);
     s1.disconnect();
     await new Promise((r) => setTimeout(r, 30));
 
-    // Should have an offline update
+    // Should NOT have an offline update immediately (deferred to avoid flapping UI)
     const offlineCalls = prismaMock.sessionStudent.update.mock.calls.filter(
       (args: unknown[]) =>
         (args[0] as { data: { isOnline: boolean } }).data.isOnline === false,
     );
-    expect(offlineCalls.length).toBeGreaterThanOrEqual(1);
+    expect(offlineCalls.length).toBe(0);
 
     // Reconnect → upsert sets isOnline: true
     prismaMock.sessionStudent.upsert.mockClear();

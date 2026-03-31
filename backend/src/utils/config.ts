@@ -17,10 +17,15 @@ export const getAllowedOrigins = (): string[] => {
   if (envOrigins) {
     return envOrigins.split(',').map((o) => o.trim());
   }
-  if (isProductionMode() || isDevelopment()) {
+  if (isProductionMode()) {
     return ['*'];
   }
-  return ['http://localhost:5173', 'http://127.0.0.1:5173'];
+  return [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:5174',
+  ];
 };
 
 /**

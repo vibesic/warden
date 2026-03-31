@@ -27,6 +27,7 @@ export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
       });
     } catch (error) {
       logger.error({ error }, 'Error fetching dashboard overview');
+      socket.emit('dashboard:error', { message: 'Failed to load dashboard overview' });
     }
   });
 
@@ -77,6 +78,7 @@ export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
       });
     } catch (error) {
       logger.error({ error }, 'Error joining session dashboard');
+      socket.emit('dashboard:error', { message: 'Failed to load session details' });
     }
   });
 
@@ -102,6 +104,7 @@ export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
       });
     } catch (error) {
       logger.error({ error }, 'Error creating session');
+      socket.emit('dashboard:error', { message: 'Failed to create session' });
     }
   });
 
@@ -129,6 +132,7 @@ export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
       }
     } catch (error) {
       logger.error({ error }, 'Error ending session');
+      socket.emit('dashboard:error', { message: 'Failed to end session' });
     }
   });
 };

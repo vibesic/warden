@@ -7,6 +7,20 @@ import { createTestSocketServer, cleanupTestServer, type TestServerContext } fro
 import { mockStudentRegistration, type PrismaMock } from '../../helpers/prisma';
 import { registerStudent } from '../../helpers/socketClient';
 
+interface DashboardOverviewEvent {
+  history: Array<{ code: string; studentCount: number; createdAt: string; endedAt?: string }>;
+  activeSession: { createdAt: string } | null;
+}
+
+interface PrismaCreateArgs {
+  data: { type?: string; sessionStudentId?: string; details?: string };
+}
+
+interface PrismaUpdateArgs {
+  where: { id: string };
+  data: { isOnline?: boolean };
+}
+
 // Mock Prisma
 // We must mock '../utils/prisma' BEFORE importing the module that uses it
 // Since socket.ts imports it at top level.
@@ -102,7 +116,7 @@ describe('Socket Gateway', () => {
     const registerData = { studentId: 'test_student_2', name: 'Test', sessionCode: '123456' };
 
     mockStudentRegistration(prismaMock, 'test_student_2', 'Test', 'stu-2', 'ss-2');
-    prismaMock.sessionStudent.update.mockResolvedValue({} as any);
+    prismaMock.sessionStudent.update.mockResolvedValue({});
 
     await registerStudent(clientSocket, registerData);
 
@@ -127,7 +141,7 @@ describe('Socket Gateway', () => {
     };
 
     mockStudentRegistration(prismaMock, 'test_student_3', 'Violator', 'stu-3', 'ss-3');
-    prismaMock.violation.create.mockResolvedValue({ timestamp: new Date() } as any);
+    prismaMock.violation.create.mockResolvedValue({ timestamp: new Date(), type: 'INTERNET_ACCESS', id: 'v-test', details: '', sessionStudentId: 'ss-3' });
 
     await registerStudent(clientSocket, registerData);
 
@@ -152,7 +166,7 @@ describe('Socket Gateway', () => {
 
   it('should ignore invalid register data', async () => {
     const invalidData = { studentId: '' }; // Missing name
-    prismaMock.student.upsert.mockResolvedValue({} as any);
+    prismaMock.student.upsert.mockResolvedValue({});
 
     return new Promise<void>((resolve) => {
       clientSocket.emit('register', invalidData);
@@ -181,7 +195,7 @@ describe('Socket Gateway', () => {
     await new Promise<void>((resolve) => teacherSocket.on('connect', resolve));
 
     await new Promise<void>((resolve, reject) => {
-      teacherSocket.on('dashboard:overview', (data: any) => {
+      teacherSocket.on('dashboard:overview', (data: DashboardOverviewEvent) => {
         try {
           expect(data.history).toHaveLength(1);
           expect(data.history[0].code).toBe('111111');
@@ -313,7 +327,7 @@ describe('Socket Gateway', () => {
   it('should process sniffer:response and create violation when reachable is true', async () => {
     const registerData = { studentId: 'sniffer_student', name: 'Sniffer Test', sessionCode: '123456' };
     mockStudentRegistration(prismaMock, 'sniffer_student', 'Sniffer Test', 'stu-sniffer', 'ss-sniffer');
-    prismaMock.violation.create.mockResolvedValue({ timestamp: new Date(), type: 'INTERNET_ACCESS' } as any);
+    prismaMock.violation.create.mockResolvedValue({ timestamp: new Date(), type: 'INTERNET_ACCESS', id: 'v-sniffer', details: '', sessionStudentId: 'ss-sniffer' });
 
     // Register the student
     await registerStudent(clientSocket, registerData);
@@ -367,7 +381,7 @@ describe('Socket Gateway', () => {
 
     // Should not create an INTERNET_ACCESS violation (disconnect violations are expected)
     const internetViolationCalls = prismaMock.violation.create.mock.calls.filter(
-      (args: any[]) => args[0]?.data?.type === 'INTERNET_ACCESS'
+      (args: [PrismaCreateArgs]) => args[0]?.data?.type === 'INTERNET_ACCESS'
     );
     expect(internetViolationCalls).toHaveLength(0);
   });
@@ -375,13 +389,14 @@ describe('Socket Gateway', () => {
   it('should create DISCONNECTION violation when student disconnects', async () => {
     const registerData = { studentId: 'disconnect_student', name: 'Disconnect Test', sessionCode: '123456' };
     mockStudentRegistration(prismaMock, 'disconnect_student', 'Disconnect Test', 'stu-disconnect', 'ss-disconnect');
-    prismaMock.sessionStudent.update.mockResolvedValue({} as any);
+    prismaMock.sessionStudent.update.mockResolvedValue({});
     prismaMock.violation.create.mockResolvedValue({
       timestamp: new Date(),
       type: 'DISCONNECTION',
       details: 'Student disconnected from server (closed tab or lost connection)',
       sessionStudentId: 'ss-disconnect',
-    } as any);
+      id: 'v-disconnect',
+    });
 
     // Register the student first
     await registerStudent(clientSocket, registerData);
@@ -394,13 +409,13 @@ describe('Socket Gateway', () => {
 
     // Verify session student marked offline
     const offlineCalls = prismaMock.sessionStudent.update.mock.calls.filter(
-      (args: any[]) => args[0]?.where?.id === 'ss-disconnect' && args[0]?.data?.isOnline === false
+      (args: [PrismaUpdateArgs]) => args[0]?.where?.id === 'ss-disconnect' && args[0]?.data?.isOnline === false
     );
     expect(offlineCalls.length).toBeGreaterThanOrEqual(1);
 
     // Verify DISCONNECTION violation was created
     const violationCalls = prismaMock.violation.create.mock.calls.filter(
-      (args: any[]) => args[0]?.data?.sessionStudentId === 'ss-disconnect' && args[0]?.data?.type === 'DISCONNECTION'
+      (args: [PrismaCreateArgs]) => args[0]?.data?.sessionStudentId === 'ss-disconnect' && args[0]?.data?.type === 'DISCONNECTION'
     );
     expect(violationCalls.length).toBe(1);
     expect(violationCalls[0][0].data.details).toContain('disconnected');
@@ -409,7 +424,7 @@ describe('Socket Gateway', () => {
   it('should NOT create DISCONNECTION violation when student reconnects within grace period', async () => {
     const registerData = { studentId: 'refresh_student', name: 'Refresh Test', sessionCode: '123456' };
     mockStudentRegistration(prismaMock, 'refresh_student', 'Refresh Test', 'stu-refresh', 'ss-refresh');
-    prismaMock.sessionStudent.update.mockResolvedValue({} as any);
+    prismaMock.sessionStudent.update.mockResolvedValue({});
 
     // Register the student
     await new Promise<void>(resolve => {
@@ -439,7 +454,7 @@ describe('Socket Gateway', () => {
 
     // No DISCONNECTION violation should have been created
     const violationCalls = prismaMock.violation.create.mock.calls.filter(
-      (args: any[]) => args[0]?.data?.type === 'DISCONNECTION'
+      (args: [PrismaCreateArgs]) => args[0]?.data?.type === 'DISCONNECTION'
     );
     expect(violationCalls).toHaveLength(0);
 
@@ -459,7 +474,7 @@ describe('Socket Gateway', () => {
 
     const registerData = { studentId: 'race_student', name: 'Race Test', sessionCode: '123456' };
     mockStudentRegistration(prismaMock, 'race_student', 'Race Test', 'stu-race', 'ss-race');
-    prismaMock.sessionStudent.update.mockResolvedValue({} as any);
+    prismaMock.sessionStudent.update.mockResolvedValue({});
 
     // Register student
     await registerStudent(clientSocket, registerData);
@@ -486,7 +501,7 @@ describe('Socket Gateway', () => {
 
     // No DISCONNECTION violation should have been created — cancelled flag prevented it
     const violationCalls = prismaMock.violation.create.mock.calls.filter(
-      (args: any[]) => args[0]?.data?.type === 'DISCONNECTION'
+      (args: [PrismaCreateArgs]) => args[0]?.data?.type === 'DISCONNECTION'
     );
     expect(violationCalls).toHaveLength(0);
 

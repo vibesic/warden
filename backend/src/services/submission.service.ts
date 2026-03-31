@@ -1,3 +1,4 @@
+import path from 'path';
 import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import type { Submission } from '@prisma/client';
@@ -13,14 +14,15 @@ interface CreateSubmissionParams {
 
 export const createSubmission = async (params: CreateSubmissionParams): Promise<Submission> => {
   const { sessionStudentId, sessionId, originalName, storedName, mimeType, sizeBytes } = params;
+  const safeOriginalName = path.basename(originalName);
 
-  logger.info({ sessionStudentId, originalName, sizeBytes }, 'File submission created');
+  logger.info({ sessionStudentId, originalName: safeOriginalName, sizeBytes }, 'File submission created');
 
   return prisma.submission.create({
     data: {
       sessionStudentId,
       sessionId,
-      originalName,
+      originalName: safeOriginalName,
       storedName,
       mimeType,
       sizeBytes,

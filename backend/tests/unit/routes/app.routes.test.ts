@@ -30,9 +30,9 @@ describe('App Routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.token).toBeDefined();
-      expect(typeof res.body.token).toBe('string');
-      expect(res.body.token.split('.')).toHaveLength(2);
+      expect(res.body.data.token).toBeDefined();
+      expect(typeof res.body.data.token).toBe('string');
+      expect(res.body.data.token.split('.')).toHaveLength(2);
     });
 
     it('should reject invalid password', async () => {

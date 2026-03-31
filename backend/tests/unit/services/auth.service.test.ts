@@ -104,11 +104,11 @@ describe('Auth Service', () => {
       expect(getTeacherPassword()).toBe('my_secure_pass');
     });
 
-    it('should throw in production mode with default password', () => {
+    it('should throw in production mode without TEACHER_PASSWORD', () => {
       delete process.env.TEACHER_PASSWORD;
       process.env.NODE_ENV = 'production';
       expect(() => getTeacherPassword()).toThrow(
-        'Default teacher password is not allowed in production',
+        'TEACHER_PASSWORD environment variable is required in production',
       );
     });
 

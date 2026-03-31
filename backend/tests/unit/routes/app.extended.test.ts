@@ -193,7 +193,7 @@ describe('App API - Extended Coverage', () => {
         .send({ password: 'Proctor2026!' });
 
       expect(res.status).toBe(200);
-      const parts = res.body.token.split('.');
+      const parts = res.body.data.token.split('.');
       expect(parts).toHaveLength(2);
 
       // Verify payload is valid JSON

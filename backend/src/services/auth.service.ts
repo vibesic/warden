@@ -50,18 +50,19 @@ const DEFAULT_PASSWORD = 'Proctor2026!';
 let defaultPasswordWarned = false;
 
 export const getTeacherPassword = (): string => {
-  const password = process.env.TEACHER_PASSWORD || DEFAULT_PASSWORD;
+  const password = process.env.TEACHER_PASSWORD;
 
-  if (password === DEFAULT_PASSWORD) {
+  if (!password) {
     if (process.env.NODE_ENV === 'production') {
       throw new Error(
-        'Default teacher password is not allowed in production. Set the TEACHER_PASSWORD environment variable.',
+        'TEACHER_PASSWORD environment variable is required in production.',
       );
     }
     if (!defaultPasswordWarned) {
       defaultPasswordWarned = true;
-      logger.warn('Using default teacher password. Set TEACHER_PASSWORD environment variable for production use.');
+      logger.warn('TEACHER_PASSWORD not set. Using default password for development. Set TEACHER_PASSWORD environment variable for production use.');
     }
+    return DEFAULT_PASSWORD;
   }
 
   return password;

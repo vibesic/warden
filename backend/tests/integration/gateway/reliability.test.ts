@@ -183,13 +183,14 @@ describe('Reliability Tests', () => {
       prismaMock.sessionStudent.update.mockClear();
 
       studentSocket.disconnect();
-      await new Promise((r) => setTimeout(r, 300));
+      await new Promise((r) => setTimeout(r, 100)); // allow events to process
 
-      // Should still mark offline
+      // Should NOT mark offline immediately (it's deferred). 
+      // Furthermore, because session is inactive, the timer shouldn't create a violation.
       const offlineCalls = prismaMock.sessionStudent.update.mock.calls.filter(
         (args: unknown[]) => (args[0] as { data: { isOnline: boolean } }).data.isOnline === false,
       );
-      expect(offlineCalls.length).toBeGreaterThanOrEqual(1);
+      expect(offlineCalls.length).toBe(0);
 
       // But should NOT create a DISCONNECTION violation
       expect(prismaMock.violation.create).not.toHaveBeenCalled();

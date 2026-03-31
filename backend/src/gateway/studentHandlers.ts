@@ -142,6 +142,7 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
 
       socket.join(`session:${sessionCode}`);
       socket.join(`student:session:${sessionCode}`);
+      socket.join(`sessionStudent:${sessionStudent.id}`);
 
       logger.info({ studentId, name, sessionCode }, 'Student registered');
 
@@ -161,6 +162,7 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
           createdAt: sessionCheck.session.createdAt.toISOString(),
           durationMinutes: sessionCheck.session.durationMinutes ?? null,
         },
+        serverTime: Date.now(),
       });
     } catch (error) {
       logger.error({ error }, 'Registration error');
@@ -277,19 +279,29 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
       const tabClosing = socket.data.tabClosing === true;
       const disconnectInfo = resolveDisconnectReason(reason, tabClosing);
 
+      // Check if student has another active socket for this session before marking offline
+      const activeSockets = io.sockets.adapter.rooms.get(`sessionStudent:${studentData.sessionStudentId}`);
+      if (activeSockets && activeSockets.size > 0) {
+        logger.info(
+          { studentId: studentData.studentId, reason, tabClosing },
+          'Socket disconnected but another socket is still active for this session',
+        );
+        return; // Do not mark offline or start disconnect timer
+      }
+
       logger.info(
         { studentId: studentData.studentId, reason, tabClosing },
         'Student disconnected',
       );
-      await markStudentOffline(studentData.sessionStudentId);
 
-      // Only record a DISCONNECTION violation if the session is still active
-      const session = await getSessionByCode(studentData.sessionCode);
-      if (!session?.isActive) return;
+      // If intentional close, mark offline immediately to update teacher UI instantly.
+      if (tabClosing) {
+        await markStudentOffline(studentData.sessionStudentId);
+        broadcastStudentLeft(io, studentData.sessionCode, studentData.studentId);
+      }
 
-      broadcastStudentLeft(io, studentData.sessionCode, studentData.studentId);
-
-      // Delay the violation to allow page-refresh reconnects within the grace period.
+      // Delay the violation (and the offline status if not an intentional close)
+      // to allow page-refresh reconnects within the grace period.
       // Keep the entry in the map during async work so cancelPendingDisconnect
       // can find and flag it even after the timer fires (#18 race fix).
       const entry: PendingDisconnect = {
@@ -310,6 +322,11 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
           if (!currentSession?.isActive || entry.cancelled) {
             pendingDisconnects.delete(studentData.studentId);
             return;
+          }
+
+          if (!tabClosing) {
+            await markStudentOffline(studentData.sessionStudentId);
+            broadcastStudentLeft(io, studentData.sessionCode, studentData.studentId);
           }
 
           await createAndBroadcastViolation(io, studentData.sessionCode, studentData.studentId, {

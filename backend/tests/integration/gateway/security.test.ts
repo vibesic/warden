@@ -444,7 +444,7 @@ describe('Security - HTTP Endpoints', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.token).toBeDefined();
+      expect(res.body.data.token).toBeDefined();
     });
 
     it('should reject empty password', async () => {

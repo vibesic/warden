@@ -24,7 +24,7 @@ router.post('/auth/teacher', authRateLimiter, (req: Request, res: Response): voi
   }
 
   const token = generateTeacherToken();
-  res.json({ success: true, token });
+  res.json({ success: true, data: { token } });
 });
 
 /** Verify an existing teacher token. */
