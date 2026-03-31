@@ -50,6 +50,7 @@ export interface PrismaMock {
     findFirst: ReturnType<typeof vi.fn>;
   };
   $queryRaw: ReturnType<typeof vi.fn>;
+  $transaction: ReturnType<typeof vi.fn>;
 }
 
 /**
@@ -57,45 +58,53 @@ export interface PrismaMock {
  * All methods are vi.fn() by default — override with mockResolvedValue
  * in individual tests as needed.
  */
-export const createPrismaMock = (): PrismaMock => ({
-  student: {
-    upsert: vi.fn(),
-    update: vi.fn(),
-    findMany: vi.fn(),
-    findFirst: vi.fn(),
-  },
-  sessionStudent: {
-    upsert: vi.fn(),
-    update: vi.fn(),
-    findMany: vi.fn(),
-    findFirst: vi.fn(),
-  },
-  violation: {
-    create: vi.fn(),
-    findFirst: vi.fn(),
-  },
-  session: {
-    findUnique: vi.fn(),
-    findFirst: vi.fn(),
-    findMany: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    updateMany: vi.fn(),
-    count: vi.fn(),
-  },
-  checkTarget: {
-    count: vi.fn(),
-    findFirst: vi.fn(),
-    findMany: vi.fn(),
-    createMany: vi.fn(),
-  },
-  submission: {
-    create: vi.fn(),
-    findMany: vi.fn(),
-    findFirst: vi.fn(),
-  },
-  $queryRaw: vi.fn(),
-});
+export const createPrismaMock = (): PrismaMock => {
+  const mock = {
+    student: {
+      upsert: vi.fn(),
+      update: vi.fn(),
+      findMany: vi.fn(),
+      findFirst: vi.fn(),
+    },
+    sessionStudent: {
+      upsert: vi.fn(),
+      update: vi.fn(),
+      findMany: vi.fn(),
+      findFirst: vi.fn(),
+    },
+    violation: {
+      create: vi.fn(),
+      findFirst: vi.fn(),
+    },
+    session: {
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+      count: vi.fn(),
+    },
+    checkTarget: {
+      count: vi.fn(),
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+      createMany: vi.fn(),
+    },
+    submission: {
+      create: vi.fn(),
+      findMany: vi.fn(),
+      findFirst: vi.fn(),
+    },
+    $queryRaw: vi.fn(),
+  } as unknown as PrismaMock;
+
+  mock.$transaction = vi.fn(async (callback) => {
+    return callback(mock);
+  });
+
+  return mock;
+};
 
 /**
  * Default session object used across most integration tests.

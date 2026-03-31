@@ -21,11 +21,11 @@ const seedDomains = async (): Promise<void> => {
     const count = await prisma.checkTarget.count();
     if (count === 0) {
       logger.info('Seeding check targets...');
-      for (const url of PUBLIC_DOMAINS) {
-        await prisma.checkTarget.create({ data: { url } }).catch((err) => {
-          logger.debug({ url, error: err }, 'Skipped duplicate check target');
-        });
-      }
+      const formattedDomains = PUBLIC_DOMAINS.map((url) => ({ url }));
+      await prisma.checkTarget.createMany({
+        data: formattedDomains,
+        skipDuplicates: true,
+      });
       logger.info({ count: PUBLIC_DOMAINS.length }, 'Check targets seeded');
     }
   } catch (error) {

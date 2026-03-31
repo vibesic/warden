@@ -166,6 +166,7 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
       });
     } catch (error) {
       logger.error({ error }, 'Registration error');
+      console.error("FATAL ERROR IN REGISTER:", error);
       socket.emit('registration_error', 'Internal server error');
     }
   });
