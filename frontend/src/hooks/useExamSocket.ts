@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { SOCKET_URL } from '../config/api';
+import {
+  SOCKET_RECONNECTION_ATTEMPTS,
+  SOCKET_RECONNECTION_DELAY_MS,
+  SOCKET_RECONNECTION_DELAY_MAX_MS,
+  CHALLENGE_PROBE_TIMEOUT_MS,
+} from '../config/constants';
 
 export interface SessionTimerInfo {
   createdAt: string;
@@ -12,8 +18,14 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState('');
   const [sessionTimer, setSessionTimer] = useState<SessionTimerInfo | null>(null);
+  const [serverTimeOffset, setServerTimeOffset] = useState(0);
   const isRegisteredRef = useRef(false);
   const violationQueue = useRef<{ type: string; reason?: string; details?: string }[]>([]);
+  const onSessionEndedRef = useRef(onSessionEnded);
+  const onServerViolationRef = useRef(onServerViolation);
+
+  onSessionEndedRef.current = onSessionEnded;
+  onServerViolationRef.current = onServerViolation;
 
   useEffect(() => {
     if (!studentId || !name || !sessionCode) return;
@@ -23,9 +35,9 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
 
     socketRef.current = io(SOCKET_URL, {
       reconnection: true,
-      reconnectionAttempts: 50,
-      reconnectionDelay: 2000,
-      reconnectionDelayMax: 10000,
+      reconnectionAttempts: SOCKET_RECONNECTION_ATTEMPTS,
+      reconnectionDelay: SOCKET_RECONNECTION_DELAY_MS,
+      reconnectionDelayMax: SOCKET_RECONNECTION_DELAY_MAX_MS,
     });
     const socket = socketRef.current;
 
@@ -45,20 +57,24 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
     socket.on('session:ended', () => {
       isRegisteredRef.current = false;
       socket.disconnect();
-      if (onSessionEnded) onSessionEnded();
+      onSessionEndedRef.current?.();
     });
 
     // Server-pushed violation — sniffer detected internet access server-side
     socket.on('violation:detected', (data: { type: string }) => {
-      if (onServerViolation) onServerViolation(data.type);
+      onServerViolationRef.current?.(data.type);
     });
 
-    socket.on('registered', (data: { studentId: string; session?: SessionTimerInfo }) => {
+    socket.on('registered', (data: { studentId: string; session?: SessionTimerInfo; serverTime?: number }) => {
       isRegisteredRef.current = true;
       setError('');
 
       if (data.session) {
         setSessionTimer(data.session);
+      }
+
+      if (data.serverTime) {
+        setServerTimeOffset(data.serverTime - Date.now());
       }
 
       if (violationQueue.current.length > 0) {
@@ -95,7 +111,7 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
             img.onerror = null;
             img.src = '';
             resolve(false);
-          }, 4000);
+          }, CHALLENGE_PROBE_TIMEOUT_MS);
           img.onload = () => {
             clearTimeout(timer);
             resolve(true);
@@ -116,7 +132,9 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
       window.removeEventListener('beforeunload', handleBeforeUnload);
       socket.disconnect();
     };
-  }, [studentId, name, sessionCode, onSessionEnded, onServerViolation]);
+    // onSessionEnded/onServerViolation accessed via refs to avoid re-creating socket
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentId, name, sessionCode]);
 
   const sendHeartbeat = useCallback(() => {
     if (socketRef.current?.connected && isRegisteredRef.current) {
@@ -139,6 +157,6 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
     }
   }, [studentId]);
 
-  return { isConnected, sendHeartbeat, reportViolation, error, sessionTimer };
+  return { isConnected, sendHeartbeat, reportViolation, error, sessionTimer, serverTimeOffset };
 };
 

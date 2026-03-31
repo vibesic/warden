@@ -15,6 +15,7 @@
  *   - `requestProbe()`: ask the SW to probe immediately (via postMessage)
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { SERVICE_WORKER_PROBE_TIMEOUT_MS } from '../config/constants';
 
 interface UseServiceWorkerResult {
   /** Browser supports Service Workers + Background Sync */
@@ -101,7 +102,7 @@ export const useServiceWorker = (): UseServiceWorkerResult => {
       const timeout = setTimeout(() => {
         navigator.serviceWorker.removeEventListener('message', handler);
         resolve();
-      }, 6000);
+      }, SERVICE_WORKER_PROBE_TIMEOUT_MS);
 
       const handler = (event: MessageEvent): void => {
         if (event.data?.type === 'PROBE_COMPLETE') {

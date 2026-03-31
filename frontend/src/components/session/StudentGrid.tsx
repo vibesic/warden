@@ -49,7 +49,7 @@ export const StudentGrid: React.FC<StudentGridProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredStudents.map(student => (
           <div key={student.studentId} className={`relative p-5 rounded-lg border-2 transition-all ${student.isOnline ? 'bg-white border-green-100 shadow-sm' : 'bg-gray-50 border-gray-200 opacity-75'
             }`}>

@@ -29,13 +29,13 @@ export const QuestionFilesPanel: React.FC<QuestionFilesPanelProps> = ({
   const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const token = localStorage.getItem('teacherToken') || '';
+    const token = sessionStorage.getItem('teacherToken') || '';
     await onUpload(file, token);
     if (questionFileInputRef.current) questionFileInputRef.current.value = '';
   };
 
   const handleDelete = async (fileId: string) => {
-    const token = localStorage.getItem('teacherToken') || '';
+    const token = sessionStorage.getItem('teacherToken') || '';
     await onDelete(fileId, token);
   };
 

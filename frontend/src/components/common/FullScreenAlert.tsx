@@ -8,12 +8,12 @@ interface FullScreenAlertProps {
     children?: React.ReactNode;
 }
 
-export const FullScreenAlert: React.FC<FullScreenAlertProps> = ({ 
-    title, 
-    subtitle, 
-    message, 
-    variant = 'danger', 
-    children 
+export const FullScreenAlert: React.FC<FullScreenAlertProps> = ({
+    title,
+    subtitle,
+    message,
+    variant = 'danger',
+    children
 }) => {
     const variants = {
         danger: 'bg-red-600 text-white',
@@ -24,10 +24,10 @@ export const FullScreenAlert: React.FC<FullScreenAlertProps> = ({
 
     return (
         <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center p-4 text-center ${variants[variant]}`}>
-            <h1 className="text-4xl md:text-6xl font-bold mb-4 animate-bounce">{title}</h1>
-            {subtitle && <p className="text-xl md:text-3xl font-semibold mb-2">{subtitle}</p>}
+            <h1 className="text-4xl sm:text-6xl font-bold mb-4 animate-bounce">{title}</h1>
+            {subtitle && <p className="text-xl sm:text-3xl font-semibold mb-2">{subtitle}</p>}
             {message && <p className="mt-4 text-white/90 max-w-2xl text-lg">{message}</p>}
-            
+
             <div className="mt-8">
                 {children}
             </div>

@@ -43,12 +43,14 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import React from 'react';
 
 // Replicate the inner routing from App.tsx for testing purposes
+const isValidSessionCode = (code: string): boolean => /^\d{6}$/.test(code);
+
 const StudentExamPage = () => {
   const sid = localStorage.getItem('studentId');
   const sname = localStorage.getItem('studentName');
   const scode = localStorage.getItem('sessionCode');
 
-  if (!sid || !sname || !scode) {
+  if (!sid || !sname || !scode || !isValidSessionCode(scode)) {
     return <Navigate to="/student/login" replace />;
   }
 
@@ -56,7 +58,7 @@ const StudentExamPage = () => {
 };
 
 const TeacherRoute = ({ children }: { children: React.ReactNode }) => {
-  const isTeacher = localStorage.getItem('teacherMode') === 'true';
+  const isTeacher = sessionStorage.getItem('teacherMode') === 'true';
   if (!isTeacher) return <Navigate to="/teacher/login" replace />;
   return <>{children}</>;
 };
@@ -103,6 +105,7 @@ const TestAppContent = () => {
 describe('App Routing', () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
   });
 
   const renderWithRouter = (initialRoute: string) => {
@@ -149,7 +152,7 @@ describe('App Routing', () => {
   });
 
   it('should render TeacherDashboard when teacherMode is set', () => {
-    localStorage.setItem('teacherMode', 'true');
+    sessionStorage.setItem('teacherMode', 'true');
     renderWithRouter('/teacher');
     expect(screen.getByTestId('teacher-dashboard')).toBeInTheDocument();
   });
@@ -160,7 +163,7 @@ describe('App Routing', () => {
   });
 
   it('should render SessionDetail when teacherMode is set', () => {
-    localStorage.setItem('teacherMode', 'true');
+    sessionStorage.setItem('teacherMode', 'true');
     renderWithRouter('/teacher/session/ABC123');
     expect(screen.getByTestId('session-detail')).toBeInTheDocument();
   });

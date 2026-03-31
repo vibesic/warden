@@ -27,8 +27,8 @@ export const TeacherLogin: React.FC<TeacherLoginProps> = ({ onLogin, onSwitchToS
       });
       const data = await res.json();
 
-      if (data.success && data.token) {
-        localStorage.setItem('teacherToken', data.token);
+      if (data.success && data.data?.token) {
+        sessionStorage.setItem('teacherToken', data.data.token);
         onLogin();
       } else {
         setError(data.message || 'Invalid password');

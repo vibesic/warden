@@ -389,7 +389,7 @@ describe('SessionDetail', () => {
   it('should open download link when download button is clicked', async () => {
     const user = userEvent.setup();
     const windowOpenSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
-    localStorage.setItem('teacherToken', 'my-token');
+    sessionStorage.setItem('teacherToken', 'my-token');
 
     mockFetch.mockImplementation((url: string) => {
       if (url.includes('/questions')) {
@@ -597,7 +597,7 @@ describe('SessionDetail', () => {
     it('should upload a question file and add to list', async () => {
       const user = userEvent.setup();
       const newFile = { id: 'qf-new', originalName: 'new-q.pdf', sizeBytes: 1024, createdAt: '2024-01-01T00:15:00Z' };
-      localStorage.setItem('teacherToken', 'test-token');
+      sessionStorage.setItem('teacherToken', 'test-token');
 
       mockFetch.mockImplementation((url: string, options?: RequestInit) => {
         if ((url as string).includes('/questions') && options?.method === 'POST') {

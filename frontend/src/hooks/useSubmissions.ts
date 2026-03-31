@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { API_BASE_URL } from '../config/api';
+import { SUBMISSION_POLL_INTERVAL_MS } from '../config/constants';
 
 export interface SubmissionItem {
   id: string;
@@ -16,13 +17,13 @@ interface UseSubmissionsResult {
   handleDownload: (storedName: string) => void;
 }
 
-export const useSubmissions = (sessionCode: string | undefined, pollIntervalMs: number = 15000): UseSubmissionsResult => {
+export const useSubmissions = (sessionCode: string | undefined, pollIntervalMs: number = SUBMISSION_POLL_INTERVAL_MS): UseSubmissionsResult => {
   const [submissions, setSubmissions] = useState<SubmissionItem[]>([]);
 
   const fetchSubmissions = useCallback(async () => {
     if (!sessionCode) return;
     try {
-      const token = localStorage.getItem('teacherToken') || '';
+      const token = sessionStorage.getItem('teacherToken') || '';
       const res = await fetch(`${API_BASE_URL}/api/submissions/${sessionCode}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -42,7 +43,7 @@ export const useSubmissions = (sessionCode: string | undefined, pollIntervalMs: 
   }, [fetchSubmissions, pollIntervalMs]);
 
   const handleDownload = useCallback((storedName: string) => {
-    const token = localStorage.getItem('teacherToken') || '';
+    const token = sessionStorage.getItem('teacherToken') || '';
     window.open(`${API_BASE_URL}/api/submissions/${sessionCode}/download/${storedName}?token=${token}`, '_blank');
   }, [sessionCode]);
 

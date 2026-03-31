@@ -8,7 +8,7 @@ globalThis.fetch = mockFetch;
 describe('useSubmissions', () => {
   beforeEach(() => {
     mockFetch.mockReset();
-    localStorage.setItem('teacherToken', 'test-token');
+    sessionStorage.setItem('teacherToken', 'test-token');
   });
 
   afterEach(() => {

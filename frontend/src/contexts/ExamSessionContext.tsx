@@ -4,6 +4,11 @@ import { useExamSocket } from '../hooks/useExamSocket';
 import { useCurrentTime } from '../hooks/useCurrentTime';
 import { useQuestionFiles } from '../hooks/useQuestionFiles';
 import { formatHMS } from '../utils/format';
+import {
+  INTERNET_SNIFFER_EXAM_INTERVAL_MS,
+  HEARTBEAT_INTERVAL_MS,
+  VIOLATION_REPORT_COOLDOWN_MS,
+} from '../config/constants';
 import type { QuestionFileItem } from '../types/exam';
 
 interface ExamSessionState {
@@ -46,7 +51,7 @@ export const ExamSessionProvider: React.FC<ProviderProps> = ({
   children,
 }) => {
   const [showEndModal, setShowEndModal] = useState(false);
-  const { isSecure } = useInternetSniffer(2000);
+  const { isSecure } = useInternetSniffer(INTERNET_SNIFFER_EXAM_INTERVAL_MS);
   const [serverViolation, setServerViolation] = useState(false);
   const [sessionEnded, setSessionEnded] = useState(false);
   const [violationReported, setViolationReported] = useState(false);
@@ -66,13 +71,14 @@ export const ExamSessionProvider: React.FC<ProviderProps> = ({
 
   const isViolating = !isSecure || serverViolation;
 
-  const { isConnected, sendHeartbeat, reportViolation, error, sessionTimer } =
+  const { isConnected, sendHeartbeat, reportViolation, error, sessionTimer, serverTimeOffset } =
     useExamSocket(studentId, studentName, sessionCode, handleSessionEnded, handleServerViolation);
 
   const remainingTime = (() => {
     if (!sessionTimer?.durationMinutes || !sessionTimer.createdAt) return null;
     const endsAt = new Date(sessionTimer.createdAt).getTime() + sessionTimer.durationMinutes * 60_000;
-    const diff = endsAt - currentTime.getTime();
+    const serverNow = currentTime.getTime() + serverTimeOffset;
+    const diff = endsAt - serverNow;
     return formatHMS(diff);
   })();
 
@@ -90,7 +96,7 @@ export const ExamSessionProvider: React.FC<ProviderProps> = ({
     sendHeartbeat();
     const timer = setInterval(() => {
       sendHeartbeat();
-    }, 2000);
+    }, HEARTBEAT_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [sendHeartbeat, sessionEnded]);
 
@@ -101,7 +107,7 @@ export const ExamSessionProvider: React.FC<ProviderProps> = ({
       if (!violationReported) {
         reportViolation('INTERNET_ACCESS', 'Internet access detected by client-side probe', 'CLIENT_PROBE');
         setViolationReported(true);
-        setTimeout(() => setViolationReported(false), 10000);
+        setTimeout(() => setViolationReported(false), VIOLATION_REPORT_COOLDOWN_MS);
       }
     } else {
       if (serverViolation && isSecure) {

@@ -42,7 +42,7 @@ describe('TeacherLogin', () => {
     const user = userEvent.setup();
     const onLogin = vi.fn();
     const fetchMock = vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({ success: true, token: 'abc123' }),
+      json: () => Promise.resolve({ success: true, data: { token: 'abc123' } }),
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -54,7 +54,7 @@ describe('TeacherLogin', () => {
     await waitFor(() => {
       expect(onLogin).toHaveBeenCalledOnce();
     });
-    expect(localStorage.getItem('teacherToken')).toBe('abc123');
+    expect(sessionStorage.getItem('teacherToken')).toBe('abc123');
   });
 
   it('should display error on invalid password', async () => {

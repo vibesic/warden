@@ -86,12 +86,12 @@ describe('SessionDetail — Reliability & Security', () => {
     });
 
     it('should clear localStorage on auth error redirect', () => {
-      localStorage.setItem('teacherMode', 'true');
-      localStorage.setItem('teacherToken', 'some-token');
+      sessionStorage.setItem('teacherMode', 'true');
+      sessionStorage.setItem('teacherToken', 'some-token');
       mockHookReturn.isAuthError = true;
       render(<SessionDetail />);
-      expect(localStorage.getItem('teacherMode')).toBeNull();
-      expect(localStorage.getItem('teacherToken')).toBeNull();
+      expect(sessionStorage.getItem('teacherMode')).toBeNull();
+      expect(sessionStorage.getItem('teacherToken')).toBeNull();
     });
   });
 

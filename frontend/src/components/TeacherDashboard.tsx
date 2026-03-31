@@ -98,7 +98,7 @@ export const TeacherDashboard: React.FC<Props> = ({ onLogout }) => {
                 onLogout={handleLogoutClick}
             />
 
-            <div className="p-6 md:p-8 flex-1 w-full max-w-7xl mx-auto space-y-8">
+            <div className="p-6 sm:p-8 flex-1 w-full max-w-7xl mx-auto space-y-8">
 
                 <ConfirmationModal
                     isOpen={showLogoutModal}
@@ -113,7 +113,7 @@ export const TeacherDashboard: React.FC<Props> = ({ onLogout }) => {
                 {/* Active Session Card */}
                 {activeSession ? (
                     <Card className="border-indigo-100 overflow-hidden pl-6 pr-6 pt-6 pb-6" padding="none">
-                        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
                             <div>
                                 <h2 className="text-lg font-bold text-gray-800 mb-1">Exam In Progress</h2>
                                 <p className="text-3xl font-mono font-bold text-indigo-600 tracking-wider">
@@ -123,7 +123,7 @@ export const TeacherDashboard: React.FC<Props> = ({ onLogout }) => {
 
                             <Button
                                 onClick={() => navigate(`/teacher/session/${activeSession.code}`)}
-                                className="w-full md:w-auto px-8 py-3 shadow-sm"
+                                className="w-full sm:w-auto px-8 py-3 shadow-sm"
                             >
                                 See Details
                             </Button>
@@ -131,12 +131,12 @@ export const TeacherDashboard: React.FC<Props> = ({ onLogout }) => {
                     </Card>
                 ) : (
                     <Card className="border-dashed border-gray-300" padding="md">
-                        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                             <div>
                                 <h2 className="text-lg font-bold text-gray-700">No Active Session</h2>
                                 <p className="text-gray-500 text-sm">Ready to start a new exam?</p>
                             </div>
-                            <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                            <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
                                 <div className="relative w-36">
                                     <input
                                         type="text"

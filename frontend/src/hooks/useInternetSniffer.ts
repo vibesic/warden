@@ -1,4 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  IMAGE_PROBE_TIMEOUT_MS,
+  INTERNET_SNIFFER_DEFAULT_INTERVAL_MS,
+  PROBE_SAMPLE_COUNT,
+  PROBE_TARGETS,
+} from '../config/constants';
 
 /**
  * Probes a URL by loading it as an image.
@@ -8,7 +14,7 @@ import { useState, useEffect, useCallback } from 'react';
  * - `onerror` fires on network failures (no internet)
  * - Not affected by opaque response ambiguity
  */
-const probeWithImage = (url: string, timeoutMs: number = 4000): Promise<boolean> => {
+const probeWithImage = (url: string, timeoutMs: number = IMAGE_PROBE_TIMEOUT_MS): Promise<boolean> => {
   return new Promise((resolve) => {
     const img = new Image();
     const timer = setTimeout(() => {
@@ -32,38 +38,34 @@ const probeWithImage = (url: string, timeoutMs: number = 4000): Promise<boolean>
   });
 };
 
-/**
- * Hardcoded probe targets — NOT fetched from API to prevent students
- * from discovering which domains are monitored via network inspection.
- * These are common CDN / connectivity-check endpoints.
- */
-const PROBE_TARGETS = [
-  'https://www.google.com',
-  'https://www.microsoft.com',
-  'https://www.apple.com',
-  'https://www.cloudflare.com',
-  'https://www.amazon.com',
-];
+// PROBE_TARGETS imported from config/constants
 
-export const useInternetSniffer = (checkIntervalMs: number = 5000) => {
+export const useInternetSniffer = (checkIntervalMs: number = INTERNET_SNIFFER_DEFAULT_INTERVAL_MS) => {
   const [isSecure, setIsSecure] = useState<boolean>(true);
+  const runningRef = useRef(false);
 
   const checkConnection = useCallback(async () => {
-    // Pick 3 random targets from hardcoded list
-    const shuffled = [...PROBE_TARGETS].sort(() => 0.5 - Math.random());
-    const targets = shuffled.slice(0, 3);
+    if (runningRef.current) return;
+    runningRef.current = true;
+    try {
+      // Pick random targets from hardcoded list
+      const shuffled = [...PROBE_TARGETS].sort(() => 0.5 - Math.random());
+      const targets = shuffled.slice(0, PROBE_SAMPLE_COUNT);
 
-    // Use favicon.ico with cache-busting for each target
-    const targetUrls = targets.map(d => `${d}/favicon.ico?t=${Date.now()}`);
+      // Use favicon.ico with cache-busting for each target
+      const targetUrls = targets.map(d => `${d}/favicon.ico?t=${Date.now()}`);
 
-    // Check ALL targets concurrently using <img> probes
-    const results = await Promise.all(targetUrls.map(url => probeWithImage(url)));
-    const internetDetected = results.some(r => r === true);
+      // Check ALL targets concurrently using <img> probes
+      const results = await Promise.all(targetUrls.map(url => probeWithImage(url)));
+      const internetDetected = results.some(r => r === true);
 
-    if (internetDetected) {
-      setIsSecure(false);
-    } else {
-      setIsSecure(true);
+      if (internetDetected) {
+        setIsSecure(false);
+      } else {
+        setIsSecure(true);
+      }
+    } finally {
+      runningRef.current = false;
     }
   }, []);
 

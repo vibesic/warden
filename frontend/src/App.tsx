@@ -25,13 +25,15 @@ const LazyFallback: React.FC = () => (
 );
 
 // Wrapper for Student Exam View
+const isValidSessionCode = (code: string): boolean => /^\d{6}$/.test(code);
+
 const StudentExamPage = () => {
     const navigate = useNavigate();
     const sid = localStorage.getItem('studentId');
     const sname = localStorage.getItem('studentName');
     const scode = localStorage.getItem('sessionCode');
 
-    if (!sid || !sname || !scode) {
+    if (!sid || !sname || !scode || !isValidSessionCode(scode)) {
         return <Navigate to="/student/login" replace />;
     }
 
@@ -85,8 +87,8 @@ const TeacherRoute = ({ children }: { children: React.ReactNode }) => {
     const [status, setStatus] = useState<'checking' | 'valid' | 'invalid'>('checking');
 
     useEffect(() => {
-        const isTeacher = localStorage.getItem('teacherMode') === 'true';
-        const token = localStorage.getItem('teacherToken');
+        const isTeacher = sessionStorage.getItem('teacherMode') === 'true';
+        const token = sessionStorage.getItem('teacherToken');
         if (!isTeacher || !token) {
             setStatus('invalid');
             return;
@@ -99,8 +101,8 @@ const TeacherRoute = ({ children }: { children: React.ReactNode }) => {
                 if (res.ok) {
                     setStatus('valid');
                 } else {
-                    localStorage.removeItem('teacherMode');
-                    localStorage.removeItem('teacherToken');
+                    sessionStorage.removeItem('teacherMode');
+                    sessionStorage.removeItem('teacherToken');
                     setStatus('invalid');
                 }
             })
@@ -127,13 +129,13 @@ const AppContent = () => {
     };
 
     const handleTeacherLogin = () => {
-        localStorage.setItem('teacherMode', 'true');
+        sessionStorage.setItem('teacherMode', 'true');
         navigate('/teacher');
     };
 
     const teacherLogout = () => {
-        localStorage.removeItem('teacherMode');
-        localStorage.removeItem('teacherToken');
+        sessionStorage.removeItem('teacherMode');
+        sessionStorage.removeItem('teacherToken');
         navigate('/teacher/login');
     };
 

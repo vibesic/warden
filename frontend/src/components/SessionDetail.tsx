@@ -29,8 +29,8 @@ export const SessionDetail: React.FC = () => {
 
     useEffect(() => {
         if (isAuthError) {
-            localStorage.removeItem('teacherMode');
-            localStorage.removeItem('teacherToken');
+            sessionStorage.removeItem('teacherMode');
+            sessionStorage.removeItem('teacherToken');
             navigate('/teacher/login');
         }
     }, [isAuthError, navigate]);
@@ -74,7 +74,7 @@ export const SessionDetail: React.FC = () => {
                 onBack={() => navigate('/teacher')}
             />
 
-            <div className="p-6 md:p-8 flex-1 w-full max-w-7xl mx-auto">
+            <div className="p-6 sm:p-8 flex-1 w-full max-w-7xl mx-auto">
 
                 <ConfirmationModal
                     isOpen={showEndSessionModal}

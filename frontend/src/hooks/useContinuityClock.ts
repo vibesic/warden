@@ -11,6 +11,7 @@
  * WiFi switch.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { CONTINUITY_TICK_INTERVAL_MS, RTT_JITTER_THRESHOLD_MS } from '../config/constants';
 
 const LS_KEY_LAST_ALIVE = 'exam_lastAlive';
 const LS_KEY_NET_TYPE = 'exam_networkType';
@@ -84,7 +85,7 @@ const didNetworkChange = (
   }
   // rtt changed by >100ms
   if (prev.rtt >= 0 && curr.rtt >= 0) {
-    if (Math.abs(curr.rtt - prev.rtt) > 100) return true;
+    if (Math.abs(curr.rtt - prev.rtt) > RTT_JITTER_THRESHOLD_MS) return true;
   }
   return false;
 };
@@ -156,7 +157,7 @@ export const useContinuityClock = (sessionCode: string): UseContinuityClockResul
     };
 
     tick(); // immediate
-    intervalRef.current = setInterval(tick, 1000);
+    intervalRef.current = setInterval(tick, CONTINUITY_TICK_INTERVAL_MS);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };

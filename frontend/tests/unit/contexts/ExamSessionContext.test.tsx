@@ -21,6 +21,7 @@ vi.mock('@src/hooks/useExamSocket', () => ({
     reportViolation: mockReportViolation,
     error: mockError,
     sessionTimer: mockSessionTimer,
+    serverTimeOffset: 0,
   }),
 }));
 

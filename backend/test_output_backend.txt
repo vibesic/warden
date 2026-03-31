@@ -1,0 +1,127 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/home/kazawa/proctor-app/backend[39m
+      [2mCoverage enabled with [22m[33mv8[39m
+
+ [32m✓[39m tests/e2e/tab_close_attack.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 2310[2mms[22m[39m
+     [33m[2m✓[22m[39m should detect full attack: tab-close → offline → return → internet violation → re-register [33m 861[2mms[22m[39m
+     [33m[2m✓[22m[39m should detect return without internet evidence (suspicious absence only) [33m 819[2mms[22m[39m
+     [33m[2m✓[22m[39m should allow student to re-register and continue working after violation [33m 611[2mms[22m[39m
+ [32m✓[39m tests/integration/gateway/scalability.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 2440[2mms[22m[39m
+       [33m[2m✓[22m[39m should deliver teacher alerts from multiple students concurrently [33m 661[2mms[22m[39m
+       [33m[2m✓[22m[39m should handle 20 rapid heartbeats from a single student [33m 517[2mms[22m[39m
+       [33m[2m✓[22m[39m should receive STUDENT_JOINED updates from multiple simultaneous connections [33m 472[2mms[22m[39m
+       [33m[2m✓[22m[39m should handle multiple students disconnecting simultaneously [33m 544[2mms[22m[39m
+ [32m✓[39m tests/integration/gateway/wifi_flap.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 2729[2mms[22m[39m
+     [33m[2m✓[22m[39m should NOT create a DISCONNECTION violation when student reconnects within grace period (WiFi hiccup) [33m 404[2mms[22m[39m
+     [33m[2m✓[22m[39m should suppress duplicate DISCONNECTION violations during rapid WiFi flaps (cooldown) [33m 623[2mms[22m[39m
+     [33m[2m✓[22m[39m should record only 1 DISCONNECTION for 3 rapid WiFi flaps [33m 665[2mms[22m[39m
+     [33m[2m✓[22m[39m should record "intentional" close when student signals tab-closing before disconnect [33m 345[2mms[22m[39m
+     [33m[2m✓[22m[39m should record "WiFi drop" when student disconnects without tab-closing signal [33m 630[2mms[22m[39m[33m (retry x1)[39m
+ [32m✓[39m tests/integration/gateway/socket.test.ts [2m([22m[2m16 tests[22m[2m)[22m[33m 2694[2mms[22m[39m
+     [33m[2m✓[22m[39m should create DISCONNECTION violation when student disconnects [33m 313[2mms[22m[39m
+     [33m[2m✓[22m[39m should NOT create violation when student reconnects during async grace processing (#18 race fix) [33m 774[2mms[22m[39m
+ [32m✓[39m tests/integration/gateway/security_advanced.test.ts [2m([22m[2m19 tests[22m[2m)[22m[33m 2892[2mms[22m[39m
+       [33m[2m✓[22m[39m should silently ignore all teacher actions with empty token (#16 connection-level auth) [33m 313[2mms[22m[39m
+       [33m[2m✓[22m[39m should silently ignore teacher actions with malformed token (#16) [33m 312[2mms[22m[39m
+       [33m[2m✓[22m[39m should not leak violation alerts to teachers in different sessions [33m 534[2mms[22m[39m
+       [33m[2m✓[22m[39m should handle rapid consecutive violations from same student [33m 513[2mms[22m[39m
+ [32m✓[39m tests/integration/gateway/security.test.ts [2m([22m[2m19 tests[22m[2m)[22m[33m 2361[2mms[22m[39m
+       [33m[2m✓[22m[39m should NOT send dashboard:alert to student sockets when a violation occurs [33m 351[2mms[22m[39m
+       [33m[2m✓[22m[39m should send dashboard:alert to teacher sockets in teacher room [33m 329[2mms[22m[39m
+       [33m[2m✓[22m[39m should NOT send dashboard:update (STUDENT_LEFT) to other students [33m 327[2mms[22m[39m
+       [33m[2m✓[22m[39m should NOT emit violation:detected when sniffer says not reachable [33m 314[2mms[22m[39m
+       [33m[2m✓[22m[39m should send session:ended only to student room, not teacher room [33m 316[2mms[22m[39m
+ [32m✓[39m tests/integration/gateway/reliability.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 1832[2mms[22m[39m
+       [33m[2m✓[22m[39m should ignore heartbeat from unregistered socket [33m 316[2mms[22m[39m
+       [33m[2m✓[22m[39m should ignore sniffer:response from unregistered socket [33m 426[2mms[22m[39m[33m (retry x1)[39m
+ [32m✓[39m tests/e2e/multi_student_violations.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 2169[2mms[22m[39m
+     [33m[2m✓[22m[39m should deliver violations from multiple students to teacher correctly [33m 625[2mms[22m[39m
+     [33m[2m✓[22m[39m should not fire sniffer timeout for disconnected student pending challenge [33m 517[2mms[22m[39m
+     [33m[2m✓[22m[39m should NOT create violations after session becomes inactive [33m 511[2mms[22m[39m
+     [33m[2m✓[22m[39m should include violation history when teacher joins session late [33m 512[2mms[22m[39m[33m (retry x1)[39m
+ [32m✓[39m tests/integration/gateway/disconnect_reason.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 2058[2mms[22m[39m
+     [33m[2m✓[22m[39m should record "intentional close" when student emits tab-closing before disconnect [33m 405[2mms[22m[39m
+     [33m[2m✓[22m[39m should record "client side" when student disconnects without tab-closing signal [33m 320[2mms[22m[39m
+     [33m[2m✓[22m[39m should record "WiFi drop" when transport is forcefully closed [33m 313[2mms[22m[39m
+     [33m[2m✓[22m[39m should NOT record any violation when student reconnects within grace period [33m 378[2mms[22m[39m
+     [33m[2m✓[22m[39m should NOT record a violation when the session is no longer active [33m 629[2mms[22m[39m[33m (retry x1)[39m
+ [32m✓[39m tests/e2e/sniffer_evasion.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 706[2mms[22m[39m
+     [33m[2m✓[22m[39m should catch student who lies to sniffer via client-side report_violation [33m 701[2mms[22m[39m
+ [32m✓[39m tests/unit/middleware/rateLimiter.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 706[2mms[22m[39m
+       [33m[2m✓[22m[39m should allow full classroom exam flow without being rate-limited [33m 545[2mms[22m[39m
+ [32m✓[39m tests/integration/gateway/studentHandlers.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 1092[2mms[22m[39m
+ [32m✓[39m tests/e2e/exam_simulation.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 117[2mms[22m[39m
+ [32m✓[39m tests/unit/routes/question.routes.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 174[2mms[22m[39m
+ [32m✓[39m tests/unit/routes/app.extended.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 62[2mms[22m[39m
+ [32m✓[39m tests/integration/gateway/teacherHandlers.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 769[2mms[22m[39m
+ [32m✓[39m tests/unit/routes/download.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 61[2mms[22m[39m
+ [32m✓[39m tests/unit/routes/app.routes.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 46[2mms[22m[39m
+ [32m✓[39m tests/unit/routes/check_targets.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m tests/unit/routes/upload.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 51[2mms[22m[39m
+ [32m✓[39m tests/unit/routes/app.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m tests/unit/services/device.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m tests/integration/gateway/heartbeat_cleanup.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m tests/unit/gateway/socketRateLimiter.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m tests/unit/services/submission.service.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/integration/gateway/backgroundJobs.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m tests/unit/services/auth.service.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m tests/unit/gateway/helpers.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/unit/services/session.service.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/unit/routes/errorHandler.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/unit/services/student.service.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/unit/middleware/sessionMiddleware.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/unit/services/violation.service.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/unit/utils/shuffle.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/unit/services/question.service.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/unit/gateway/constants.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m tests/unit/gateway/pendingDisconnectSweep.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m tests/unit/utils/logger.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m38 passed[39m[22m[90m (38)[39m
+[2m      Tests [22m [1m[32m322 passed[39m[22m[90m (322)[39m
+[2m   Start at [22m 14:08:48
+[2m   Duration [22m 12.39s[2m (transform 1.05s, setup 167ms, import 5.51s, tests 25.47s, environment 3ms)[22m
+
+[34m % [39m[2mCoverage report from [22m[33mv8[39m
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   92.47 |    85.23 |      95 |   93.75 |                   
+ src               |   73.52 |    30.76 |      50 |   73.52 |                   
+  app.ts           |   73.52 |    30.76 |      50 |   73.52 | 26-29,39,77-83    
+ src/gateway       |   89.01 |    84.56 |   95.23 |   91.22 |                   
+  ...groundJobs.ts |   93.61 |    68.75 |     100 |   95.55 | 24-25             
+  constants.ts     |     100 |      100 |     100 |     100 |                   
+  helpers.ts       |   95.45 |      100 |    87.5 |   95.45 | 204-205           
+  socket.ts        |   94.73 |      100 |      75 |   94.73 | 17                
+  ...ateLimiter.ts |     100 |      100 |     100 |     100 |                   
+  ...ntHandlers.ts |   91.02 |     87.5 |     100 |   93.66 | ...16-317,339,347 
+  ...erHandlers.ts |   71.83 |    66.66 |     100 |   75.38 | ...14-115,134-135 
+ src/middleware    |     100 |      100 |     100 |     100 |                   
+  ...Middleware.ts |     100 |      100 |     100 |     100 |                   
+  errorHandler.ts  |     100 |      100 |     100 |     100 |                   
+  rateLimiter.ts   |     100 |      100 |     100 |     100 |                   
+  ...Middleware.ts |     100 |      100 |     100 |     100 |                   
+ src/routes        |     100 |    94.44 |     100 |     100 |                   
+  auth.routes.ts   |     100 |      100 |     100 |     100 |                   
+  ...ion.routes.ts |     100 |    91.66 |     100 |     100 | 41                
+  ...ion.routes.ts |     100 |      100 |     100 |     100 |                   
+  ...ion.routes.ts |     100 |    93.75 |     100 |     100 | 51                
+ src/services      |   98.43 |    97.14 |     100 |   99.14 |                   
+  auth.service.ts  |   94.59 |       95 |     100 |   96.87 | 45                
+  ...on.service.ts |     100 |      100 |     100 |     100 |                   
+  ...on.service.ts |     100 |      100 |     100 |     100 |                   
+  ...nt.service.ts |     100 |      100 |     100 |     100 |                   
+  ...on.service.ts |     100 |      100 |     100 |     100 |                   
+  ...on.service.ts |     100 |      100 |     100 |     100 |                   
+ src/utils         |   92.68 |    79.06 |    91.3 |   93.67 |                   
+  asyncHandler.ts  |     100 |       75 |     100 |     100 | 26                
+  config.ts        |   70.58 |    44.44 |      60 |      75 | 12,18,21,42       
+  device.ts        |     100 |      100 |     100 |     100 |                   
+  domainList.ts    |     100 |      100 |     100 |     100 |                   
+  errors.ts        |     100 |      100 |     100 |     100 |                   
+  fileHelpers.ts   |     100 |      100 |     100 |     100 |                   
+  logger.ts        |     100 |    66.66 |     100 |     100 | 4-8               
+  shuffle.ts       |     100 |      100 |     100 |     100 |                   
+  upload.ts        |    90.9 |       80 |     100 |    90.9 | 16                
+-------------------|---------|----------|---------|---------|-------------------

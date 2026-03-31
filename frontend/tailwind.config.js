@@ -5,6 +5,10 @@ export default {
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
+    screens: {
+      sm: '768px',
+      lg: '1024px',
+    },
     extend: {},
   },
   plugins: [],

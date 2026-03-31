@@ -72,7 +72,7 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
   const [serverTimeOffset, setServerTimeOffset] = useState(0);
 
   useEffect(() => {
-    const token = localStorage.getItem('teacherToken') || '';
+    const token = sessionStorage.getItem('teacherToken') || '';
     socketRef.current = io(SOCKET_URL, {
       auth: { token },
     });

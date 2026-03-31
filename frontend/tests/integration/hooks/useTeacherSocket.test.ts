@@ -17,7 +17,7 @@ describe('useTeacherSocket', () => {
   beforeEach(() => {
     mockSocket = createMockSocket();
     localStorage.clear();
-    localStorage.setItem('teacherToken', 'test-token');
+    sessionStorage.setItem('teacherToken', 'test-token');
   });
 
   const importHook = async () => {
