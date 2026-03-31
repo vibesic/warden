@@ -1,30 +1,20 @@
+const httpServer = createServer(app);
+
 // Catch any uncaught errors and write to stderr for diagnostics.
 process.on('uncaughtException', (err: Error) => {
   process.stderr.write(`UNCAUGHT EXCEPTION: ${err.message}\n${err.stack ?? ''}\n`);
-  process.exit(1);
+  httpServer.close(() => {
+    process.exit(1);
+  });
 });
 
 process.on('unhandledRejection', (reason: unknown) => {
   const msg = reason instanceof Error ? reason.message : String(reason);
   process.stderr.write(`UNHANDLED REJECTION: ${msg}\n`);
-  process.exit(1);
+  httpServer.close(() => {
+    process.exit(1);
+  });
 });
-
-import { createServer } from 'http';
-import { createServer as createNetServer } from 'net';
-import { Server } from 'socket.io';
-import { app } from './app';
-import { corsOriginCallback } from './utils/config';
-import { initializeSocket } from './gateway/socket';
-import { logger } from './utils/logger';
-
-const BASE_PORT = Number(process.env.PORT) || 3333;
-const MAX_PORT_ATTEMPTS = 10;
-
-const httpServer = createServer(app);
-
-// Socket.io attaches many listeners; raise the limit to avoid spurious warnings
-httpServer.setMaxListeners(25);
 
 const io = new Server(httpServer, {
   cors: {
