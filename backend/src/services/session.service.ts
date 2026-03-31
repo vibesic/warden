@@ -2,30 +2,32 @@ import { prisma } from '../utils/prisma';
 import type { Session } from '@prisma/client';
 
 export const createSession = async (durationMinutes: number): Promise<Session> => {
-  // End any currently active sessions first
-  await prisma.session.updateMany({
-    where: { isActive: true },
-    data: {
-      isActive: false,
-      endedAt: new Date()
-    }
-  });
+  return await prisma.$transaction(async (tx) => {
+    // End any currently active sessions first
+    await tx.session.updateMany({
+      where: { isActive: true },
+      data: {
+        isActive: false,
+        endedAt: new Date()
+      }
+    });
 
-  // Generate unique 6 digit code
-  let code = '';
-  let unique = false;
-  while (!unique) {
-    code = Math.floor(100000 + Math.random() * 900000).toString();
-    const existing = await prisma.session.findUnique({ where: { code } });
-    if (!existing) unique = true;
-  }
-
-  return prisma.session.create({
-    data: {
-      code,
-      isActive: true,
-      durationMinutes,
+    // Generate unique 6 digit code
+    let code = '';
+    let unique = false;
+    while (!unique) {
+      code = Math.floor(100000 + Math.random() * 900000).toString();
+      const existing = await tx.session.findUnique({ where: { code } });
+      if (!existing) unique = true;
     }
+
+    return tx.session.create({
+      data: {
+        code,
+        isActive: true,
+        durationMinutes,
+      }
+    });
   });
 };
 

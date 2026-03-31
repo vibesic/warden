@@ -3,18 +3,24 @@ import { createSession, endSession, getActiveSession, validateSession, getSessio
 import { prisma } from '@src/utils/prisma';
 
 // Mock prisma
-vi.mock('@src/utils/prisma', () => ({
-  prisma: {
-    session: {
-      updateMany: vi.fn(),
-      findUnique: vi.fn(),
-      create: vi.fn(),
-      findFirst: vi.fn(),
-      update: vi.fn(),
-      findMany: vi.fn(),
+vi.mock('@src/utils/prisma', () => {
+  const sessionMock = {
+    updateMany: vi.fn(),
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    findFirst: vi.fn(),
+    update: vi.fn(),
+    findMany: vi.fn(),
+  };
+  return {
+    prisma: {
+      $transaction: vi.fn(async (callback) => {
+        return callback({ session: sessionMock });
+      }),
+      session: sessionMock
     }
-  }
-}));
+  };
+});
 
 describe('Session Service', () => {
   beforeEach(() => {
