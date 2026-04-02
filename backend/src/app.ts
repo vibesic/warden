@@ -24,7 +24,6 @@ const seedDomains = async (): Promise<void> => {
       const formattedDomains = PUBLIC_DOMAINS.map((url) => ({ url }));
       await prisma.checkTarget.createMany({
         data: formattedDomains,
-        skipDuplicates: true,
       });
       logger.info({ count: PUBLIC_DOMAINS.length }, 'Check targets seeded');
     }
@@ -53,7 +52,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'DELETE'],
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '1mb' })); // Explicit payload bound for memory reliability
 
 /* ── Request logging ──────────────────────────────────────────── */
 app.use(requestLogger);

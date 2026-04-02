@@ -43,6 +43,7 @@ const prismaMock = vi.hoisted(() => ({
     count: vi.fn().mockResolvedValue(0),
     findFirst: vi.fn(),
   },
+  $transaction: vi.fn(async (cb) => cb(prismaMock)),
 })) as unknown as PrismaMock;
 
 vi.mock('@src/utils/prisma', () => ({

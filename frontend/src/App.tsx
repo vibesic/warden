@@ -170,7 +170,7 @@ const AppContent = () => {
                     <Route path="/teacher" element={
                         <TeacherDashboard onLogout={teacherLogout} />
                     } />
-                    
+
                     <Route path="/teacher/session/:sessionCode" element={
                         <SessionDetail />
                     } />

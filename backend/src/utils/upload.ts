@@ -35,5 +35,13 @@ export const createUploadMiddleware = (filenamePrefix: string = ''): multer.Mult
     },
   });
 
-  return multer({ storage, limits: { fileSize: MAX_FILE_SIZE } });
+  return multer({
+    storage,
+    limits: {
+      fileSize: MAX_FILE_SIZE,
+      files: 1,           // Strictly limit to 1 file upload per request to prevent parsing DOS
+      fields: 5,          // Strictly limit to 5 text fields (e.g. sessionCode, studentId)
+      fieldSize: 1000,    // Strictly limit field values to 1KB each (plenty for IDs/Codes)
+    }
+  });
 };

@@ -17,21 +17,26 @@ export const useQuestionFiles = (sessionCode: string): UseQuestionFilesResult =>
   const [questionUploading, setQuestionUploading] = useState(false);
   const [questionUploadError, setQuestionUploadError] = useState('');
 
-  const fetchQuestionFiles = useCallback(async () => {
+  const fetchQuestionFiles = useCallback(async (signal?: AbortSignal) => {
     if (!sessionCode) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/session/${sessionCode}/questions`);
+      const res = await fetch(`${API_BASE_URL}/api/session/${sessionCode}/questions`, {
+        signal
+      });
       const data = await res.json();
       if (data.success) {
         setQuestionFiles(data.data);
       }
-    } catch {
+    } catch (error: any) {
+      if (error.name === 'AbortError') return;
       // Silently fail
     }
   }, [sessionCode]);
 
   useEffect(() => {
-    fetchQuestionFiles();
+    const controller = new AbortController();
+    fetchQuestionFiles(controller.signal);
+    return () => controller.abort();
   }, [fetchQuestionFiles]);
 
   const handleQuestionUpload = useCallback(async (file: File, token?: string) => {

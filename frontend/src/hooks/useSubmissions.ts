@@ -20,26 +20,36 @@ interface UseSubmissionsResult {
 export const useSubmissions = (sessionCode: string | undefined, pollIntervalMs: number = SUBMISSION_POLL_INTERVAL_MS): UseSubmissionsResult => {
   const [submissions, setSubmissions] = useState<SubmissionItem[]>([]);
 
-  const fetchSubmissions = useCallback(async () => {
+  const fetchSubmissions = useCallback(async (signal?: AbortSignal) => {
     if (!sessionCode) return;
     try {
       const token = sessionStorage.getItem('teacherToken') || '';
       const res = await fetch(`${API_BASE_URL}/api/submissions/${sessionCode}`, {
         headers: { Authorization: `Bearer ${token}` },
+        signal
       });
       const data = await res.json();
       if (data.success) {
         setSubmissions(data.data);
       }
-    } catch {
+    } catch (error: any) {
+      if (error.name === 'AbortError') return;
       // Silently fail — submissions are supplementary
     }
   }, [sessionCode]);
 
   useEffect(() => {
-    fetchSubmissions();
-    const interval = setInterval(fetchSubmissions, pollIntervalMs);
-    return () => clearInterval(interval);
+    const controller = new AbortController();
+    fetchSubmissions(controller.signal);
+    
+    const interval = setInterval(() => {
+      fetchSubmissions();
+    }, pollIntervalMs);
+    
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   }, [fetchSubmissions, pollIntervalMs]);
 
   const handleDownload = useCallback((storedName: string) => {

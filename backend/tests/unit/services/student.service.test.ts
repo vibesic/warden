@@ -8,9 +8,9 @@ vi.mock('@src/utils/prisma', () => {
   return {
     prisma: {
       $transaction: vi.fn(async (callback) => {
-        return callback({ 
-          student: studentMock, 
-          sessionStudent: sessionStudentMock 
+        return callback({
+          student: studentMock,
+          sessionStudent: sessionStudentMock
         });
       }),
       student: studentMock,

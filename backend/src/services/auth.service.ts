@@ -30,7 +30,9 @@ export const verifyTeacherToken = (token: string): boolean => {
     .update(payloadBase64)
     .digest('base64url');
 
-  if (signature !== expectedSignature) return false;
+  if (signature.length !== expectedSignature.length || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+    return false;
+  }
 
   try {
     const payload: TeacherAuthPayload = JSON.parse(

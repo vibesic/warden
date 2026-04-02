@@ -2,6 +2,7 @@
  * Authentication routes.
  * Handles teacher login and token verification.
  */
+import crypto from 'crypto';
 import { Router, Request, Response } from 'express';
 import { TeacherLoginSchema } from '../types/auth';
 import { generateTeacherToken, getTeacherPassword, verifyTeacherToken } from '../services/auth.service';
@@ -18,7 +19,12 @@ router.post('/auth/teacher', authRateLimiter, (req: Request, res: Response): voi
   }
 
   const { password } = result.data;
-  if (password !== getTeacherPassword()) {
+  const teacherPassword = getTeacherPassword();
+
+  if (
+    password.length !== teacherPassword.length ||
+    !crypto.timingSafeEqual(Buffer.from(password), Buffer.from(teacherPassword))
+  ) {
     res.status(401).json({ success: false, message: 'Invalid password' });
     return;
   }
