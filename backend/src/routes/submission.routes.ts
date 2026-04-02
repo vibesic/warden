@@ -17,34 +17,32 @@ const upload = createUploadMiddleware();
 
 const router = Router();
 
+const handleUploadError = (res: Response, file: Express.Multer.File | undefined, message: string) => {
+  if (file) deleteUploadedFile(file.filename);
+  res.status(400).json({ success: false, message });
+};
+
 /** Student uploads a file. */
 router.post('/upload', upload.single('file'), asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const file = req.file;
   const { sessionCode, studentId: studentTxId } = req.body as { sessionCode?: string; studentId?: string };
 
   if (!file) {
-    res.status(400).json({ success: false, message: 'No file provided' });
-    return;
+    return handleUploadError(res, file, 'No file provided');
   }
   
   if (!sessionCode || !studentTxId) {
-    deleteUploadedFile(file.filename);
-    res.status(400).json({ success: false, message: 'sessionCode and studentId are required' });
-    return;
+    return handleUploadError(res, file, 'sessionCode and studentId are required');
   }
 
   const session = await getSessionByCode(sessionCode);
   if (!session || !session.isActive) {
-    deleteUploadedFile(file.filename);
-    res.status(400).json({ success: false, message: 'Invalid or inactive session' });
-    return;
+    return handleUploadError(res, file, 'Invalid or inactive session');
   }
 
   const sessionStudent = await findSessionStudentByStudentId(session.id, studentTxId);
   if (!sessionStudent) {
-    deleteUploadedFile(file.filename);
-    res.status(400).json({ success: false, message: 'Student not found in session' });
-    return;
+    return handleUploadError(res, file, 'Student not found in session');
   }
 
   try {
