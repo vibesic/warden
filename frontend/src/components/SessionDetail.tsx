@@ -43,26 +43,32 @@ export const SessionDetail: React.FC = () => {
         return true;
     }), [sortedStudents, connectionFilter]);
 
-    const confirmEndSession = () => {
+    const confirmEndSession = React.useCallback(() => {
         endSession();
         setShowEndSessionModal(false);
         navigate('/teacher');
-    };
+    }, [endSession, navigate]);
 
-    const handleLogoutClick = () => {
+    const handleLogoutClick = React.useCallback(() => {
         if (activeSession?.isActive) {
             setShowLogoutModal(true);
         } else {
             navigate('/teacher/login');
         }
-    };
+    }, [activeSession?.isActive, navigate]);
 
-    const confirmLogout = () => {
+    const confirmLogout = React.useCallback(() => {
         if (activeSession?.isActive) {
             endSession();
         }
         navigate('/teacher/login');
-    };
+    }, [activeSession?.isActive, endSession, navigate]);
+
+    const handleBack = React.useCallback(() => navigate('/teacher'), [navigate]);
+    const handleEndSessionModalClose = React.useCallback(() => setShowEndSessionModal(false), []);
+    const handleLogoutModalClose = React.useCallback(() => setShowLogoutModal(false), []);
+    const handleEndSessionClick = React.useCallback(() => setShowEndSessionModal(true), []);
+    const handleViolationModalClose = React.useCallback(() => setSelectedStudent(null), []);
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -71,7 +77,7 @@ export const SessionDetail: React.FC = () => {
                 isConnected={isConnected}
                 onLogout={handleLogoutClick}
                 showBack={true}
-                onBack={() => navigate('/teacher')}
+                onBack={handleBack}
             />
 
             <div className="p-6 sm:p-8 flex-1 w-full max-w-7xl mx-auto">
@@ -83,7 +89,7 @@ export const SessionDetail: React.FC = () => {
                     confirmText="End Session"
                     isDanger={true}
                     onConfirm={confirmEndSession}
-                    onCancel={() => setShowEndSessionModal(false)}
+                    onCancel={handleEndSessionModalClose}
                 />
 
                 <ConfirmationModal
@@ -93,7 +99,7 @@ export const SessionDetail: React.FC = () => {
                     confirmText="End Session & Logout"
                     isDanger={true}
                     onConfirm={confirmLogout}
-                    onCancel={() => setShowLogoutModal(false)}
+                    onCancel={handleLogoutModalClose}
                 />
 
                 <SessionHeader
@@ -103,7 +109,7 @@ export const SessionDetail: React.FC = () => {
                     formatElapsedTime={formatElapsedTime}
                     formatRemainingTime={formatRemainingTime}
                     getRemainingMs={getRemainingMs}
-                    onEndSession={() => setShowEndSessionModal(true)}
+                    onEndSession={handleEndSessionClick}
                 />
 
                 {activeSession?.isActive ? (
@@ -140,7 +146,7 @@ export const SessionDetail: React.FC = () => {
 
                 <ViolationLogModal
                     selectedStudent={selectedStudent}
-                    onClose={() => setSelectedStudent(null)}
+                    onClose={handleViolationModalClose}
                 />
             </div>
         </div>
