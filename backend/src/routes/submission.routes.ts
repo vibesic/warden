@@ -11,7 +11,7 @@ import { findSessionStudentByStudentId } from '../services/student.service';
 import { requireTeacherAuth } from '../middleware/authMiddleware';
 import { requireSession } from '../middleware/sessionMiddleware';
 import { asyncHandler } from '../utils/asyncHandler';
-import { serveFileDownload } from '../utils/fileHelpers';
+import { serveFileDownload, deleteUploadedFile } from '../utils/fileHelpers';
 
 const upload = createUploadMiddleware();
 
@@ -26,41 +26,50 @@ router.post('/upload', upload.single('file'), asyncHandler(async (req: Request, 
     res.status(400).json({ success: false, message: 'No file provided' });
     return;
   }
+  
   if (!sessionCode || !studentTxId) {
+    deleteUploadedFile(file.filename);
     res.status(400).json({ success: false, message: 'sessionCode and studentId are required' });
     return;
   }
 
   const session = await getSessionByCode(sessionCode);
   if (!session || !session.isActive) {
+    deleteUploadedFile(file.filename);
     res.status(400).json({ success: false, message: 'Invalid or inactive session' });
     return;
   }
 
   const sessionStudent = await findSessionStudentByStudentId(session.id, studentTxId);
   if (!sessionStudent) {
+    deleteUploadedFile(file.filename);
     res.status(400).json({ success: false, message: 'Student not found in session' });
     return;
   }
 
-  const submission = await createSubmission({
-    sessionStudentId: sessionStudent.id,
-    sessionId: session.id,
-    originalName: file.originalname,
-    storedName: file.filename,
-    mimeType: file.mimetype || null,
-    sizeBytes: file.size,
-  });
+  try {
+    const submission = await createSubmission({
+      sessionStudentId: sessionStudent.id,
+      sessionId: session.id,
+      originalName: file.originalname,
+      storedName: file.filename,
+      mimeType: file.mimetype || null,
+      sizeBytes: file.size,
+    });
 
-  res.json({
-    success: true,
-    data: {
-      id: submission.id,
-      originalName: submission.originalName,
-      sizeBytes: submission.sizeBytes,
-      createdAt: submission.createdAt.toISOString(),
-    },
-  });
+    res.json({
+      success: true,
+      data: {
+        id: submission.id,
+        originalName: submission.originalName,
+        sizeBytes: submission.sizeBytes,
+        createdAt: submission.createdAt.toISOString(),
+      },
+    });
+  } catch (error) {
+    deleteUploadedFile(file.filename);
+    throw error;
+  }
 }, 'File upload error', { success: false, message: 'Upload failed' }));
 
 /** Teacher lists submissions for a session. */

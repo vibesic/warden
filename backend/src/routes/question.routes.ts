@@ -34,23 +34,28 @@ router.post(
       return;
     }
 
-    const questionFile = await createQuestionFile({
-      sessionId: session.id,
-      originalName: file.originalname,
-      storedName: file.filename,
-      mimeType: file.mimetype || null,
-      sizeBytes: file.size,
-    });
+    try {
+      const questionFile = await createQuestionFile({
+        sessionId: session.id,
+        originalName: file.originalname,
+        storedName: file.filename,
+        mimeType: file.mimetype || null,
+        sizeBytes: file.size,
+      });
 
-    res.json({
-      success: true,
-      data: {
-        id: questionFile.id,
-        originalName: questionFile.originalName,
-        sizeBytes: questionFile.sizeBytes,
-        createdAt: questionFile.createdAt.toISOString(),
-      },
-    });
+      res.json({
+        success: true,
+        data: {
+          id: questionFile.id,
+          originalName: questionFile.originalName,
+          sizeBytes: questionFile.sizeBytes,
+          createdAt: questionFile.createdAt.toISOString(),
+        },
+      });
+    } catch (error) {
+      deleteUploadedFile(file.filename);
+      throw error;
+    }
   }, 'Question file upload error', { success: false, message: 'Upload failed' }),
 );
 
