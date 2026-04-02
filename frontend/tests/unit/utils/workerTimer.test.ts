@@ -8,19 +8,19 @@ describe('workerTimer', () => {
     vi.useFakeTimers();
     vi.resetModules();
     vi.clearAllMocks();
-    originalWorker = global.Worker;
-    originalCreateObjectURL = global.URL.createObjectURL;
+    originalWorker = globalThis.Worker;
+    originalCreateObjectURL = globalThis.URL.createObjectURL;
   });
 
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
-    global.Worker = originalWorker;
-    if (global.URL) global.URL.createObjectURL = originalCreateObjectURL;
+    globalThis.Worker = originalWorker;
+    if (globalThis.URL) globalThis.URL.createObjectURL = originalCreateObjectURL;
   });
 
   it('should fallback to setInterval when Worker is unavailable', async () => {
-    delete (global as any).Worker;
+    delete (globalThis as any).Worker;
     const { setWorkerInterval, clearWorkerInterval } = await import('../../../src/utils/workerTimer');
     
     const callback = vi.fn();
@@ -46,8 +46,8 @@ describe('workerTimer', () => {
       postMessage = postMessageMock;
     }
     
-    global.Worker = MockWorker as any;
-    global.URL.createObjectURL = vi.fn(() => 'blob:url');
+    globalThis.Worker = MockWorker as any;
+    globalThis.URL.createObjectURL = vi.fn(() => 'blob:url');
 
     const { setWorkerInterval, clearWorkerInterval } = await import('../../../src/utils/workerTimer?' + Date.now());
 
@@ -72,8 +72,8 @@ describe('workerTimer', () => {
       constructor() { throw new Error('Blocked by CSP'); }
     }
     
-    global.Worker = MockWorker as any;
-    global.URL.createObjectURL = vi.fn(() => 'blob:url');
+    globalThis.Worker = MockWorker as any;
+    globalThis.URL.createObjectURL = vi.fn(() => 'blob:url');
 
     const { setWorkerInterval, clearWorkerInterval } = await import('../../../src/utils/workerTimer?' + Date.now());
 

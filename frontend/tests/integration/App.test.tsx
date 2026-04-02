@@ -39,7 +39,7 @@ vi.mock('@src/components/SessionDetail', () => ({
 // We need to test the routing logic from App.tsx, so we import the internal Routes
 // Since App uses BrowserRouter, we re-test the routing content via a test wrapper
 
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate} from 'react-router-dom';
 import React from 'react';
 
 // Replicate the inner routing from App.tsx for testing purposes
@@ -64,7 +64,7 @@ const TeacherRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const TestAppContent = () => {
-  const navigate = useNavigate();
+  
 
   return (
     <Routes>
