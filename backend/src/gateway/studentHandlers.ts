@@ -1,3 +1,4 @@
+import { validateData } from "../utils/validation";
 import { Server, Socket } from 'socket.io';
 import { logger } from '../utils/logger';
 import { validateSession, getSessionByCode } from '../services/session.service';
@@ -110,14 +111,13 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
   socket.on('register', async (data: unknown) => {
     if (!checkSocketRateLimit(socket, 'register')) return;
     try {
-      const result = RegisterSchema.safeParse(data);
-      if (!result.success) {
-        logger.error({ error: result.error.issues }, 'Invalid register data');
+      const validatedData = validateData(RegisterSchema, data, 'Invalid register data');
+      if (!validatedData) {
         socket.emit('registration_error', 'Invalid data format');
         return;
       }
-      const { studentId, sessionCode } = result.data;
-      const name = result.data.name.trim();
+      const { studentId, sessionCode } = validatedData;
+      const name = validatedData.name.trim();
 
       // Cancel any pending disconnect violation from a previous socket
       cancelPendingDisconnect(studentId);
@@ -166,7 +166,6 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
       });
     } catch (error) {
       logger.error({ error }, 'Registration error');
-      console.error("FATAL ERROR IN REGISTER:", error);
       socket.emit('registration_error', 'Internal server error');
     }
   });
@@ -198,19 +197,16 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
       const session = await getSessionByCode(studentData.sessionCode);
       if (!session?.isActive) return;
 
-      const result = ViolationSchema.safeParse(data);
-      if (!result.success) {
-        logger.warn({ error: result.error.issues }, 'Invalid violation data');
-        return;
-      }
+      const validatedData = validateData(ViolationSchema, data, "Invalid violation data");
+      if (!validatedData) return;
 
-      logger.warn({ studentId: studentData.studentId, type: result.data.type }, 'VIOLATION DETECTED');
+      logger.warn({ studentId: studentData.studentId, type: validatedData.type }, 'VIOLATION DETECTED');
 
       await createAndBroadcastViolation(io, studentData.sessionCode, studentData.studentId, {
         sessionStudentId: studentData.sessionStudentId,
-        type: result.data.type,
-        reason: result.data.reason,
-        details: result.data.details,
+        type: validatedData.type,
+        reason: 'DETECTED',
+        details: validatedData.details,
       });
     } catch (error) {
       logger.error({ error }, 'Violation report error');
@@ -223,10 +219,10 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
       const studentData = getSocketStudentData(socket);
       if (!studentData) return;
 
-      const result = SnifferResponseSchema.safeParse(data);
-      if (!result.success) return;
+      const validatedData = validateData(SnifferResponseSchema, data, "Invalid sniffer data");
+      if (!validatedData) return;
 
-      const { challengeId, reachable } = result.data;
+      const { challengeId, reachable } = validatedData;
 
       const pending = socket.data.pendingChallenge;
       if (!pending || pending.challengeId !== challengeId) return;
