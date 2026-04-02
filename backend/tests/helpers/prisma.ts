@@ -115,8 +115,8 @@ export const DEFAULT_SESSION = {
   code: '123456',
   isActive: true,
   createdAt: new Date(),
-  durationMinutes: null,
-  endedAt: null,
+  durationMinutes: null as number | null,
+  endedAt: null as Date | null,
 };
 
 /**
@@ -147,6 +147,18 @@ export const applyDefaultMocks = (
   });
   mock.sessionStudent.update.mockResolvedValue({});
   mock.sessionStudent.findMany.mockResolvedValue([]);
+};
+
+export const getMockedViolationsByType = (mock: PrismaMock, type: string): any[] => {
+  return mock.violation.create.mock.calls.filter(
+    (args: any[]) => args[0]?.data?.type === type
+  );
+};
+
+export const getMockedViolationsByReason = (mock: PrismaMock, reason: string): any[] => {
+  return mock.violation.create.mock.calls.filter(
+    (args: any[]) => args[0]?.data?.reason === reason
+  );
 };
 
 /**

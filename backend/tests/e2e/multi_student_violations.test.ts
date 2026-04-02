@@ -15,7 +15,7 @@ import { setDisconnectGraceMs, clearAllPendingDisconnects } from '@src/gateway/s
 import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
 import { createTestSocketServer, cleanupTestServer, type TestServerContext } from '../helpers/setup';
 import { connectClient, connectTeacher, connectTeacherToSession, registerStudent } from '../helpers/socketClient';
-import { mockStudentRegistration, applyDefaultMocks, type PrismaMock } from '../helpers/prisma';
+import { mockStudentRegistration, applyDefaultMocks, getMockedViolationsByType, type PrismaMock } from '../helpers/prisma';
 
 // ── Prisma mock ─────────────────────────────────────────────────────
 const prismaMock = vi.hoisted(() => ({
@@ -180,16 +180,12 @@ describe('E2E: Multi-Student Violation Scenarios', () => {
     await new Promise((r) => setTimeout(r, 250));
 
     // DISCONNECTION violation should exist
-    const disconnectCalls = prismaMock.violation.create.mock.calls.filter(
-      (args: unknown[]) => (args[0] as { data: { type: string } }).data.type === 'DISCONNECTION',
-    );
+    const disconnectCalls = getMockedViolationsByType(prismaMock, 'DISCONNECTION');
     expect(disconnectCalls.length).toBe(1);
 
     // SNIFFER_TIMEOUT should NOT exist — student's socket is gone,
     // the pending challenge is orphaned with the dead socket.
-    const snifferCalls = prismaMock.violation.create.mock.calls.filter(
-      (args: unknown[]) => (args[0] as { data: { type: string } }).data.type === 'SNIFFER_TIMEOUT',
-    );
+    const snifferCalls = getMockedViolationsByType(prismaMock, 'SNIFFER_TIMEOUT');
     expect(snifferCalls).toHaveLength(0);
   });
 
@@ -219,9 +215,7 @@ describe('E2E: Multi-Student Violation Scenarios', () => {
     await new Promise((r) => setTimeout(r, 250));
 
     // No violations should have been created
-    const disconnectCalls = prismaMock.violation.create.mock.calls.filter(
-      (args: unknown[]) => (args[0] as { data: { type: string } }).data.type === 'DISCONNECTION',
-    );
+    const disconnectCalls = getMockedViolationsByType(prismaMock, 'DISCONNECTION');
     expect(disconnectCalls).toHaveLength(0);
   });
 

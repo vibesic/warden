@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import { setDisconnectGraceMs, clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
 import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
 import { createTestSocketServer, cleanupTestServer, type TestServerContext } from '../../helpers/setup';
-import { mockStudentRegistration, applyDefaultMocks, type PrismaMock } from '../../helpers/prisma';
+import { mockStudentRegistration, applyDefaultMocks, getMockedViolationsByType, type PrismaMock } from '../../helpers/prisma';
 import { connectClient, connectTeacher, registerStudent } from '../../helpers/socketClient';
 
 /**
@@ -386,9 +386,7 @@ describe('Scalability Tests', () => {
       expect(offlineCalls.length).toBe(STUDENT_COUNT);
 
       // All should have DISCONNECTION violations
-      const violationCalls = prismaMock.violation.create.mock.calls.filter(
-        (args: unknown[]) => (args[0] as { data: { type: string } }).data.type === 'DISCONNECTION',
-      );
+      const violationCalls = getMockedViolationsByType(prismaMock, 'DISCONNECTION');
       expect(violationCalls.length).toBe(STUDENT_COUNT);
     });
   });

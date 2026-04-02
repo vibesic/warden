@@ -4,7 +4,7 @@ import { generateTeacherToken } from '@src/services/auth.service';
 import { setDisconnectGraceMs, clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
 import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
 import { createTestSocketServer, cleanupTestServer, type TestServerContext } from '../../helpers/setup';
-import { mockStudentRegistration, type PrismaMock } from '../../helpers/prisma';
+import { mockStudentRegistration, type PrismaMock, getMockedViolationsByType } from '../../helpers/prisma';
 import { registerStudent } from '../../helpers/socketClient';
 
 interface DashboardOverviewEvent {
@@ -336,11 +336,11 @@ describe('Socket Gateway', () => {
     // Manually set the pending challenge on the server socket
     // We do this by emitting a sniffer:response that matches what we'll set
     const sockets = await io.fetchSockets();
-    const targetSocket = sockets.find(s => s.data.sessionStudentId === 'ss-sniffer');
+    const targetSocket = sockets.find((s: any) => s.data.sessionStudentId === 'ss-sniffer') as any;
     expect(targetSocket).toBeDefined();
 
     const challengeId = 'test-challenge-123';
-    targetSocket!.data.pendingChallenge = {
+    targetSocket.data.pendingChallenge = {
       challengeId,
       targetUrl: 'https://www.google.com',
       issuedAt: Date.now(),
@@ -366,11 +366,11 @@ describe('Socket Gateway', () => {
     await registerStudent(clientSocket, registerData);
 
     const sockets = await io.fetchSockets();
-    const targetSocket = sockets.find(s => s.data.sessionStudentId === 'ss-safe');
+    const targetSocket = sockets.find((s: any) => s.data.sessionStudentId === 'ss-safe') as any;
     expect(targetSocket).toBeDefined();
 
     const challengeId = 'test-challenge-safe';
-    targetSocket!.data.pendingChallenge = {
+    targetSocket.data.pendingChallenge = {
       challengeId,
       targetUrl: 'https://www.google.com',
       issuedAt: Date.now(),
@@ -381,9 +381,7 @@ describe('Socket Gateway', () => {
     await new Promise(r => setTimeout(r, 100));
 
     // Should not create an INTERNET_ACCESS violation (disconnect violations are expected)
-    const internetViolationCalls = prismaMock.violation.create.mock.calls.filter(
-      (args: [PrismaCreateArgs]) => args[0]?.data?.type === 'INTERNET_ACCESS'
-    );
+    const internetViolationCalls = getMockedViolationsByType(prismaMock, 'INTERNET_ACCESS');
     expect(internetViolationCalls).toHaveLength(0);
   });
 
@@ -410,13 +408,13 @@ describe('Socket Gateway', () => {
 
     // Verify session student marked offline
     const offlineCalls = prismaMock.sessionStudent.update.mock.calls.filter(
-      (args: [PrismaUpdateArgs]) => args[0]?.where?.id === 'ss-disconnect' && args[0]?.data?.isOnline === false
+      (args: any[]) => args[0]?.where?.id === 'ss-disconnect' && args[0]?.data?.isOnline === false
     );
     expect(offlineCalls.length).toBeGreaterThanOrEqual(1);
 
     // Verify DISCONNECTION violation was created
-    const violationCalls = prismaMock.violation.create.mock.calls.filter(
-      (args: [PrismaCreateArgs]) => args[0]?.data?.sessionStudentId === 'ss-disconnect' && args[0]?.data?.type === 'DISCONNECTION'
+    const violationCalls = getMockedViolationsByType(prismaMock, 'DISCONNECTION').filter(
+      (args: any[]) => args[0]?.data?.sessionStudentId === 'ss-disconnect'
     );
     expect(violationCalls.length).toBe(1);
     expect(violationCalls[0][0].data.details).toContain('disconnected');
@@ -454,9 +452,7 @@ describe('Socket Gateway', () => {
     await new Promise(r => setTimeout(r, 200));
 
     // No DISCONNECTION violation should have been created
-    const violationCalls = prismaMock.violation.create.mock.calls.filter(
-      (args: [PrismaCreateArgs]) => args[0]?.data?.type === 'DISCONNECTION'
-    );
+    const violationCalls = getMockedViolationsByType(prismaMock, 'DISCONNECTION');
     expect(violationCalls).toHaveLength(0);
 
     reconnectedSocket.disconnect();
@@ -501,9 +497,7 @@ describe('Socket Gateway', () => {
     await new Promise(r => setTimeout(r, 600));
 
     // No DISCONNECTION violation should have been created — cancelled flag prevented it
-    const violationCalls = prismaMock.violation.create.mock.calls.filter(
-      (args: [PrismaCreateArgs]) => args[0]?.data?.type === 'DISCONNECTION'
-    );
+    const violationCalls = getMockedViolationsByType(prismaMock, 'DISCONNECTION');
     expect(violationCalls).toHaveLength(0);
 
     reconnectSocket.disconnect();

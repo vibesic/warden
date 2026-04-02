@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createViolation, getRandomCheckTarget, getLatestDisconnectionTime } from '@src/services/violation.service';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { createViolation, getRandomCheckTarget, getLatestDisconnectionTime, _resetCheckTargetCache } from '@src/services/violation.service';
 import { prisma } from '@src/utils/prisma';
 
 vi.mock('@src/utils/prisma', () => ({
@@ -94,6 +94,10 @@ describe('Violation Service', () => {
   });
 
   describe('getRandomCheckTarget', () => {
+    beforeEach(() => {
+      _resetCheckTargetCache();
+    });
+
     it('should return null when no enabled targets exist', async () => {
       (prisma.checkTarget.count as ReturnType<typeof vi.fn>).mockResolvedValue(0);
 

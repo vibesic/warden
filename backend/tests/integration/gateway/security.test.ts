@@ -4,9 +4,10 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } 
 import { generateTeacherToken } from '@src/services/auth.service';
 import { clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
 import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
+import { _resetCheckTargetCache } from '@src/services/violation.service';
 import { app } from '@src/app';
 import { createTestSocketServer, cleanupTestServer, createTestSocketServerNoListen, type TestServerContext } from '../../helpers/setup';
-import { mockStudentRegistration, applyDefaultMocks, type PrismaMock } from '../../helpers/prisma';
+import { mockStudentRegistration, applyDefaultMocks, type PrismaMock, getMockedViolationsByType } from '../../helpers/prisma';
 import { connectClient, connectTeacher, registerStudent as socketRegister } from '../../helpers/socketClient';
 
 /**
@@ -131,10 +132,10 @@ describe('Security - Socket Layer', () => {
 
       // Trigger a violation via sniffer:response
       const sockets = await io.fetchSockets();
-      const serverSocket = sockets.find((s) => s.data.sessionStudentId === 'ss-stu1');
+      const serverSocket = sockets.find((s: any) => s.data.sessionStudentId === 'ss-stu1') as any;
       expect(serverSocket).toBeDefined();
 
-      serverSocket!.data.pendingChallenge = {
+      serverSocket.data.pendingChallenge = {
         challengeId: 'challenge-1',
         targetUrl: 'https://www.google.com',
         issuedAt: Date.now(),
@@ -169,10 +170,10 @@ describe('Security - Socket Layer', () => {
 
       // Trigger a violation
       const sockets = await io.fetchSockets();
-      const serverSocket = sockets.find((s) => s.data.sessionStudentId === 'ss-stu-teacher-test');
+      const serverSocket = sockets.find((s: any) => s.data.sessionStudentId === 'ss-stu-teacher-test') as any;
       expect(serverSocket).toBeDefined();
 
-      serverSocket!.data.pendingChallenge = {
+      serverSocket.data.pendingChallenge = {
         challengeId: 'challenge-2',
         targetUrl: 'https://www.google.com',
         issuedAt: Date.now(),
@@ -225,9 +226,7 @@ describe('Security - Socket Layer', () => {
       await new Promise((r) => setTimeout(r, 200));
 
       // No violation with FAKE_TYPE should be created (DISCONNECTION from disconnect is okay)
-      const fakeCalls = prismaMock.violation.create.mock.calls.filter(
-        (args: unknown[]) => (args[0] as { data: { type: string } }).data.type === 'FAKE_TYPE'
-      );
+      const fakeCalls = getMockedViolationsByType(prismaMock, 'FAKE_TYPE');
       expect(fakeCalls).toHaveLength(0);
 
       socket.disconnect();
@@ -262,9 +261,7 @@ describe('Security - Socket Layer', () => {
       await new Promise((r) => setTimeout(r, 200));
 
       // No INTERNET_ACCESS violation should be created with the long details
-      const internetCalls = prismaMock.violation.create.mock.calls.filter(
-        (args: unknown[]) => (args[0] as { data: { type: string } }).data.type === 'INTERNET_ACCESS'
-      );
+      const internetCalls = getMockedViolationsByType(prismaMock, 'INTERNET_ACCESS');
       expect(internetCalls).toHaveLength(0);
 
       socket.disconnect();
@@ -279,10 +276,10 @@ describe('Security - Socket Layer', () => {
       await register(socket, { studentId: 'stu-push-1' });
 
       const sockets = await io.fetchSockets();
-      const serverSocket = sockets.find((s) => s.data.sessionStudentId === 'ss-stu-push-1');
+      const serverSocket = sockets.find((s: any) => s.data.sessionStudentId === 'ss-stu-push-1') as any;
       expect(serverSocket).toBeDefined();
 
-      serverSocket!.data.pendingChallenge = {
+      serverSocket.data.pendingChallenge = {
         challengeId: 'push-challenge-1',
         targetUrl: 'https://www.google.com',
         issuedAt: Date.now(),
@@ -305,10 +302,10 @@ describe('Security - Socket Layer', () => {
       await register(socket, { studentId: 'stu-push-2' });
 
       const sockets = await io.fetchSockets();
-      const serverSocket = sockets.find((s) => s.data.sessionStudentId === 'ss-stu-push-2');
+      const serverSocket = sockets.find((s: any) => s.data.sessionStudentId === 'ss-stu-push-2') as any;
       expect(serverSocket).toBeDefined();
 
-      serverSocket!.data.pendingChallenge = {
+      serverSocket.data.pendingChallenge = {
         challengeId: 'push-challenge-2',
         targetUrl: 'https://www.google.com',
         issuedAt: Date.now(),
@@ -486,6 +483,7 @@ describe('Security - Sniffer Challenge Timeout', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    _resetCheckTargetCache();
     prismaMock.student.findMany.mockResolvedValue([]);
     prismaMock.sessionStudent.findMany.mockResolvedValue([]);
     prismaMock.session.findMany.mockResolvedValue([]);
@@ -511,7 +509,8 @@ describe('Security - Sniffer Challenge Timeout', () => {
       emit: vi.fn(),
     }];
 
-    vi.spyOn(io, 'fetchSockets').mockResolvedValue(mockSockets as never);
+    io.sockets.sockets.clear();
+    io.sockets.sockets.set('mock-1', mockSockets[0] as never);
 
     const emitSpy = vi.spyOn(io, 'to').mockReturnValue({ emit: vi.fn() } as never);
 
@@ -519,9 +518,7 @@ describe('Security - Sniffer Challenge Timeout', () => {
     await vi.advanceTimersByTimeAsync(61000);
 
     // Should have created a SNIFFER_TIMEOUT violation
-    const timeoutCalls = prismaMock.violation.create.mock.calls.filter(
-      (args: unknown[]) => (args[0] as { data: { type: string } }).data.type === 'SNIFFER_TIMEOUT'
-    );
+    const timeoutCalls = getMockedViolationsByType(prismaMock, 'SNIFFER_TIMEOUT');
     expect(timeoutCalls.length).toBeGreaterThanOrEqual(1);
     expect(timeoutCalls[0][0].data.sessionStudentId).toBe('ss-timeout-1');
 
@@ -549,7 +546,8 @@ describe('Security - Sniffer Challenge Timeout', () => {
       emit: vi.fn(),
     }];
 
-    vi.spyOn(io, 'fetchSockets').mockResolvedValue(mockSockets as never);
+    io.sockets.sockets.clear();
+    io.sockets.sockets.set('mock-2', mockSockets[0] as never);
     vi.spyOn(io, 'to').mockReturnValue({ emit: vi.fn() } as never);
 
     await vi.advanceTimersByTimeAsync(61000);
@@ -558,9 +556,7 @@ describe('Security - Sniffer Challenge Timeout', () => {
     expect(socketData.snifferTimeoutCount).toBe(4);
 
     // Violation details should include the count
-    const timeoutCalls = prismaMock.violation.create.mock.calls.filter(
-      (args: unknown[]) => (args[0] as { data: { type: string } }).data.type === 'SNIFFER_TIMEOUT'
-    );
+    const timeoutCalls = getMockedViolationsByType(prismaMock, 'SNIFFER_TIMEOUT');
     if (timeoutCalls.length > 0) {
       expect(timeoutCalls[0][0].data.details).toContain('Consecutive timeouts: 4');
     }

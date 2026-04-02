@@ -16,7 +16,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import { setDisconnectGraceMs, clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
 import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
 import { createTestSocketServer, cleanupTestServer, type TestServerContext } from '../../helpers/setup';
-import { mockStudentRegistration, applyDefaultMocks, type PrismaMock } from '../../helpers/prisma';
+import { mockStudentRegistration, applyDefaultMocks, type PrismaMock , getMockedViolationsByType } from '../../helpers/prisma';
 import { connectClient, registerStudent } from '../../helpers/socketClient';
 
 // ── Prisma mock ─────────────────────────────────────────────────────
@@ -129,10 +129,7 @@ describe('WiFi Flap — Transient Disconnect Regression', () => {
     // Wait well past the grace period to confirm no violation fires
     await new Promise((r) => setTimeout(r, 300));
 
-    const violationCalls = prismaMock.violation.create.mock.calls.filter(
-      (args: unknown[]) =>
-        (args[0] as { data: { type: string } }).data.type === 'DISCONNECTION',
-    );
+    const violationCalls = getMockedViolationsByType(prismaMock, 'DISCONNECTION');
     expect(violationCalls).toHaveLength(0);
 
     socket2.disconnect();
@@ -150,10 +147,7 @@ describe('WiFi Flap — Transient Disconnect Regression', () => {
     // Wait past grace period so the 1st violation fires
     await new Promise((r) => setTimeout(r, 300));
 
-    const firstViolationCalls = prismaMock.violation.create.mock.calls.filter(
-      (args: unknown[]) =>
-        (args[0] as { data: { type: string } }).data.type === 'DISCONNECTION',
-    );
+    const firstViolationCalls = getMockedViolationsByType(prismaMock, 'DISCONNECTION');
     expect(firstViolationCalls.length).toBe(1);
 
     // --- Flap 2: reconnect briefly, then disconnect again ---
@@ -166,10 +160,7 @@ describe('WiFi Flap — Transient Disconnect Regression', () => {
     await new Promise((r) => setTimeout(r, 300));
 
     // The cooldown should suppress the 2nd violation
-    const secondViolationCalls = prismaMock.violation.create.mock.calls.filter(
-      (args: unknown[]) =>
-        (args[0] as { data: { type: string } }).data.type === 'DISCONNECTION',
-    );
+    const secondViolationCalls = getMockedViolationsByType(prismaMock, 'DISCONNECTION');
     expect(secondViolationCalls).toHaveLength(0);
   });
 
@@ -193,10 +184,7 @@ describe('WiFi Flap — Transient Disconnect Regression', () => {
     s3.disconnect();
     await new Promise((r) => setTimeout(r, 300));
 
-    const totalViolations = prismaMock.violation.create.mock.calls.filter(
-      (args: unknown[]) =>
-        (args[0] as { data: { type: string } }).data.type === 'DISCONNECTION',
-    );
+    const totalViolations = getMockedViolationsByType(prismaMock, 'DISCONNECTION');
 
     // Only 1 violation should exist (from flap 2), flap 1 was within grace,
     // flap 3 was suppressed by cooldown.
@@ -251,10 +239,7 @@ describe('WiFi Flap — Transient Disconnect Regression', () => {
     // Wait past grace period for the violation to fire
     await new Promise((r) => setTimeout(r, 300));
 
-    const violationCalls = prismaMock.violation.create.mock.calls.filter(
-      (args: unknown[]) =>
-        (args[0] as { data: { type: string } }).data.type === 'DISCONNECTION',
-    );
+    const violationCalls = getMockedViolationsByType(prismaMock, 'DISCONNECTION');
     expect(violationCalls.length).toBe(1);
 
     const details = (violationCalls[0][0] as { data: { details: string } }).data.details;
@@ -276,10 +261,7 @@ describe('WiFi Flap — Transient Disconnect Regression', () => {
     // Wait past grace period for the violation to fire
     await new Promise((r) => setTimeout(r, 300));
 
-    const violationCalls = prismaMock.violation.create.mock.calls.filter(
-      (args: unknown[]) =>
-        (args[0] as { data: { type: string } }).data.type === 'DISCONNECTION',
-    );
+    const violationCalls = getMockedViolationsByType(prismaMock, 'DISCONNECTION');
     expect(violationCalls.length).toBe(1);
 
     const details = (violationCalls[0][0] as { data: { details: string } }).data.details;

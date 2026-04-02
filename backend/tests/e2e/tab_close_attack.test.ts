@@ -19,7 +19,7 @@ import { setDisconnectGraceMs, clearAllPendingDisconnects } from '@src/gateway/s
 import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
 import { createTestSocketServer, cleanupTestServer, type TestServerContext } from '../helpers/setup';
 import { connectClient, connectTeacherToSession, registerStudent as sharedRegisterStudent } from '../helpers/socketClient';
-import { mockStudentRegistration, applyDefaultMocks, type PrismaMock } from '../helpers/prisma';
+import { mockStudentRegistration, applyDefaultMocks, getMockedViolationsByReason, getMockedViolationsByType, type PrismaMock } from '../helpers/prisma';
 
 // ── Prisma mock ─────────────────────────────────────────────────────
 const prismaMock = vi.hoisted(() => ({
@@ -134,15 +134,10 @@ describe('E2E: Tab Close → Internet → Return Attack', () => {
     studentSocket1.disconnect();
 
     // Wait past grace period → TAB_CLOSED violation fires
-    await new Promise((r) => setTimeout(r, 250));
+    await new Promise((r) => setTimeout(r, 350));
 
     // Verify TAB_CLOSED violation was created
-    const tabClosedCalls = prismaMock.violation.create.mock.calls.filter(
-      (args: unknown[]) => {
-        const data = (args[0] as { data: { reason?: string } }).data;
-        return data.reason === 'TAB_CLOSED';
-      },
-    );
+    const tabClosedCalls = getMockedViolationsByReason(prismaMock, 'TAB_CLOSED');
     expect(tabClosedCalls.length).toBe(1);
 
     // Verify teacher received the alert
@@ -166,12 +161,7 @@ describe('E2E: Tab Close → Internet → Return Attack', () => {
     await new Promise((r) => setTimeout(r, 150));
 
     // Verify INTERNET_ACCESS violation was created
-    const internetCalls = prismaMock.violation.create.mock.calls.filter(
-      (args: unknown[]) => {
-        const data = (args[0] as { data: { type: string } }).data;
-        return data.type === 'INTERNET_ACCESS';
-      },
-    );
+    const internetCalls = getMockedViolationsByType(prismaMock, 'INTERNET_ACCESS');
     expect(internetCalls.length).toBe(1);
     expect((internetCalls[0][0] as { data: { reason: string } }).data.reason).toBe('CLIENT_PROBE');
 

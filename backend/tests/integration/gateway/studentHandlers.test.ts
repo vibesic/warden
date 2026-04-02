@@ -2,7 +2,7 @@ import Client, { Socket as ClientSocket } from 'socket.io-client';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
 import { createTestSocketServer, cleanupTestServer, type TestServerContext } from '../../helpers/setup';
-import { mockStudentRegistration, applyDefaultMocks, type PrismaMock } from '../../helpers/prisma';
+import { mockStudentRegistration, applyDefaultMocks, type PrismaMock, getMockedViolationsByType } from '../../helpers/prisma';
 import { registerStudent } from '../../helpers/socketClient';
 
 const prismaMock = vi.hoisted(() => ({
@@ -76,9 +76,7 @@ describe('Student Handlers - Edge Cases', () => {
       await new Promise((r) => setTimeout(r, 100));
 
       // Should not create any violation
-      const internetCalls = prismaMock.violation.create.mock.calls.filter(
-        (args: unknown[]) => (args[0] as { data: { type: string } }).data.type === 'INTERNET_ACCESS'
-      );
+      const internetCalls = getMockedViolationsByType(prismaMock, 'INTERNET_ACCESS');
       expect(internetCalls).toHaveLength(0);
     });
 
@@ -88,10 +86,10 @@ describe('Student Handlers - Edge Cases', () => {
 
       // Set pending challenge on the server side
       const sockets = await io.fetchSockets();
-      const targetSocket = sockets.find((s) => s.data.sessionStudentId === 'ss-mm');
+      const targetSocket = sockets.find((s: any) => s.data.sessionStudentId === 'ss-mm') as any;
       expect(targetSocket).toBeDefined();
 
-      targetSocket!.data.pendingChallenge = {
+      targetSocket.data.pendingChallenge = {
         challengeId: 'correct-id',
         targetUrl: 'https://www.google.com',
         issuedAt: Date.now(),
@@ -102,9 +100,7 @@ describe('Student Handlers - Edge Cases', () => {
 
       await new Promise((r) => setTimeout(r, 100));
 
-      const internetCalls = prismaMock.violation.create.mock.calls.filter(
-        (args: unknown[]) => (args[0] as { data: { type: string } }).data.type === 'INTERNET_ACCESS'
-      );
+      const internetCalls = getMockedViolationsByType(prismaMock, 'INTERNET_ACCESS');
       expect(internetCalls).toHaveLength(0);
     });
 
@@ -117,9 +113,7 @@ describe('Student Handlers - Edge Cases', () => {
 
       await new Promise((r) => setTimeout(r, 100));
 
-      const internetCalls = prismaMock.violation.create.mock.calls.filter(
-        (args: unknown[]) => (args[0] as { data: { type: string } }).data.type === 'INTERNET_ACCESS'
-      );
+      const internetCalls = getMockedViolationsByType(prismaMock, 'INTERNET_ACCESS');
       expect(internetCalls).toHaveLength(0);
     });
   });
@@ -137,9 +131,7 @@ describe('Student Handlers - Edge Cases', () => {
       await new Promise((r) => setTimeout(r, 200));
 
       // Only DISCONNECTION violations (from other tests) should be present, not INTERNET_ACCESS
-      const internetCalls = prismaMock.violation.create.mock.calls.filter(
-        (args: unknown[]) => (args[0] as { data: { type: string } }).data.type === 'INTERNET_ACCESS'
-      );
+      const internetCalls = getMockedViolationsByType(prismaMock, 'INTERNET_ACCESS');
       expect(internetCalls).toHaveLength(0);
 
       freshSocket.disconnect();

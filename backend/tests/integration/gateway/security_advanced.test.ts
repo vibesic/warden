@@ -1,5 +1,5 @@
 import type { Socket as ClientSocket } from 'socket.io-client';
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
 import { createTestSocketServer, cleanupTestServer, type TestServerContext } from '../../helpers/setup';
 import { connectClient, connectTeacher, registerStudent } from '../../helpers/socketClient';
@@ -353,10 +353,10 @@ describe('Security Tests', () => {
 
       // Set a pending challenge on the server socket
       const sockets = await io.fetchSockets();
-      const targetSocket = sockets.find((s) => s.data.sessionStudentId === 'ss-sniff');
+      const targetSocket = sockets.find((s: any) => s.data.sessionStudentId === 'ss-sniff') as any;
       expect(targetSocket).toBeDefined();
 
-      targetSocket!.data.pendingChallenge = {
+      targetSocket.data.pendingChallenge = {
         challengeId: 'real-challenge-id',
         targetUrl: 'https://www.google.com',
         issuedAt: Date.now(),
@@ -372,7 +372,7 @@ describe('Security Tests', () => {
       expect(prismaMock.violation.create).not.toHaveBeenCalled();
 
       // The pending challenge should still be present (not consumed)
-      expect(targetSocket!.data.pendingChallenge).toBeDefined();
+      expect(targetSocket.data.pendingChallenge).toBeDefined();
 
       socket.disconnect();
     });
