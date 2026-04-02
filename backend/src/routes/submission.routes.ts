@@ -30,7 +30,7 @@ router.post('/upload', upload.single('file'), asyncHandler(async (req: Request, 
   if (!file) {
     return handleUploadError(res, file, 'No file provided');
   }
-  
+
   if (!sessionCode || !studentTxId) {
     return handleUploadError(res, file, 'sessionCode and studentId are required');
   }

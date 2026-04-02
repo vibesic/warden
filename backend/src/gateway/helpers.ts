@@ -200,31 +200,9 @@ export const isTeacherAuthenticated = (socket: Socket): boolean => {
 /**
  * Emit a standardised unauthorised error to a teacher socket.
  */
-/**
- * Emit a standardised unauthorised error to a teacher socket.
- */
-import { checkSocketRateLimit } from "./socketRateLimiter";
 export const emitUnauthorized = (socket: Socket): void => {
   logger.warn({ socketId: socket.id }, 'Unauthorized teacher socket request');
   socket.emit('dashboard:error', {
     message: 'Unauthorized: invalid or missing teacher token',
   });
-};
-
-/**
- * Wrap a socket handler with teacher authentication and rate limiting logic.
- */
-export const withTeacherAuth = (
-  socket: Socket,
-  eventName: string,
-  handler: (data?: any) => Promise<void>
-) => {
-  return async (data?: any) => {
-    if (!checkSocketRateLimit(socket, eventName)) return;
-    if (!isTeacherAuthenticated(socket)) {
-      emitUnauthorized(socket);
-      return;
-    }
-    await handler(data);
-  };
 };

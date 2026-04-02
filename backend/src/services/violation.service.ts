@@ -46,6 +46,11 @@ let checkTargetCountCache: number | null = null;
 let lastCheckTargetCountTime = 0;
 const CACHE_TTL_MS = 60000;
 
+export const _resetCheckTargetCache = () => {
+  checkTargetCountCache = null;
+  lastCheckTargetCountTime = 0;
+};
+
 export const getRandomCheckTarget = async (): Promise<string | null> => {
   const now = Date.now();
   if (checkTargetCountCache === null || now - lastCheckTargetCountTime > CACHE_TTL_MS) {

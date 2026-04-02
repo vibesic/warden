@@ -205,7 +205,7 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
       await createAndBroadcastViolation(io, studentData.sessionCode, studentData.studentId, {
         sessionStudentId: studentData.sessionStudentId,
         type: validatedData.type,
-        reason: 'CLIENT_PROBE',
+        reason: validatedData.reason,
         details: validatedData.details,
       });
     } catch (error) {
