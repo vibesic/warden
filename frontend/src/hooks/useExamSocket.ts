@@ -38,6 +38,7 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
       reconnectionAttempts: SOCKET_RECONNECTION_ATTEMPTS,
       reconnectionDelay: SOCKET_RECONNECTION_DELAY_MS,
       reconnectionDelayMax: SOCKET_RECONNECTION_DELAY_MAX_MS,
+      transports: ['websocket'],
     });
     const socket = socketRef.current;
 

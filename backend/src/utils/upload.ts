@@ -16,8 +16,8 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
-/** Maximum file size in bytes (50 MB). */
-const MAX_FILE_SIZE = 50 * 1024 * 1024;
+/** Maximum file size in bytes (5 MB). */
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 /**
  * Create a multer upload middleware with a shared storage configuration.

@@ -24,6 +24,10 @@ export const FileUploadSection: React.FC = React.memo(() => {
     setUploading(true);
     setUploadError('');
 
+    // Jitter delay to stagger simultaneous uploads
+    const delayMs = Math.random() * 3000;
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+
     try {
       const formData = new FormData();
       formData.append('file', file);

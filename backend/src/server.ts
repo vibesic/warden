@@ -21,7 +21,7 @@ let clearIntervals: (() => void) | undefined;
 const shutdown = async (signal: string) => {
   logger.info(`Received ${signal}. Shutting down gracefully...`);
   process.stdout.write(`Received ${signal}. Shutting down gracefully...\n`);
-  
+
   if (clearIntervals) clearIntervals();
   logger.info('Background socket intervals swept.');
 
@@ -31,7 +31,7 @@ const shutdown = async (signal: string) => {
     logger.info('Prisma disconnected.');
     process.exit(0);
   });
-  
+
   // Force shutdown after 10s if connections hang
   setTimeout(() => {
     process.stderr.write('Force shutting down after 10s timeout\n');
@@ -75,6 +75,7 @@ const io = new Server(httpServer, {
   pingInterval: 25_000,
   pingTimeout: 60_000,
   maxHttpBufferSize: 1e5, // 100 KB limit for Socket payloads to prevent memory exhaustion
+  transports: ['websocket'], // bypass long-polling to save HTTP connections for 100+ students
 });
 
 const initResult = initializeSocket(io);

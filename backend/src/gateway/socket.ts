@@ -2,7 +2,7 @@ import { Server, Socket } from 'socket.io';
 import { logger } from '../utils/logger';
 import { registerStudentHandlers, startPendingDisconnectSweep, stopPendingDisconnectSweep } from './studentHandlers';
 import { registerTeacherHandlers } from './teacherHandlers';
-import { startHeartbeatChecker, startSnifferChallenger, startTimerChecker } from './backgroundJobs';
+import { startHeartbeatChecker, startSnifferChallenger, startTimerChecker, startCleanupJob } from './backgroundJobs';
 import { verifyTeacherToken } from '../services/auth.service';
 
 interface SocketCleanup {
@@ -33,6 +33,7 @@ export const initializeSocket = (io: Server): SocketCleanup => {
   const heartbeatInterval = startHeartbeatChecker(io);
   const snifferInterval = startSnifferChallenger(io);
   const timerInterval = startTimerChecker(io);
+  const cleanupInterval = startCleanupJob();
 
   return {
     clearIntervals: () => {
@@ -40,6 +41,7 @@ export const initializeSocket = (io: Server): SocketCleanup => {
       clearInterval(heartbeatInterval);
       clearInterval(snifferInterval);
       clearInterval(timerInterval);
+      clearInterval(cleanupInterval);
     },
   };
 };

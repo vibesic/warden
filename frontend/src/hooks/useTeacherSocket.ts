@@ -82,6 +82,7 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
       reconnectionAttempts: 10,
       reconnectionDelay: 2000,
       reconnectionDelayMax: 10000,
+      transports: ['websocket'],
     });
     const socket = socketRef.current;
 

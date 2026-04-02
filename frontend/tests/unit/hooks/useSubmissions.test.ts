@@ -74,7 +74,7 @@ describe('useSubmissions', () => {
       json: () => Promise.resolve({ success: true, data: [] }),
     });
 
-    const { result } = renderHook(() => useSubmissions('ABC123', 5000));
+    renderHook(() => useSubmissions('ABC123', 5000));
 
     // Wait for initial fetch to settle
     await act(async () => {

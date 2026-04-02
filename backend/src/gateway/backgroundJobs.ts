@@ -133,3 +133,36 @@ export const startTimerChecker = (io: Server): NodeJS.Timeout => {
     }
   }, TIMER_CHECK_INTERVAL_MS);
 };
+
+// Clean up files older than 24 hours to prevent SSD filling up
+const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+export const startCleanupJob = (): NodeJS.Timeout => {
+  return setInterval(async () => {
+    try {
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      const { UPLOADS_DIR } = await import('../utils/upload');
+
+      const files = await fs.readdir(UPLOADS_DIR);
+      const now = Date.now();
+      const MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+      let deleted = 0;
+
+      for (const file of files) {
+        if (file === '.gitkeep') continue;
+        const filePath = path.join(UPLOADS_DIR, file);
+        const stats = await fs.stat(filePath);
+        if (now - stats.mtimeMs > MAX_AGE_MS) {
+          await fs.unlink(filePath);
+          deleted++;
+        }
+      }
+
+      if (deleted > 0) {
+        logger.info({ deletedCount: deleted }, 'Cleaned up old uploaded files.');
+      }
+    } catch (error) {
+      logger.error({ error }, 'Cleanup job error');
+    }
+  }, CLEANUP_INTERVAL_MS);
+};

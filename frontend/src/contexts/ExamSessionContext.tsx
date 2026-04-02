@@ -92,14 +92,30 @@ export const ExamSessionProvider: React.FC<ProviderProps> = ({
     }
   }, [error, onLogout]);
 
-  // Heartbeat loop
+  // Heartbeat loop with JITTER to prevent thundering herd
   useEffect(() => {
     if (sessionEnded) return;
-    sendHeartbeat();
-    const timer = setWorkerInterval(() => {
+
+    let timerId: number | undefined;
+
+    // Initial jitter (0-2 seconds) before first heartbeat to stagger 100 students
+    const initialJitter = Math.random() * 2000;
+    const timeout = setTimeout(() => {
       sendHeartbeat();
-    }, HEARTBEAT_INTERVAL_MS);
-    return () => clearWorkerInterval(timer);
+
+      // Then start the regular interval loop
+      timerId = setWorkerInterval(() => {
+        sendHeartbeat();
+      }, HEARTBEAT_INTERVAL_MS);
+
+    }, initialJitter);
+
+    return () => {
+      clearTimeout(timeout);
+      if (timerId !== undefined) {
+        clearWorkerInterval(timerId);
+      }
+    };
   }, [sendHeartbeat, sessionEnded]);
 
   // Handle Internet Violation (client-side or server-side)
