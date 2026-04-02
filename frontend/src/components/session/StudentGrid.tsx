@@ -14,7 +14,7 @@ interface StudentGridProps {
   activeSession: Session | null;
 }
 
-export const StudentGrid: React.FC<StudentGridProps> = ({
+export const StudentGrid: React.FC<StudentGridProps> = React.memo(({
   filteredStudents,
   sortedStudentsCount,
   onlineCount,
@@ -93,4 +93,4 @@ export const StudentGrid: React.FC<StudentGridProps> = ({
       </div>
     </section>
   );
-};
+});

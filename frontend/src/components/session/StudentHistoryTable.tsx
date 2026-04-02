@@ -11,11 +11,11 @@ interface StudentHistoryTableProps {
   onSelectStudent: (student: { name: string; violations: Violation[] }) => void;
 }
 
-export const StudentHistoryTable: React.FC<StudentHistoryTableProps> = ({
+export const StudentHistoryTable: React.FC<StudentHistoryTableProps> = React.memo(({
   students,
   onSelectStudent,
 }) => {
-  const columns: TableColumn<StudentStatus>[] = [
+  const columns: TableColumn<StudentStatus>[] = React.useMemo(() => [
     {
       header: 'Name',
       className: 'font-medium text-gray-900',
@@ -59,7 +59,7 @@ export const StudentHistoryTable: React.FC<StudentHistoryTableProps> = ({
       header: 'Duration',
       cell: (s) => formatDuration(s.joinedAt, s.lastSeenAt),
     },
-  ];
+  ], [onSelectStudent]);
 
   return (
     <section>
@@ -74,4 +74,4 @@ export const StudentHistoryTable: React.FC<StudentHistoryTableProps> = ({
       </Card>
     </section>
   );
-};
+});

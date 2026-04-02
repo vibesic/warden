@@ -35,13 +35,13 @@ export const SessionDetail: React.FC = () => {
         }
     }, [isAuthError, navigate]);
 
-    const sortedStudents = Object.values(students).sort((a, b) => a.studentId.localeCompare(b.studentId));
-    const onlineCount = sortedStudents.filter(s => s.isOnline).length;
-    const filteredStudents = sortedStudents.filter((s) => {
+    const sortedStudents = React.useMemo(() => Object.values(students).sort((a, b) => a.studentId.localeCompare(b.studentId)), [students]);
+    const onlineCount = React.useMemo(() => sortedStudents.filter(s => s.isOnline).length, [sortedStudents]);
+    const filteredStudents = React.useMemo(() => sortedStudents.filter((s) => {
         if (connectionFilter === 'online') return s.isOnline;
         if (connectionFilter === 'offline') return !s.isOnline;
         return true;
-    });
+    }), [sortedStudents, connectionFilter]);
 
     const confirmEndSession = () => {
         endSession();

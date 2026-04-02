@@ -15,7 +15,7 @@ interface QuestionFilesPanelProps {
   onDownload: (fileId: string) => void;
 }
 
-export const QuestionFilesPanel: React.FC<QuestionFilesPanelProps> = ({
+export const QuestionFilesPanel: React.FC<QuestionFilesPanelProps> = React.memo(({
   questionFiles,
   isActive,
   questionUploading,
@@ -26,18 +26,69 @@ export const QuestionFilesPanel: React.FC<QuestionFilesPanelProps> = ({
 }) => {
   const questionFileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = React.useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const token = sessionStorage.getItem('teacherToken') || '';
     await onUpload(file, token);
     if (questionFileInputRef.current) questionFileInputRef.current.value = '';
-  };
+  }, [onUpload]);
 
-  const handleDelete = async (fileId: string) => {
+  const handleDelete = React.useCallback(async (fileId: string) => {
     const token = sessionStorage.getItem('teacherToken') || '';
     await onDelete(fileId, token);
-  };
+  }, [onDelete]);
+
+  const columns = React.useMemo(() => [
+    {
+      header: 'File',
+      cell: (f: QuestionFileItem) => (
+        <div className="flex items-center gap-2">
+          <FileText size={16} className="text-indigo-500 flex-shrink-0" />
+          <span className="text-gray-800 truncate max-w-xs" title={f.originalName}>
+            {f.originalName}
+          </span>
+        </div>
+      ),
+    },
+    {
+      header: 'Size',
+      cell: (f: QuestionFileItem) => (
+        <span className="text-gray-600 text-sm">{formatFileSize(f.sizeBytes)}</span>
+      ),
+    },
+    {
+      header: 'Uploaded',
+      cell: (f: QuestionFileItem) => (
+        <span className="text-gray-600 text-sm whitespace-nowrap">
+          {new Date(f.createdAt).toLocaleTimeString()}
+        </span>
+      ),
+    },
+    {
+      header: '',
+      cell: (f: QuestionFileItem) => (
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => onDownload(f.id)}
+            className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+            title="Download"
+          >
+            <Download size={16} />
+          </button>
+          {isActive && (
+            <button
+              onClick={() => handleDelete(f.id)}
+              className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"
+              title="Delete"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
+        </div>
+      ),
+    },
+  ], [isActive, onDownload, handleDelete]);
 
   return (
     <section className="mt-8">
@@ -71,56 +122,7 @@ export const QuestionFilesPanel: React.FC<QuestionFilesPanelProps> = ({
         {questionFiles.length > 0 ? (
           <Table
             data={questionFiles}
-            columns={[
-              {
-                header: 'File',
-                cell: (f: QuestionFileItem) => (
-                  <div className="flex items-center gap-2">
-                    <FileText size={16} className="text-indigo-500 flex-shrink-0" />
-                    <span className="text-gray-800 truncate max-w-xs" title={f.originalName}>
-                      {f.originalName}
-                    </span>
-                  </div>
-                ),
-              },
-              {
-                header: 'Size',
-                cell: (f: QuestionFileItem) => (
-                  <span className="text-gray-600 text-sm">{formatFileSize(f.sizeBytes)}</span>
-                ),
-              },
-              {
-                header: 'Uploaded',
-                cell: (f: QuestionFileItem) => (
-                  <span className="text-gray-600 text-sm whitespace-nowrap">
-                    {new Date(f.createdAt).toLocaleTimeString()}
-                  </span>
-                ),
-              },
-              {
-                header: '',
-                cell: (f: QuestionFileItem) => (
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => onDownload(f.id)}
-                      className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
-                      title="Download"
-                    >
-                      <Download size={16} />
-                    </button>
-                    {isActive && (
-                      <button
-                        onClick={() => handleDelete(f.id)}
-                        className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
-                  </div>
-                ),
-              },
-            ]}
+            columns={columns}
             keyExtractor={(f: QuestionFileItem) => f.id}
             emptyMessage=""
           />
@@ -134,4 +136,4 @@ export const QuestionFilesPanel: React.FC<QuestionFilesPanelProps> = ({
       </Card>
     </section>
   );
-};
+});
