@@ -69,11 +69,11 @@ export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
           deviceType: ss.deviceType,
           deviceOs: ss.deviceOs,
           deviceBrowser: ss.deviceBrowser,
-          violations: ss.violations.map((v) => ({
+          violations: ss.violations ? ss.violations.map((v) => ({
             type: v.type,
             details: v.details,
             timestamp: v.timestamp.toISOString(),
-          })),
+          })) : [],
         })),
       });
     } catch (error) {

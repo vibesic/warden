@@ -72,14 +72,19 @@ export const markStudentOffline = async (sessionStudentId: string): Promise<Sess
   });
 };
 
-export const getSessionStudentsForSession = async (sessionId: string): Promise<Array<SessionStudent & { student: { studentId: string; name: string }; violations: Array<{ type: string; details: string | null; timestamp: Date }> }>> => {
+export const getSessionStudentsForSession = async (
+  sessionId: string, 
+  includeViolations = true
+): Promise<Array<SessionStudent & { student: { studentId: string; name: string }; violations?: Array<{ type: string; details: string | null; timestamp: Date }> }>> => {
   return prisma.sessionStudent.findMany({
     where: { sessionId },
     include: {
       student: true,
-      violations: {
-        orderBy: { timestamp: 'desc' },
-      },
+      ...(includeViolations && {
+        violations: {
+          orderBy: { timestamp: 'desc' },
+        },
+      }),
     },
   });
 };
