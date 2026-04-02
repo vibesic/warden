@@ -11,6 +11,8 @@ import {
 } from '../config/constants';
 import type { QuestionFileItem } from '../types/exam';
 
+import { setWorkerInterval, clearWorkerInterval } from '../utils/workerTimer';
+
 interface ExamSessionState {
   studentId: string;
   studentName: string;
@@ -94,10 +96,10 @@ export const ExamSessionProvider: React.FC<ProviderProps> = ({
   useEffect(() => {
     if (sessionEnded) return;
     sendHeartbeat();
-    const timer = setInterval(() => {
+    const timer = setWorkerInterval(() => {
       sendHeartbeat();
     }, HEARTBEAT_INTERVAL_MS);
-    return () => clearInterval(timer);
+    return () => clearWorkerInterval(timer);
   }, [sendHeartbeat, sessionEnded]);
 
   // Handle Internet Violation (client-side or server-side)

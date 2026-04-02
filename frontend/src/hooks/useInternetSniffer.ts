@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { setWorkerInterval, clearWorkerInterval } from '../utils/workerTimer';
 import {
   IMAGE_PROBE_TIMEOUT_MS,
   INTERNET_SNIFFER_DEFAULT_INTERVAL_MS,
@@ -70,9 +71,9 @@ export const useInternetSniffer = (checkIntervalMs: number = INTERNET_SNIFFER_DE
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(checkConnection, checkIntervalMs);
+    const interval = setWorkerInterval(checkConnection, checkIntervalMs);
     checkConnection();
-    return () => clearInterval(interval);
+    return () => clearWorkerInterval(interval);
   }, [checkIntervalMs, checkConnection]);
 
   return { isSecure };
