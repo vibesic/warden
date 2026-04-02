@@ -35,7 +35,11 @@ export const serveFileDownload = (
     return false;
   }
 
-  res.download(filePath, displayName);
+  res.download(filePath, displayName, (err) => {
+    if (err && !res.headersSent) {
+      res.status(500).json({ success: false, message: 'Error downloading file' });
+    }
+  });
   return true;
 };
 

@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import multer from 'multer';
 import { AppError } from '../utils/errors';
 import { logger } from '../utils/logger';
 
@@ -14,6 +15,15 @@ export const errorHandler = (
     }
 
     res.status(err.statusCode).json({
+      success: false,
+      message: err.message,
+    });
+    return;
+  }
+
+  if (err instanceof multer.MulterError) {
+    const status = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+    res.status(status).json({
       success: false,
       message: err.message,
     });
