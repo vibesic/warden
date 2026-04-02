@@ -5,15 +5,17 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
     error?: string;
     className?: string; // Additional classes for the input element itself
     containerClassName?: string; // Container classes
+    rightElement?: React.ReactNode;
 }
 
-export const Input: React.FC<InputProps> = ({ 
-    label, 
-    error, 
-    className = '', 
+export const Input: React.FC<InputProps> = ({
+    label,
+    error,
+    className = '',
     containerClassName = '',
+    rightElement,
     id,
-    ...props 
+    ...props
 }) => {
     // Generate a random ID if none provided, to link label and input accessibility
     const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
@@ -25,20 +27,28 @@ export const Input: React.FC<InputProps> = ({
                     {label}
                 </label>
             )}
-            <input
-                id={inputId}
-                className={`
-                    block w-full rounded-md border-gray-300 shadow-sm 
-                    focus:border-indigo-500 focus:ring-indigo-500 
-                    disabled:bg-gray-100 disabled:text-gray-500
-                    p-2 border transition-colors
-                    ${error ? 'border-red-300 text-red-900 placeholder-red-300 focus:border-red-500 focus:ring-red-500' : ''}
-                    ${className}
-                `}
-                aria-invalid={!!error}
-                aria-describedby={error ? `${inputId}-error` : undefined}
-                {...props}
-            />
+            <div className="relative">
+                <input
+                    id={inputId}
+                    className={`
+                        block w-full rounded-md border-gray-300 shadow-sm 
+                        focus:border-indigo-500 focus:ring-indigo-500 
+                        disabled:bg-gray-100 disabled:text-gray-500
+                        p-2 border transition-colors
+                        ${error ? 'border-red-300 text-red-900 placeholder-red-300 focus:border-red-500 focus:ring-red-500' : ''}
+                        ${rightElement ? 'pr-10' : ''}
+                        ${className}
+                    `}
+                    aria-invalid={!!error}
+                    aria-describedby={error ? `${inputId}-error` : undefined}
+                    {...props}
+                />
+                {rightElement && (
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                        {rightElement}
+                    </div>
+                )}
+            </div>
             {error && (
                 <p className="text-sm text-red-600" id={`${inputId}-error`}>
                     {error}

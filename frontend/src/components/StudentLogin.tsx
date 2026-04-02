@@ -42,10 +42,13 @@ export const StudentLogin: React.FC<StudentLoginProps> = ({ onLogin, onSwitchToT
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md" padding="lg">
-        <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">Exam Student Login</h1>
+        <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">Student Login</h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
+            id="name"
+            name="name"
+            autoComplete="name"
             label="Full Name"
             placeholder="John Doe"
             value={name}
@@ -54,6 +57,9 @@ export const StudentLogin: React.FC<StudentLoginProps> = ({ onLogin, onSwitchToT
           />
 
           <Input
+            id="studentId"
+            name="studentId"
+            autoComplete="username"
             label="Student ID"
             placeholder="12345"
             value={studentId}
@@ -63,6 +69,9 @@ export const StudentLogin: React.FC<StudentLoginProps> = ({ onLogin, onSwitchToT
           />
 
           <Input
+            id="sessionCode"
+            name="sessionCode"
+            autoComplete="off"
             label="Session Code"
             placeholder="000000"
             value={sessionCode}
