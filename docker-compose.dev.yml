@@ -3,6 +3,7 @@ services:
     build: 
       context: ./backend
       dockerfile: Dockerfile
+    command: sh -c "npx prisma generate && npx prisma migrate deploy && npm run dev"
     ports:
       - "3333:3333"
     volumes:
@@ -22,6 +23,7 @@ services:
     build: 
       context: ./frontend
       dockerfile: Dockerfile
+    command: npm run dev -- --host 0.0.0.0 --port 5174
     ports:
       - "5174:5174"
     volumes:

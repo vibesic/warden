@@ -9,10 +9,11 @@ export const getApiBaseUrl = (): string => {
   }
 
   if (import.meta.env.PROD) {
-    return '';
+    // The browser dynamically determines the LAN IP, and the backend is exposed on port 4444 via Windows proxy!
+    return `${window.location.protocol}//${window.location.hostname}:4444`;
   }
 
-  return 'http://localhost:3333';
+  return 'http://localhost:4444';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
@@ -27,10 +28,10 @@ export const getSocketUrl = (): string => {
   }
 
   if (import.meta.env.PROD) {
-    return window.location.origin;
+    return `${window.location.protocol}//${window.location.hostname}:4444`;
   }
 
-  return 'http://localhost:3333';
+  return 'http://localhost:4444';
 };
 
 export const SOCKET_URL = getSocketUrl();

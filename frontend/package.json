@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "start": "npx serve -s dist -l 5174",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
