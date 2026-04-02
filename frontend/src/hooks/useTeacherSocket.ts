@@ -133,6 +133,7 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
       });
 
       socket.on('dashboard:update', (data: DashboardUpdatePayload) => {
+        if (!sessionCodeRef.current) return;
         setStudents(prev => {
           if (data.type === 'STUDENT_JOINED') {
             const student = prev[data.studentId];
@@ -179,6 +180,7 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
       });
 
       socket.on('dashboard:alert', (data: DashboardAlertPayload) => {
+        if (!sessionCodeRef.current) return;
         setStudents(prev => {
           const student = prev[data.studentId];
           if (!student) return prev;
