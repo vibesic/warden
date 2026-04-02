@@ -56,7 +56,11 @@ export const startHeartbeatChecker = (io: Server): NodeJS.Timeout => {
 export const startSnifferChallenger = (io: Server): NodeJS.Timeout => {
   return setInterval(async () => {
     try {
-      const sockets = await io.fetchSockets();
+      // Instead of io.fetchSockets() across all namespaces/rooms (which is O(n)),
+      // we can utilize the specific student sockets by fetching them from their room or relying 
+      // on the local Server instance sockets for better performance in non-Redis setups
+      // since we only use a single node according to architecture.
+      const sockets = Array.from(io.sockets.sockets.values());
 
       // Phase 1: Check for unanswered challenges from the PREVIOUS cycle
       await Promise.allSettled(

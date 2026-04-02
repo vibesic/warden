@@ -41,10 +41,20 @@ export const getLatestDisconnectionTime = async (sessionStudentId: string): Prom
   return violation?.timestamp ?? null;
 };
 
+// Cache the count to avoid double-querying every interval (e.g. 5s)
+let checkTargetCountCache: number | null = null;
+let lastCheckTargetCountTime = 0;
+const CACHE_TTL_MS = 60000;
+
 export const getRandomCheckTarget = async (): Promise<string | null> => {
-  const count = await prisma.checkTarget.count({ where: { isEnabled: true } });
-  if (count === 0) return null;
-  const skip = Math.floor(Math.random() * count);
+  const now = Date.now();
+  if (checkTargetCountCache === null || now - lastCheckTargetCountTime > CACHE_TTL_MS) {
+    checkTargetCountCache = await prisma.checkTarget.count({ where: { isEnabled: true } });
+    lastCheckTargetCountTime = now;
+  }
+
+  if (checkTargetCountCache === 0) return null;
+  const skip = Math.floor(Math.random() * checkTargetCountCache);
   const target: CheckTarget | null = await prisma.checkTarget.findFirst({
     where: { isEnabled: true },
     skip,
