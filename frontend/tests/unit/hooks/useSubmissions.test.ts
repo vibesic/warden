@@ -51,6 +51,11 @@ describe('useSubmissions', () => {
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
+    // Wait for the mock resolve to settle state before we act
+    await vi.waitFor(() => {
+      expect(result.current.submissions).toEqual([]);
+    });
+
     act(() => {
       result.current.handleDownload('stored1');
     });
@@ -69,14 +74,18 @@ describe('useSubmissions', () => {
       json: () => Promise.resolve({ success: true, data: [] }),
     });
 
-    renderHook(() => useSubmissions('ABC123', 5000));
+    const { result } = renderHook(() => useSubmissions('ABC123', 5000));
 
-    // Initial fetch
+    // Wait for initial fetch to settle
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    
     expect(mockFetch).toHaveBeenCalledTimes(1);
 
-    // Advance timer
+    // Advance timer for the poll
     await act(async () => {
-      vi.advanceTimersByTime(5000);
+      await vi.advanceTimersByTimeAsync(5000);
     });
 
     expect(mockFetch).toHaveBeenCalledTimes(2);
@@ -92,7 +101,9 @@ describe('useSubmissions', () => {
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
-    // Should not crash, submissions stays empty
-    expect(result.current.submissions).toEqual([]);
+    // Let the rejected promise resolve state
+    await vi.waitFor(() => {
+      expect(result.current.submissions).toEqual([]);
+    });
   });
 });
