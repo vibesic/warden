@@ -86,6 +86,7 @@ export const getSessionByCode = async (code: string): Promise<Session | null> =>
 export const getSessionHistory = async (): Promise<Array<Session & { _count: { sessionStudents: number } }>> => {
   return prisma.session.findMany({
     orderBy: { createdAt: 'desc' },
+    take: 100, // Limit historical fetch to prevent memory exhaustion
     include: {
       _count: {
         select: { sessionStudents: true }

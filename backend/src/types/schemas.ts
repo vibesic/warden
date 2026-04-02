@@ -92,8 +92,8 @@ export const VIOLATION_DESCRIPTIONS: Record<ViolationType, {
 
 /** Student registration. */
 export const RegisterSchema = z.object({
-  studentId: z.string().min(1),
-  name: z.string().min(1),
+  studentId: z.string().min(1).max(50),
+  name: z.string().min(1).max(100),
   sessionCode: z.string().length(6),
 });
 
@@ -117,5 +117,5 @@ export const CreateSessionSchema = z.object({
 
 /** Teacher joins a specific session view. */
 export const JoinSessionSchema = z.object({
-  sessionCode: z.string().min(1),
+  sessionCode: z.string().min(1).max(10),
 });

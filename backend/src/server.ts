@@ -1,9 +1,53 @@
+import { createServer } from 'http';
+import { createServer as createNetServer } from 'net';
+import { Server } from 'socket.io';
+import { app } from './app';
+import { corsOriginCallback } from './utils/config';
+import { initializeSocket } from './gateway/socket';
+import { logger } from './utils/logger';
+import { prisma } from './utils/prisma';
+
+const BASE_PORT = Number(process.env.PORT) || 3333;
+const MAX_PORT_ATTEMPTS = 10;
+
 const httpServer = createServer(app);
+
+// Socket.io attaches many listeners; raise the limit to avoid spurious warnings
+httpServer.setMaxListeners(25);
+
+let clearIntervals: (() => void) | undefined;
+
+// Graceful shutdown logic
+const shutdown = async (signal: string) => {
+  logger.info(`Received ${signal}. Shutting down gracefully...`);
+  process.stdout.write(`Received ${signal}. Shutting down gracefully...\n`);
+  
+  if (clearIntervals) clearIntervals();
+  logger.info('Background socket intervals swept.');
+
+  httpServer.close(async () => {
+    logger.info('HTTP server closed.');
+    await prisma.$disconnect();
+    logger.info('Prisma disconnected.');
+    process.exit(0);
+  });
+  
+  // Force shutdown after 10s if connections hang
+  setTimeout(() => {
+    process.stderr.write('Force shutting down after 10s timeout\n');
+    process.exit(1);
+  }, 10000).unref();
+};
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
 
 // Catch any uncaught errors and write to stderr for diagnostics.
 process.on('uncaughtException', (err: Error) => {
   process.stderr.write(`UNCAUGHT EXCEPTION: ${err.message}\n${err.stack ?? ''}\n`);
-  httpServer.close(() => {
+  if (clearIntervals) clearIntervals();
+  httpServer.close(async () => {
+    await prisma.$disconnect();
     process.exit(1);
   });
 });
@@ -11,7 +55,9 @@ process.on('uncaughtException', (err: Error) => {
 process.on('unhandledRejection', (reason: unknown) => {
   const msg = reason instanceof Error ? reason.message : String(reason);
   process.stderr.write(`UNHANDLED REJECTION: ${msg}\n`);
-  httpServer.close(() => {
+  if (clearIntervals) clearIntervals();
+  httpServer.close(async () => {
+    await prisma.$disconnect();
     process.exit(1);
   });
 });
@@ -28,9 +74,11 @@ const io = new Server(httpServer, {
   // declare students disconnected during transient WiFi hiccups.
   pingInterval: 25_000,
   pingTimeout: 60_000,
+  maxHttpBufferSize: 1e5, // 100 KB limit for Socket payloads to prevent memory exhaustion
 });
 
-initializeSocket(io);
+const initResult = initializeSocket(io);
+clearIntervals = initResult.clearIntervals;
 
 const HOST = process.env.HOST || '0.0.0.0';
 
