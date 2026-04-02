@@ -3,16 +3,10 @@ import { logger } from '../utils/logger';
 import { createSession, endSession, getActiveSession, getSessionHistory, getSessionByCode } from '../services/session.service';
 import { getSessionStudentsForSession } from '../services/student.service';
 import { CreateSessionSchema, JoinSessionSchema } from '../types/schemas';
-import { isTeacherAuthenticated, emitUnauthorized } from './helpers';
-import { checkSocketRateLimit } from './socketRateLimiter';
+import { withTeacherAuth } from './helpers';
 
 export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
-  socket.on('dashboard:join_overview', async () => {
-    if (!checkSocketRateLimit(socket, 'dashboard:join_overview')) return;
-    if (!isTeacherAuthenticated(socket)) {
-      emitUnauthorized(socket);
-      return;
-    }
+  socket.on('dashboard:join_overview', withTeacherAuth(socket, 'dashboard:join_overview', async () => {
     try {
       const history = await getSessionHistory();
       const active = await getActiveSession();
@@ -29,14 +23,9 @@ export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
       logger.error({ error }, 'Error fetching dashboard overview');
       socket.emit('dashboard:error', { message: 'Failed to load dashboard overview' });
     }
-  });
+  }));
 
-  socket.on('dashboard:join_session', async (data: unknown) => {
-    if (!checkSocketRateLimit(socket, 'dashboard:join_session')) return;
-    if (!isTeacherAuthenticated(socket)) {
-      emitUnauthorized(socket);
-      return;
-    }
+  socket.on('dashboard:join_session', withTeacherAuth(socket, 'dashboard:join_session', async (data: unknown) => {
     try {
       const parsed = JoinSessionSchema.safeParse(data);
       if (!parsed.success) return;
@@ -80,14 +69,9 @@ export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
       logger.error({ error }, 'Error joining session dashboard');
       socket.emit('dashboard:error', { message: 'Failed to load session details' });
     }
-  });
+  }));
 
-  socket.on('teacher:create_session', async (data?: unknown) => {
-    if (!checkSocketRateLimit(socket, 'teacher:create_session')) return;
-    if (!isTeacherAuthenticated(socket)) {
-      emitUnauthorized(socket);
-      return;
-    }
+  socket.on('teacher:create_session', withTeacherAuth(socket, 'teacher:create_session', async (data?: unknown) => {
     try {
       const parsed = CreateSessionSchema.safeParse(data ?? {});
       if (!parsed.success) {
@@ -106,14 +90,9 @@ export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
       logger.error({ error }, 'Error creating session');
       socket.emit('dashboard:error', { message: 'Failed to create session' });
     }
-  });
+  }));
 
-  socket.on('teacher:end_session', async () => {
-    if (!checkSocketRateLimit(socket, 'teacher:end_session')) return;
-    if (!isTeacherAuthenticated(socket)) {
-      emitUnauthorized(socket);
-      return;
-    }
+  socket.on('teacher:end_session', withTeacherAuth(socket, 'teacher:end_session', async () => {
     try {
       const active = await getActiveSession();
       if (!active) return;
@@ -134,5 +113,5 @@ export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
       logger.error({ error }, 'Error ending session');
       socket.emit('dashboard:error', { message: 'Failed to end session' });
     }
-  });
+  }));
 };
