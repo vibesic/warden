@@ -131,12 +131,17 @@ describe('ExamSessionContext', () => {
   });
 
   it('should start heartbeat loop', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
     renderHook(() => useExamSession(), { wrapper });
+
+    act(() => {
+      vi.advanceTimersByTime(0); // clear the initialJitter timeout
+    });
 
     // Initial heartbeat on mount
     expect(mockSendHeartbeat).toHaveBeenCalledOnce();
 
-    // Advance by 2s — another heartbeat
+    // Advance by HEARTBEAT_INTERVAL_MS (2000ms is standard for heartbeat tests here)
     act(() => {
       vi.advanceTimersByTime(2000);
     });

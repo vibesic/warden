@@ -32,8 +32,13 @@ const mockFetch = vi.fn();
 beforeEach(() => {
   mockFetch.mockReset();
   vi.stubGlobal('fetch', mockFetch);
+  vi.spyOn(Math, 'random').mockReturnValue(0);
   mockSessionCode = 'ABC123';
   mockStudentId = 'S001';
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe('FileUploadSection', () => {

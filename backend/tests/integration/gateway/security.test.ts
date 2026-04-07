@@ -1,6 +1,6 @@
 import Client, { Socket as ClientSocket } from 'socket.io-client';
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi, waitFor } from 'vitest';
 import { generateTeacherToken } from '@src/services/auth.service';
 import { clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
 import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
@@ -181,9 +181,9 @@ describe('Security - Socket Layer', () => {
 
       studentSocket.emit('sniffer:response', { challengeId: 'challenge-2', reachable: true });
 
-      await new Promise((r) => setTimeout(r, 300));
-
-      expect(teacherReceivedAlert).toBe(true);
+      await vi.waitFor(() => {
+        expect(teacherReceivedAlert).toBe(true);
+      });
 
       studentSocket.disconnect();
       teacherSocket.disconnect();
@@ -238,13 +238,13 @@ describe('Security - Socket Layer', () => {
 
       socket.emit('report_violation', { type: 'DISCONNECTION', details: 'Lost connection' });
 
-      await new Promise((r) => setTimeout(r, 200));
-
-      expect(prismaMock.violation.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ type: 'DISCONNECTION' }),
-        })
-      );
+      await vi.waitFor(() => {
+        expect(prismaMock.violation.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ type: 'DISCONNECTION' }),
+          })
+        );
+      });
 
       socket.disconnect();
     });
@@ -345,11 +345,18 @@ describe('Security - Socket Layer', () => {
         studentGotEnded = true;
       });
 
+      let teacherGotEnded = false;
+      teacherSocket.on('session:ended', () => {
+        teacherGotEnded = true;
+      });
+
       teacherSocket.emit('teacher:end_session');
 
-      await new Promise((r) => setTimeout(r, 300));
-
-      expect(studentGotEnded).toBe(true);
+      await vi.waitFor(() => {
+        expect(studentGotEnded).toBe(true);
+      });
+      // The teacher should NOT receive it because they're not in the student room
+      expect(teacherGotEnded).toBe(false);
 
       studentSocket.disconnect();
       teacherSocket.disconnect();

@@ -15,7 +15,7 @@ describe('StudentLogin', () => {
 
   it('should render the login form', () => {
     render(<StudentLogin {...defaultProps} />);
-    expect(screen.getByText('Exam Student Login')).toBeInTheDocument();
+    expect(screen.getByText('Student Login')).toBeInTheDocument();
     expect(screen.getByLabelText('Full Name')).toBeInTheDocument();
     expect(screen.getByLabelText('Student ID')).toBeInTheDocument();
     expect(screen.getByLabelText('Session Code')).toBeInTheDocument();

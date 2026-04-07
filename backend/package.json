@@ -6,7 +6,8 @@
     "start": "node dist/src/server.js",
     "dev": "nodemon src/server.ts",
     "build": "tsc",
-    "test": "vitest",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {

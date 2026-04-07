@@ -26,7 +26,7 @@ describe('TeacherLogin', () => {
 
   it('should render student switch link', () => {
     render(<TeacherLogin {...defaultProps} />);
-    expect(screen.getByText('Back to Student Login')).toBeInTheDocument();
+    expect(screen.getByText('Are you a Student?')).toBeInTheDocument();
   });
 
   it('should call onSwitchToStudent when link is clicked', async () => {
@@ -34,7 +34,7 @@ describe('TeacherLogin', () => {
     const onSwitch = vi.fn();
     render(<TeacherLogin {...defaultProps} onSwitchToStudent={onSwitch} />);
 
-    await user.click(screen.getByText('Back to Student Login'));
+    await user.click(screen.getByText('Are you a Student?'));
     expect(onSwitch).toHaveBeenCalledOnce();
   });
 
