@@ -14,7 +14,7 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-COMPOSE_FILE="$PROJECT_DIR/docker-compose.prod.yml"
+COMPOSE_FILE="$PROJECT_DIR/docker-compose.yml"
 OVERRIDE_FILE="$PROJECT_DIR/docker-compose.lan.yml"
 
 # ── Build mode (requires internet) ───────────────────────────

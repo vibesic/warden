@@ -109,3 +109,57 @@ To turn off the application and close the server:
    docker compose down
    ```
 Your exam data is safely persisisted on your computer disk in the Docker volumes until the next time you run `docker compose up -d`.
+
+---
+
+## Special Instructions for WSL (Windows) Users
+
+If you are running Docker natively inside Windows Subsystem for Linux (WSL2) without using Docker Desktop, your computer's local network (LAN) will not automatically route traffic to your Docker containers. You must set up port forwarding (WSL -> Local Windows Host -> Internet/LAN).
+
+To do this, we provide two helper scripts you can download and run.
+
+### 1. Download the Networking Scripts
+
+Inside your `proctor-app` folder in WSL, run:
+```bash
+mkdir scripts
+curl -o scripts/lan-wsl.sh https://raw.githubusercontent.com/mrkazawa/proctor-app/master/scripts/lan-wsl.sh
+curl -o scripts/lan-win.ps1 https://raw.githubusercontent.com/mrkazawa/proctor-app/master/scripts/lan-win.ps1
+chmod +x scripts/lan-wsl.sh
+```
+
+### 2. Start the App via WSL Script
+
+Instead of running `docker compose up -d` manually like in Step 3, use the WSL script. This will automatically detect your Windows IP and configure the application:
+```bash
+bash scripts/lan-wsl.sh
+```
+
+### 3. Apply Windows Port Forwarding
+
+Open a **PowerShell** window as **Administrator** on your Windows host, and run the Windows script to map the ports:
+```powershell
+# Tip: You may need to bypass execution policies first:
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+
+# Navigate to your WSL folder (replace 'Ubuntu' and 'YOUR_USERNAME' based on your system)
+cd \\wsl$\Ubuntu\home\YOUR_USERNAME\proctor-app
+
+# Run the forwarding script
+.\scripts\lan-win.ps1
+```
+
+Now, other devices on your local network will be able to access the exam application!
+
+### Stopping the App via Scripts
+
+To shut everything down and remove the associated network forwarding rules:
+
+1. In your WSL terminal:
+   ```bash
+   bash scripts/lan-wsl.sh stop
+   ```
+2. In your Administrator PowerShell terminal:
+   ```powershell
+   .\scripts\lan-win.ps1 -Stop
+   ```
