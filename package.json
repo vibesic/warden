@@ -4,7 +4,7 @@
   "description": "Secure Exam Proctoring Application",
   "author": {
     "name": "Proctor App Team",
-    "email": "proctor@localhost"
+    "email": "proctor@example.com"
   },
   "homepage": "https://github.com/proctor-app/proctor-app",
   "private": true,
