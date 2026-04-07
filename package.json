@@ -9,12 +9,15 @@
   "homepage": "https://github.com/proctor-app/proctor-app",
   "private": true,
   "scripts": {
-    "dev": "docker compose -f docker-compose.dev.yml up --build",
-    "dev:down": "docker compose -f docker-compose.dev.yml down",
-    "dev:logs": "docker compose -f docker-compose.dev.yml logs -f",
+    "dev": "docker compose up --build",
+    "dev:down": "docker compose down",
+    "dev:logs": "docker compose logs -f",
     "build:frontend": "cd frontend && npm run build",
     "build:backend": "cd backend && npx prisma generate && npx tsc",
     "build": "npm run build:frontend && npm run build:backend",
+    "docker:build": "docker build -t dockazawa/proctor-backend:latest -f backend/Dockerfile.prod ./backend && docker build -t dockazawa/proctor-frontend:latest -f frontend/Dockerfile.prod ./frontend",
+    "docker:push": "docker push dockazawa/proctor-backend:latest && docker push dockazawa/proctor-frontend:latest",
+    "docker:publish": "npm run docker:build && npm run docker:push",
     "postinstall": "cd backend && npm install && cd ../frontend && npm install"
   },
   "devDependencies": {
