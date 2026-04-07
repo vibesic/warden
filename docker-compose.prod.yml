@@ -1,15 +1,14 @@
 services:
   backend:
-    build: 
-      context: ./backend
-      dockerfile: Dockerfile.prod
+    image: dockazawa/proctor-backend:latest
     ports:
       - "3333:3333"
     volumes:
       - backend_data:/app/data
       - uploads_data:/app/uploads
-    env_file:
-      - ./backend/.env
+    # Comment this out for external users or provide a blank .env
+    # env_file:
+    #   - ./backend/.env
     environment:
       - DATABASE_URL=file:./data/dev.db?connection_limit=1
       - NODE_ENV=production
@@ -20,16 +19,13 @@ services:
       - exam-network
 
   frontend:
-    build: 
-      context: ./frontend
-      dockerfile: Dockerfile.prod
+    image: dockazawa/proctor-frontend:latest
     ports:
       - "80:80"
     volumes: []
     environment:
-      # In production, change this to the IP address of the teacher's laptop on the LAN, 
+      # Set this to the IP address of the teacher's laptop on the LAN, 
       # e.g., http://192.168.1.100:3333
-      # Or rely on the lan-wsl.sh script to override it automatically
       - VITE_API_URL=http://localhost:3333 
     networks:
       - exam-network

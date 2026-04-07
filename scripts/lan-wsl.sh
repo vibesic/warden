@@ -19,8 +19,8 @@ OVERRIDE_FILE="$PROJECT_DIR/docker-compose.lan.yml"
 
 # ── Build mode (requires internet) ───────────────────────────
 if [[ "${1:-}" == "build" ]]; then
-  echo "[lan-wsl] Building Docker images (requires internet)..."
-  docker compose -f "$COMPOSE_FILE" build
+  echo "[lan-wsl] Pulling Docker images (requires internet)..."
+  docker compose -f "$COMPOSE_FILE" pull
   echo "[lan-wsl] Build complete. Switch to your private network and run:"
   echo "  bash scripts/lan-wsl.sh"
   exit 0
