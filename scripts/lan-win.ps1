@@ -15,7 +15,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$Ports = @(5174, 4444)
+$Ports = @(80, 3333)
 $FwPrefix = "Proctor App LAN"
 
 # ── Stop / cleanup mode ──────────────────────────────────────
@@ -106,8 +106,8 @@ foreach ($port in $Ports) {
 Write-Host ""
 Write-Host "=============================================" -ForegroundColor Green
 Write-Host "  Port forwarding is active" -ForegroundColor Green
-Write-Host "  Frontend: http://${hostIp}:5174" -ForegroundColor Green
-Write-Host "  Backend:  http://${hostIp}:4444" -ForegroundColor Green
+Write-Host "  Frontend: http://${hostIp}" -ForegroundColor Green
+Write-Host "  Backend:  http://${hostIp}:3333" -ForegroundColor Green
 Write-Host "=============================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Current portproxy rules:" -ForegroundColor Cyan

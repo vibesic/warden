@@ -71,7 +71,7 @@ cat > "$OVERRIDE_FILE" <<EOF
 services:
   frontend:
     environment:
-      - VITE_API_URL=http://${HOST_IP}:4444
+      - VITE_API_URL=http://${HOST_IP}:3333
 EOF
 
 echo "[lan-wsl] Generated $OVERRIDE_FILE"
@@ -86,8 +86,8 @@ docker compose -f "$COMPOSE_FILE" -f "$OVERRIDE_FILE" up -d
 echo ""
 echo "============================================="
 echo "  App is running on LAN"
-echo "  Frontend: http://${HOST_IP}:5174"
-echo "  Backend:  http://${HOST_IP}:4444"
+echo "  Frontend: http://${HOST_IP}"
+echo "  Backend:  http://${HOST_IP}:3333"
 echo "============================================="
 echo ""
 echo "Now run the Windows script (PowerShell as Admin):"

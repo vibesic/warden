@@ -4,7 +4,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile.prod
     ports:
-      - "4444:3333"
+      - "3333:3333"
     volumes:
       - backend_data:/app/data
       - uploads_data:/app/uploads
@@ -24,7 +24,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.prod
     ports:
-      - "5174:5174"
+      - "80:80"
     volumes: []
     environment:
       # In production, change this to the IP address of the teacher's laptop on the LAN, 

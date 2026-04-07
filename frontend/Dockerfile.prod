@@ -17,7 +17,7 @@ RUN npm install -g serve
 
 COPY --from=builder /app/dist ./dist
 
-EXPOSE 5174
+EXPOSE 80
 
 # Serve the static build on 0.0.0.0
-CMD ["serve", "-s", "dist", "-l", "5174"]
+CMD ["serve", "-s", "dist", "-l", "80"]
