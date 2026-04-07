@@ -1,6 +1,6 @@
 import Client, { Socket as ClientSocket } from 'socket.io-client';
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi, waitFor } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { generateTeacherToken } from '@src/services/auth.service';
 import { clearAllPendingDisconnects } from '@src/gateway/studentHandlers';
 import { clearDisconnectionCooldowns } from '@src/gateway/helpers';
