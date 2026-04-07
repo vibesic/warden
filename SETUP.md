@@ -76,6 +76,8 @@ volumes:
 
 ## Step 3: Start the Application
 
+*(Note: If you are using **WSL2 (Windows Subsystem for Linux)** instead of Docker Desktop, please **SKIP to the Special Instructions for WSL Users** at the bottom of this page before starting).*
+
 Once your configuration file is saved, you can start the application using Docker Compose.
 
 1. Go back to your terminal (ensure you are still in the `proctor-app` folder).
