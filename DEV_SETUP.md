@@ -64,6 +64,14 @@ npm run dev:down
 
 Before you commit code, you should make sure your changes are structurally sound.
 
+### Run Unit & Integration Tests
+The application is tested using [Vitest](https://vitest.dev/). We maintain unit tests for services and integration tests for our Socket.io gateway handlers.
+You can run all tests across the entire codebase with a single command from the root folder:
+```bash
+npm run test
+```
+*(You can also run tests individually by running `npm run test:frontend` or `npm run test:backend`).*
+
 ### Build and Type-Check
 Although hot-reloading handles live updates, it does not strictly fail on TypeScript errors. Always verify your build works:
 ```bash
