@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  backend:
+    image: dockazawa/proctor-backend:latest
+    ports:
+      - "3333:3333"
+    volumes:
+      - backend_data:/app/data
+      - uploads_data:/app/uploads
+    environment:
+      # Database and application settings
+      - DATABASE_URL=file:./data/dev.db?connection_limit=1
+      - NODE_ENV=production
+      - PORT=3333
+      - UPLOADS_DIR=/app/uploads
+      # Set your teacher dashboard password here
+      - TEACHER_PASSWORD=Proctor2026
+    networks:
+      - exam-network
+    restart: unless-stopped
+
+  frontend:
+    image: dockazawa/proctor-frontend:latest
+    ports:
+      - "80:80"
+    networks:
+      - exam-network
+    restart: unless-stopped
+
+networks:
+  exam-network:
+    driver: bridge
+
+volumes:
+  # The volumes ensure your exam data is saved across restarts
+  backend_data:
+  uploads_data:

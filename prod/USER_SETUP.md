@@ -54,10 +54,6 @@ services:
     image: dockazawa/proctor-frontend:latest
     ports:
       - "80:80"
-    environment:
-      # Change localhost to your computer's IP address on the network if students 
-      # connect from other devices. E.g., http://192.168.1.100:3333
-      - VITE_API_URL=http://localhost:3333 
     networks:
       - exam-network
     restart: unless-stopped
@@ -71,8 +67,6 @@ volumes:
   backend_data:
   uploads_data:
 ```
-
-*(Note: If students are going to access the app from their own devices on a local network, you will need to replace `localhost` in `VITE_API_URL=http://localhost:3333` with your host computer's local IP address, e.g., `http://192.168.1.100:3333`)*
 
 **🔹 IF YOU ARE USING WSL2 on Windows (WITHOUT Docker Desktop):**
 You also need to download our networking helper scripts so your local network can reach your WSL environment. Inside your `proctor-app` folder in WSL, run:
