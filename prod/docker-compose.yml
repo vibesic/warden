@@ -15,7 +15,7 @@ services:
       - PORT=3333
       - UPLOADS_DIR=/app/uploads
       # Set your teacher dashboard password here
-      - TEACHER_PASSWORD=Warden2026
+      - TEACHER_PASSWORD=Warden2026!
     networks:
       - exam-network
     restart: unless-stopped
