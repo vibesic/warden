@@ -1,12 +1,12 @@
 # AI Agent Docker Behavior - Quick Reference
 
-**Project**: Proctor App (proctor-app)  
+**Project**: Warden (warden)  
 **Approach**: Docker for development and production  
 **Database**: SQLite via Prisma ORM
 
 ## Architecture Overview
 
-The Proctor App runs entirely via Docker Compose. Development uses hot-reload volumes; production serves the built frontend from Express static files.
+The Warden runs entirely via Docker Compose. Development uses hot-reload volumes; production serves the built frontend from Express static files.
 
 ```
 Development: docker-compose.dev.yml
@@ -129,7 +129,7 @@ volumes:
 
 ## Key Differences from Typical Docker Setups
 
-| Aspect          | Typical Docker App             | Proctor App                      |
+| Aspect          | Typical Docker App             | Warden                      |
 | --------------- | ------------------------------ | -------------------------------- |
 | **Database**    | PostgreSQL/MySQL in container  | SQLite file (no DB container)    |
 | **Production**  | Docker Compose deployment      | Docker Compose deployment        |

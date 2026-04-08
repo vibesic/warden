@@ -1,6 +1,6 @@
 # AI Agent Test Behavior - Quick Reference
 
-**Project**: Proctor App (proctor-app)  
+**Project**: Warden (warden)  
 **Framework**: Vitest with v8 coverage  
 **Database**: SQLite (mocked via vitest.setup.ts)  
 **Approach**: Unit and integration tests with Prisma mocking

@@ -1,6 +1,6 @@
 # AI Agent React Behavior - Quick Reference
 
-**Project**: Proctor App (proctor-app)  
+**Project**: Warden (warden)  
 **Framework**: React 18 + TypeScript + React Router  
 **Style**: Functional components, hooks, type-safe props
 

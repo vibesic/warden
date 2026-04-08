@@ -6,7 +6,7 @@
  * constants as the SW file (public/exam-sw.js).
  */
 
-const DB_NAME = 'exam-proctor';
+const DB_NAME = 'exam-warden';
 const DB_VERSION = 1;
 const STORE_NAME = 'sw-probes';
 

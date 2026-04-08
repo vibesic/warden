@@ -1,6 +1,6 @@
 # AI Agent Code Behavior - Quick Reference
 
-**Project**: Proctor App (proctor-app)  
+**Project**: Warden (warden)  
 **Languages**: TypeScript, JavaScript, CSS/SCSS, Bash, JSON, YAML  
 **Style**: Professional, modular, DRY, type-safe code
 

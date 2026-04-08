@@ -1,6 +1,6 @@
-# Proctor App - Deployment Guide
+# Warden - Deployment Guide
 
-This guide is for educators or administrators who want to deploy and run the Proctor App without downloading the source code or compiling it themselves. You will use pre-built Docker images to get the application running in minutes.
+This guide is for educators or administrators who want to deploy and run the Warden without downloading the source code or compiling it themselves. You will use pre-built Docker images to get the application running in minutes.
 
 ## Prerequisites
 
@@ -16,15 +16,15 @@ Create a dedicated folder on your computer for the application files.
 1. Open a terminal (Command Prompt/PowerShell on Windows, Terminal on Mac/Linux).
 2. Run the following commands:
    ```bash
-   mkdir proctor-app
-   cd proctor-app
+   mkdir warden
+   cd warden
    ```
 
 ## Step 2: Create the Configuration File
 
 You need a `docker-compose.yml` file to tell Docker how to run the frontend and backend services together.
 
-1. In your new `proctor-app` folder, create a file named `docker-compose.yml`.
+1. In your new `warden` folder, create a file named `docker-compose.yml`.
 2. Open the file in a text editor (like Notepad, TextEdit, or VS Code) and paste the following configuration:
 
 ```yaml
@@ -32,7 +32,7 @@ version: '3.8'
 
 services:
   backend:
-    image: dockazawa/proctor-backend:latest
+    image: dockazawa/warden-backend:latest
     ports:
       - "3333:3333"
     volumes:
@@ -51,7 +51,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: dockazawa/proctor-frontend:latest
+    image: dockazawa/warden-frontend:latest
     ports:
       - "80:80"
     networks:
@@ -69,11 +69,11 @@ volumes:
 ```
 
 **🔹 IF YOU ARE USING WSL2 on Windows (WITHOUT Docker Desktop):**
-You also need to download our networking helper scripts so your local network can reach your WSL environment. Inside your `proctor-app` folder in WSL, run:
+You also need to download our networking helper scripts so your local network can reach your WSL environment. Inside your `warden` folder in WSL, run:
 ```bash
 mkdir scripts
-curl -o scripts/lan-wsl.sh https://raw.githubusercontent.com/mrkazawa/proctor-app/master/scripts/lan-wsl.sh
-curl -o scripts/lan-win.ps1 https://raw.githubusercontent.com/mrkazawa/proctor-app/master/scripts/lan-win.ps1
+curl -o scripts/lan-wsl.sh https://raw.githubusercontent.com/vibesic/warden/master/scripts/lan-wsl.sh
+curl -o scripts/lan-win.ps1 https://raw.githubusercontent.com/vibesic/warden/master/scripts/lan-win.ps1
 chmod +x scripts/lan-wsl.sh
 ```
 
@@ -82,7 +82,7 @@ chmod +x scripts/lan-wsl.sh
 Once your configuration file is saved, you can start the application and download the latest pre-built images.
 
 **Standard Start (For Mac, Linux, and Windows Docker Desktop Users):**
-1. Go back to your terminal (ensure you are still in the `proctor-app` folder).
+1. Go back to your terminal (ensure you are still in the `warden` folder).
 2. Run this command to start the app in the background:
    ```bash
    docker compose up -d
@@ -99,7 +99,7 @@ Once your configuration file is saved, you can start the application and downloa
    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
    
    # Navigate to your WSL folder (replace 'Ubuntu' and 'YOUR_USERNAME' based on your system)
-   cd \\wsl$\Ubuntu\home\YOUR_USERNAME\proctor-app
+   cd \\wsl$\Ubuntu\home\YOUR_USERNAME\warden
    
    # Run the forwarding script
    .\scripts\lan-win.ps1
@@ -124,7 +124,7 @@ To allow students to connect to your exam session:
 To turn off the application and close the server:
 
 **Standard Stop (Mac, Linux, Windows Docker Desktop Users):**
-1. Open up your terminal in the `proctor-app` folder.
+1. Open up your terminal in the `warden` folder.
 2. Run:
    ```bash
    docker compose down

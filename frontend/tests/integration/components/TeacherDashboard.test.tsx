@@ -52,7 +52,7 @@ describe('TeacherDashboard', () => {
 
   it('should render the dashboard header', () => {
     render(<TeacherDashboard onLogout={onLogout} />);
-    expect(screen.getByText('Proctor Dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Warden Dashboard')).toBeInTheDocument();
   });
 
   it('should show connection status', () => {

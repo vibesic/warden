@@ -16,7 +16,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $Ports = @(80, 3333)
-$FwPrefix = "Proctor App LAN"
+$FwPrefix = "Warden LAN"
 
 # ── Stop / cleanup mode ──────────────────────────────────────
 if ($Stop) {

@@ -1,6 +1,6 @@
-# Proctor App - Developer Setup Guide
+# Warden - Developer Setup Guide
 
-This guide is for software engineers and contributors who want to modify the source code, test new features, and build their own version of the Proctor App. 
+This guide is for software engineers and contributors who want to modify the source code, test new features, and build their own version of the Warden. 
 
 If you are a teacher or administrator just looking to *run* the app for an exam, please see the [User Setup Guide](USER_SETUP.md) instead!
 
@@ -20,8 +20,8 @@ To develop on this project, ensure you have installed:
 First, clone the repository to your local machine and navigate into the folder:
 
 ```bash
-git clone git@github.com:mrkazawa/proctor-app.git
-cd proctor-app
+git clone git@github.com:vibesic/warden.git
+cd warden
 ```
 
 ## 3. Install Dependencies
@@ -87,7 +87,7 @@ You can do this in one command:
 ```bash
 npm run docker:publish
 ```
-*(This uses the `Dockerfile.prod` files to build `dockazawa/proctor-backend:latest` and `dockazawa/proctor-frontend:latest` and immediately pushes them to the public registry).*
+*(This uses the `Dockerfile.prod` files to build `dockazawa/warden-backend:latest` and `dockazawa/warden-frontend:latest` and immediately pushes them to the public registry).*
 
 ---
 

@@ -1,6 +1,6 @@
 # AI Agent Visual Behavior - Quick Reference
 
-**Project**: Proctor App (proctor-app)  
+**Project**: Warden (warden)  
 **Tech Stack**: React + Tailwind CSS + SCSS  
 **Style**: Clean design, professional color palette  
 **Approach**: Tailwind-first, SCSS for complex patterns
@@ -31,7 +31,7 @@
 
 ## Status Indicators
 
-The Proctor App relies heavily on clear status visualization:
+The Warden relies heavily on clear status visualization:
 
 ### Student Online/Offline
 
@@ -147,7 +147,7 @@ Use SCSS modules only for:
 - Deeply nested BEM structures
 - Theme variants with multiple properties
 
-## Proctor App UI Components
+## Warden UI Components
 
 | Component          | Purpose                              |
 | ------------------ | ------------------------------------ |

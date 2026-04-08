@@ -10,7 +10,7 @@
 
 **ALL UI must be responsive and work on ALL screen sizes from 360px to 1920px+**
 
-The Proctor App has two main views:
+The Warden has two main views:
 - **Teacher dashboard**: Typically used on desktop/laptop (session monitoring)
 - **Student exam view**: Used on any device (laptop, tablet, phone)
 

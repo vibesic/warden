@@ -1,12 +1,12 @@
 {
-  "name": "proctor-app",
+  "name": "warden",
   "version": "1.0.0",
   "description": "Secure Exam Proctoring Application",
   "author": {
-    "name": "Proctor App Team",
-    "email": "proctor@example.com"
+    "name": "Warden Team",
+    "email": "warden@example.com"
   },
-  "homepage": "https://github.com/proctor-app/proctor-app",
+  "homepage": "https://github.com/warden/warden",
   "private": true,
   "scripts": {
     "dev": "docker compose up --build",
@@ -18,8 +18,8 @@
     "build:frontend": "cd frontend && npm run build",
     "build:backend": "cd backend && npx prisma generate && npx tsc",
     "build": "npm run build:frontend && npm run build:backend",
-    "docker:build": "docker build -t dockazawa/proctor-backend:latest -f backend/Dockerfile.prod ./backend && docker build -t dockazawa/proctor-frontend:latest -f frontend/Dockerfile.prod ./frontend",
-    "docker:push": "docker push dockazawa/proctor-backend:latest && docker push dockazawa/proctor-frontend:latest",
+    "docker:build": "docker build -t dockazawa/warden-backend:latest -f backend/Dockerfile.prod ./backend && docker build -t dockazawa/warden-frontend:latest -f frontend/Dockerfile.prod ./frontend",
+    "docker:push": "docker push dockazawa/warden-backend:latest && docker push dockazawa/warden-frontend:latest",
     "docker:publish": "npm run docker:build && npm run docker:push",
     "postinstall": "cd backend && npm install && cd ../frontend && npm install"
   },

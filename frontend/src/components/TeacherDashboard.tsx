@@ -93,7 +93,7 @@ export const TeacherDashboard: React.FC<Props> = ({ onLogout }) => {
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
             <Header
-                title="Proctor Dashboard"
+                title="Warden Dashboard"
                 isConnected={isConnected}
                 onLogout={handleLogoutClick}
             />

@@ -1,6 +1,6 @@
 # AI Agent Express Behavior - Quick Reference
 
-**Project**: Proctor App (proctor-app)  
+**Project**: Warden (warden)  
 **Framework**: Express.js + Socket.io + TypeScript + Prisma  
 **Architecture**: Layered (Routes → Middleware → Controllers → Services → Database) + Socket.io Gateway
 

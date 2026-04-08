@@ -7,7 +7,7 @@ The LAN setup now strictly uses the **production-grade Docker containers** (`doc
 ### WSL Terminal
 
 ```bash
-cd ~/proctor-app
+cd ~/warden
 bash scripts/lan-wsl.sh build
 ```
 
@@ -16,7 +16,7 @@ bash scripts/lan-wsl.sh build
 ### 1. WSL Terminal
 
 ```bash
-cd ~/proctor-app
+cd ~/warden
 bash scripts/lan-wsl.sh
 ```
 
@@ -24,7 +24,7 @@ bash scripts/lan-wsl.sh
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-cd \\wsl$\Ubuntu\home\kazawa\proctor-app
+cd \\wsl$\Ubuntu\home\kazawa\warden
 .\scripts\lan-win.ps1
 ```
 
@@ -35,13 +35,13 @@ cd \\wsl$\Ubuntu\home\kazawa\proctor-app
 ### 1. WSL Terminal
 
 ```bash
-cd ~/proctor-app
+cd ~/warden
 bash scripts/lan-wsl.sh stop
 ```
 
 ### 2. PowerShell (Run as Administrator)
 
 ```powershell
-cd \\wsl$\Ubuntu\home\kazawa\proctor-app
+cd \\wsl$\Ubuntu\home\kazawa\warden
 .\scripts\lan-win.ps1 -Stop
 ```

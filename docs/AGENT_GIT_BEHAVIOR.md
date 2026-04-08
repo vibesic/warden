@@ -1,7 +1,7 @@
 # AI Agent Git Behavior - Quick Reference
 
-**Project**: Proctor App (proctor-app)  
-**Root**: `/home/kazawa/proctor-app`  
+**Project**: Warden (warden)  
+**Root**: `/home/kazawa/warden`  
 **Hooks**: Enabled (NEVER use `--no-verify` - fix issues instead)
 
 ## Commit Format

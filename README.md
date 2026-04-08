@@ -1,4 +1,4 @@
-# Proctor App
+# Warden
 
 A secure exam proctoring system designed to be deployed on local networks. The teacher runs the application on a local machine interconnected via Wi-Fi/LAN, allowing students to connect their browsers to the teacher's machine. The system monitors students in real-time for internet access violations, connection drops, camera focus, and session bounds.
 
@@ -31,7 +31,7 @@ For more details on the architecture and codebase rules, check the `docs/` folde
 Depending on your role, we have two dedicated setup guides:
 
 ### 1. 🎓 [User Setup Guide](USER_SETUP.md)
-If you are an **educator, teacher, or administrator** who just wants to run the Proctor App for your classroom, click the link above. It will guide you on how to start the pre-built application in minutes using Docker without downloading any source code.
+If you are an **educator, teacher, or administrator** who just wants to run the Warden for your classroom, click the link above. It will guide you on how to start the pre-built application in minutes using Docker without downloading any source code.
 
 ### 2. 💻 [Developer Setup Guide](DEV_SETUP.md)
-If you are a **software engineer or contributor** who wants to modify the source code, test new features, and build your own version of the Proctor App, click the link above. It will guide you through cloning the repository, installing dependencies, and running the hot-reloading Docker stack.`) to connect! Port `80` is used by default.
+If you are a **software engineer or contributor** who wants to modify the source code, test new features, and build your own version of the Warden, click the link above. It will guide you through cloning the repository, installing dependencies, and running the hot-reloading Docker stack.`) to connect! Port `80` is used by default.
