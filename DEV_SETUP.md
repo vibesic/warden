@@ -1,4 +1,4 @@
-# Warden - Developer Setup Guide
+# Warden - Developer Guide
 
 This guide is for software engineers and contributors who want to modify the source code, test new features, and build their own version of the Warden. 
 

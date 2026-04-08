@@ -1,7 +1,7 @@
 {
   "name": "warden",
   "version": "1.0.0",
-  "description": "Secure Exam Proctoring Application",
+  "description": "Secure Exam Monitoring Application",
   "author": {
     "name": "Warden Team",
     "email": "warden@example.com"

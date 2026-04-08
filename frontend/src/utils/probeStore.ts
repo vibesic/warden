@@ -1,5 +1,5 @@
 /**
- * IndexedDB helpers for the exam proctoring Service Worker probe store.
+ * IndexedDB helpers for the exam monitoring Service Worker probe store.
  *
  * The Service Worker writes probe results here; the main app reads and
  * clears them on reconnection.  Uses the same DB_NAME / STORE_NAME

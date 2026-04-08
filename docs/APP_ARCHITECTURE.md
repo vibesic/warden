@@ -2,7 +2,7 @@
 
 ## Overview
 
-Warden is a **secure exam proctoring system** deployed via **Docker Compose**. The teacher runs the app on a machine connected to a local network (exam Wi-Fi). Students connect their browsers to the teacher's machine via the network. The system monitors students for internet access violations, connection drops, and session timing.
+Warden is a **secure exam monitoring system** deployed via **Docker Compose**. The teacher runs the app on a machine connected to a local network (exam Wi-Fi). Students connect their browsers to the teacher's machine via the network. The system monitors students for internet access violations, connection drops, and session timing.
 
 ## Deployment Topology
 

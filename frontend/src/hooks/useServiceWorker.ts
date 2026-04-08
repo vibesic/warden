@@ -1,7 +1,7 @@
 /**
  * Hook: useServiceWorker
  *
- * Registers the exam proctoring Service Worker and sets up
+ * Registers the exam monitoring Service Worker and sets up
  * Background Sync so the SW can probe for internet connectivity
  * even when the exam tab is closed.
  *

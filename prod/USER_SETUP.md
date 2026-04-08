@@ -1,4 +1,4 @@
-# Warden - Deployment Guide
+# Warden - User Guide
 
 This guide is for educators or administrators who want to deploy and run the Warden without downloading the source code or compiling it themselves. You will use pre-built Docker images to get the application running in minutes.
 
@@ -45,7 +45,7 @@ services:
       - PORT=3333
       - UPLOADS_DIR=/app/uploads
       # Set your teacher dashboard password here
-      - TEACHER_PASSWORD=Proctor2026
+      - TEACHER_PASSWORD=Warden2026
     networks:
       - exam-network
     restart: unless-stopped
@@ -109,7 +109,7 @@ Once your configuration file is saved, you can start the application and downloa
 
 Once the containers are running:
 - Open your web browser and go to: `http://localhost`
-- You can monitor the exams from the Teacher Dashboard page. (The default password from the config above is **Proctor2026**)
+- You can monitor the exams from the Teacher Dashboard page. (The default password from the config above is **Warden2026**)
 
 ## Step 5: Student Access (LAN Setup)
 

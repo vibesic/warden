@@ -1,6 +1,6 @@
 # Warden
 
-A secure exam proctoring system designed to be deployed on local networks. The teacher runs the application on a local machine interconnected via Wi-Fi/LAN, allowing students to connect their browsers to the teacher's machine. The system monitors students in real-time for internet access violations, connection drops, camera focus, and session bounds.
+A secure exam monitoring system designed to be deployed on local networks. The teacher runs the application on a local machine interconnected via Wi-Fi/LAN, allowing students to connect their browsers to the teacher's machine. The system monitors students in real-time for internet access violations, connection drops, camera focus, and session bounds.
 
 ## Key Features
 

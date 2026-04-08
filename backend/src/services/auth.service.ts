@@ -48,7 +48,7 @@ export const verifyTeacherToken = (token: string): boolean => {
   }
 };
 
-const DEFAULT_PASSWORD = 'Proctor2026!';
+const DEFAULT_PASSWORD = 'Warden2026!';
 let defaultPasswordWarned = false;
 
 export const getTeacherPassword = (): string => {
