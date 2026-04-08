@@ -2,7 +2,7 @@
 
 This guide is for software engineers and contributors who want to modify the source code, test new features, and build their own version of the Warden. 
 
-If you are a teacher or administrator just looking to *run* the app for an exam, please see the [User Setup Guide](USER_SETUP.md) instead!
+If you are a teacher or administrator just looking to *run* the app for an exam, please see the [User Guide](prod/USER_SETUP.md) instead!
 
 ---
 
