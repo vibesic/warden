@@ -16,6 +16,9 @@ export const StudentLogin: React.FC<StudentLoginProps> = ({ onLogin, onSwitchToT
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Detect strictly Google Chrome (excluding Edge, Opera, Safari, Firefox)
+  const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor) && !/Edg/.test(navigator.userAgent) && !/OPR/.test(navigator.userAgent);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!studentId || !name || !sessionCode) return;
@@ -43,6 +46,15 @@ export const StudentLogin: React.FC<StudentLoginProps> = ({ onLogin, onSwitchToT
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md" padding="lg">
         <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">Student Login</h1>
+
+        {!isChrome && (
+          <div className="mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded">
+            <strong>Warning: Unsupported Browser</strong>
+            <p className="mt-1 text-sm">
+              Please use Google Chrome for this exam. Other browsers (like Safari) suspend background tabs and may cause you to be incorrectly marked as offline or disconnected.
+            </p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
