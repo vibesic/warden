@@ -10,7 +10,7 @@ services:
       - uploads_data:/app/uploads
     environment:
       # Database and application settings
-      - DATABASE_URL=file:./data/dev.db?connection_limit=1
+      - DATABASE_URL=file:/app/data/dev.db?connection_limit=1
       - NODE_ENV=production
       - PORT=3333
       - UPLOADS_DIR=/app/uploads
