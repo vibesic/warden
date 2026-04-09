@@ -1,0 +1,19 @@
+node_modules
+npm-debug.log
+test/
+tests/
+dist/
+coverage/
+.env
+.git
+.gitignore
+*.md
+
+# Ignore SQLite databases
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+**/*-journal
+prisma/data/
+prisma/dev.db
+prisma/template.db
