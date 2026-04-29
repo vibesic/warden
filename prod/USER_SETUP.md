@@ -40,7 +40,11 @@ services:
       - uploads_data:/app/uploads
     environment:
       # Database and application settings
-      - DATABASE_URL=file:./data/dev.db?connection_limit=1
+      # Must be an ABSOLUTE path so Prisma writes the DB into the mounted
+      # `backend_data` volume (Prisma resolves relative SQLite paths against
+      # prisma/schema.prisma, not the working directory, which would put the
+      # DB inside the container and lose it on `docker compose down`).
+      - DATABASE_URL=file:/app/data/dev.db?connection_limit=1
       - NODE_ENV=production
       - PORT=3333
       - UPLOADS_DIR=/app/uploads
