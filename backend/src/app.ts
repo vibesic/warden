@@ -45,6 +45,16 @@ if (isProductionMode()) {
   app.use(helmet());
 }
 
+/* ── Private Network Access (PNA) ────────────────────────────── */
+app.use((req, res, next) => {
+  if (req.headers['access-control-request-private-network']) {
+    res.setHeader('Access-Control-Allow-Private-Network', 'true');
+  }
+  // Also set it on the response for direct requests
+  res.setHeader('Access-Control-Allow-Private-Network', 'true');
+  next();
+});
+
 /* ── CORS (using shared callback) ────────────────────────────── */
 app.use(cors({
   origin: corsOriginCallback,

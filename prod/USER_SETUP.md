@@ -121,6 +121,8 @@ To allow students to connect to your exam session:
 1. Ensure your host machine and student devices are connected to the same Local Area Network (Wi-Fi or LAN).
 2. Find your computer's local IP address (e.g., typically `192.168.x.x` or `10.x.x.x`). You can find this out via `ipconfig` (Windows) or `ifconfig` (macOS/Linux).
 3. Have the students open a browser on their devices and go to `http://<YOUR_IP_ADDRESS>`.
+   - **For Mac Users using Google Chrome**: Starting with macOS 15 (Sequoia), macOS blocks third-party browsers from accessing local network IPs by default. If a student sees "Site can't be reached" in Chrome but Safari works, they must go to **System Settings > Privacy & Security > Local Network** and enable **Google Chrome**.
+   - Ensure they explicitly type `http://` before the IP address, as Chrome sometimes attempts `https://` by mistake.
 4. (Remember to update the `VITE_API_URL` environment variable in the `docker-compose.yml` to use your actual IP if students face connection issues, and restart the app).
 
 ## Stopping the Application
