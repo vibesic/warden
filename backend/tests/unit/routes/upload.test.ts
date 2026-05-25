@@ -132,7 +132,7 @@ describe('Upload & Submissions API', () => {
         studentId: 'uuid-1',
       });
       (prisma.submission.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
-        { id: 'old-1', storedName: 'old-stored.txt' },
+        { id: 'old-1', storedName: 'old-stored.txt', createdAt: new Date('2026-02-19T01:00:00Z') },
       ]);
       (prisma.submission.create as ReturnType<typeof vi.fn>).mockResolvedValue({
         id: 'sub-new',
@@ -150,6 +150,10 @@ describe('Upload & Submissions API', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
+      expect(res.body.data.replaced).toEqual({
+        count: 1,
+        previousCreatedAt: '2026-02-19T01:00:00.000Z',
+      });
       expect(prisma.submission.deleteMany).toHaveBeenCalledWith({
         where: { id: { in: ['old-1'] } },
       });

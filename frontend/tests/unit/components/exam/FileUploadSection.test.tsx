@@ -162,7 +162,9 @@ describe('FileUploadSection', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Upload File')).toBeInTheDocument();
+      // After the first upload succeeds, the label becomes "Replace File"
+      // (submissions are unique per student per session).
+      expect(screen.getByText('Replace File')).toBeInTheDocument();
     });
   });
 
@@ -187,20 +189,32 @@ describe('FileUploadSection', () => {
     });
   });
 
-  it('should accumulate multiple uploaded files', async () => {
+  it('should replace the previously uploaded file when a new upload succeeds', async () => {
     const user = userEvent.setup();
 
     mockFetch
       .mockResolvedValueOnce({
         json: () => Promise.resolve({
           success: true,
-          data: { id: 'f1', originalName: 'file1.txt', sizeBytes: 100, createdAt: '2025-01-01T00:00:00Z' },
+          data: {
+            id: 'f1',
+            originalName: 'file1.txt',
+            sizeBytes: 100,
+            createdAt: '2025-01-01T00:00:00Z',
+            replaced: { count: 0, previousCreatedAt: null },
+          },
         }),
       })
       .mockResolvedValueOnce({
         json: () => Promise.resolve({
           success: true,
-          data: { id: 'f2', originalName: 'file2.txt', sizeBytes: 200, createdAt: '2025-01-01T00:01:00Z' },
+          data: {
+            id: 'f2',
+            originalName: 'file2.txt',
+            sizeBytes: 200,
+            createdAt: '2025-01-01T00:01:00Z',
+            replaced: { count: 1, previousCreatedAt: '2025-01-01T00:00:00Z' },
+          },
         }),
       });
 
@@ -216,7 +230,10 @@ describe('FileUploadSection', () => {
     await user.upload(input, new File(['b'], 'file2.txt', { type: 'text/plain' }));
     await waitFor(() => {
       expect(screen.getByText('file2.txt')).toBeInTheDocument();
-      expect(screen.getByText('file1.txt')).toBeInTheDocument();
     });
+
+    // The first file should no longer be visible; submissions are unique.
+    expect(screen.queryByText('file1.txt')).not.toBeInTheDocument();
+    expect(screen.getByText(/replaced previous submission/i)).toBeInTheDocument();
   });
 });

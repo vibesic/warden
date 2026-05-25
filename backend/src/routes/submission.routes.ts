@@ -49,7 +49,7 @@ router.post('/upload', upload.single('file'), asyncHandler(async (req: Request, 
   }
 
   try {
-    const submission = await createSubmission({
+    const { submission, replaced } = await createSubmission({
       sessionStudentId: sessionStudent.id,
       sessionId: session.id,
       originalName: file.originalname,
@@ -65,6 +65,7 @@ router.post('/upload', upload.single('file'), asyncHandler(async (req: Request, 
         originalName: submission.originalName,
         sizeBytes: submission.sizeBytes,
         createdAt: submission.createdAt.toISOString(),
+        replaced,
       },
     });
   } catch (error) {
@@ -123,7 +124,11 @@ router.get('/submissions/:sessionCode/download-all', requireTeacherAuth, require
   res.setHeader('Content-Type', 'application/zip');
   res.setHeader('Content-Disposition', `attachment; filename="${zipFilename}"`);
 
-  const archive = archiver('zip', { zlib: { level: 9 } });
+  // Use a low compression level (1) so the teacher gets the archive quickly
+  // on a LAN. Most student submissions are already-compressed formats
+  // (pdf, docx, images, zips) where deflate level 9 buys little but costs
+  // significant CPU time and stalls the response on large sessions.
+  const archive = archiver('zip', { zlib: { level: 1 } });
 
   archive.on('warning', (err) => {
     logger.warn({ err }, 'Archive warning');

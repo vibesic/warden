@@ -8,11 +8,12 @@ interface UploadedFile {
   originalName: string;
   sizeBytes: number;
   createdAt: string;
+  replaced?: { count: number; previousCreatedAt: string | null };
 }
 
 export const FileUploadSection: React.FC = React.memo(() => {
   const { sessionCode, studentId } = useExamSession();
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -41,7 +42,9 @@ export const FileUploadSection: React.FC = React.memo(() => {
 
       const data = await res.json();
       if (data.success) {
-        setUploadedFiles((prev) => [data.data, ...prev]);
+        // Submissions are unique per student per session: the latest upload
+        // replaces any previous one, so the local list mirrors that.
+        setUploadedFile(data.data);
       } else {
         setUploadError(data.message || 'Upload failed');
       }
@@ -50,6 +53,15 @@ export const FileUploadSection: React.FC = React.memo(() => {
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const formatPreviousTime = (iso: string | null): string => {
+    if (!iso) return '';
+    try {
+      return new Date(iso).toLocaleTimeString();
+    } catch {
+      return '';
     }
   };
 
@@ -67,19 +79,25 @@ export const FileUploadSection: React.FC = React.memo(() => {
         className={`block w-full text-center px-6 py-3 bg-white text-green-700 font-bold rounded-lg cursor-pointer hover:bg-gray-100 transition-colors ${uploading ? 'opacity-50 pointer-events-none' : ''
           }`}
       >
-        {uploading ? 'Uploading...' : 'Upload File'}
+        {uploading ? 'Uploading...' : uploadedFile ? 'Replace File' : 'Upload File'}
       </label>
       {uploadError && (
         <p className="text-red-200 text-xs text-center mt-2">{uploadError}</p>
       )}
-      {uploadedFiles.length > 0 && (
+      {uploadedFile && (
         <div className="mt-3 space-y-1">
-          {uploadedFiles.map((f) => (
-            <div key={f.id} className="flex items-center justify-between bg-white/10 rounded px-3 py-1.5 text-xs">
-              <span className="truncate mr-2">{f.originalName}</span>
-              <span className="text-white/60 whitespace-nowrap">{formatFileSize(f.sizeBytes)}</span>
-            </div>
-          ))}
+          <div className="flex items-center justify-between bg-white/10 rounded px-3 py-1.5 text-xs">
+            <span className="truncate mr-2">{uploadedFile.originalName}</span>
+            <span className="text-white/60 whitespace-nowrap">{formatFileSize(uploadedFile.sizeBytes)}</span>
+          </div>
+          {uploadedFile.replaced && uploadedFile.replaced.count > 0 && (
+            <p className="text-white/70 text-xs text-center">
+              Replaced previous submission
+              {uploadedFile.replaced.previousCreatedAt
+                ? ` from ${formatPreviousTime(uploadedFile.replaced.previousCreatedAt)}`
+                : ''}
+            </p>
+          )}
         </div>
       )}
     </div>
