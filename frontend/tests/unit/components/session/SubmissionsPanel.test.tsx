@@ -91,4 +91,32 @@ describe('SubmissionsPanel', () => {
     expect(onDownload).toHaveBeenCalledTimes(1);
     expect(onDownload).toHaveBeenCalledWith('stored-1.pdf');
   });
+
+  it('should disable the Download all button and show preparing label when isDownloadingAll is true', () => {
+    render(
+      <SubmissionsPanel
+        submissions={[baseSubmission]}
+        onDownload={vi.fn()}
+        onDownloadAll={vi.fn()}
+        isDownloadingAll
+      />,
+    );
+
+    const button = screen.getByRole('button', { name: /preparing zip/i });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('aria-busy', 'true');
+  });
+
+  it('should render downloadAllError when provided', () => {
+    render(
+      <SubmissionsPanel
+        submissions={[baseSubmission]}
+        onDownload={vi.fn()}
+        onDownloadAll={vi.fn()}
+        downloadAllError="No submissions to download"
+      />,
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/no submissions to download/i);
+  });
 });

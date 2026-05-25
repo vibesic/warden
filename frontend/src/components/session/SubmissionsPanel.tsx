@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
 import { Card } from '../common/Card';
 import { Table } from '../common/Table';
 import { formatFileSize } from '../../utils/format';
@@ -9,12 +9,16 @@ interface SubmissionsPanelProps {
   submissions: SubmissionItem[];
   onDownload: (storedName: string) => void;
   onDownloadAll: () => void;
+  isDownloadingAll?: boolean;
+  downloadAllError?: string | null;
 }
 
 export const SubmissionsPanel: React.FC<SubmissionsPanelProps> = React.memo(({
   submissions,
   onDownload,
   onDownloadAll,
+  isDownloadingAll = false,
+  downloadAllError = null,
 }) => {
   const columns = React.useMemo(() => [
     {
@@ -70,15 +74,22 @@ export const SubmissionsPanel: React.FC<SubmissionsPanelProps> = React.memo(({
         <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide">
           Student Submissions ({submissions.length})
         </h2>
-        <button
-          type="button"
-          onClick={onDownloadAll}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors"
-          title="Download all submissions as ZIP"
-        >
-          <Download size={14} />
-          Download all
-        </button>
+        <div className="flex items-center gap-3">
+          {downloadAllError && (
+            <span className="text-xs text-red-600" role="alert">{downloadAllError}</span>
+          )}
+          <button
+            type="button"
+            onClick={onDownloadAll}
+            disabled={isDownloadingAll}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            title="Download all submissions as ZIP"
+            aria-busy={isDownloadingAll}
+          >
+            {isDownloadingAll ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+            {isDownloadingAll ? 'Preparing ZIP...' : 'Download all'}
+          </button>
+        </div>
       </div>
       <Card className="border-gray-200 overflow-hidden" padding="none">
         <Table
