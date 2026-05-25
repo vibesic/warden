@@ -20,7 +20,7 @@ export const SessionDetail: React.FC = () => {
     const { isConnected, students, activeSession, isAuthError, serverTimeOffset, endSession } = useTeacherSocket(sessionCode);
     const { formatElapsedTime, formatRemainingTime, getRemainingMs } = useSessionTimer(serverTimeOffset);
     const { questionFiles, questionUploading, questionUploadError, handleQuestionUpload, handleQuestionDelete, handleQuestionDownload } = useQuestionFiles(sessionCode || '');
-    const { submissions, handleDownload: handleSubmissionDownload } = useSubmissions(sessionCode);
+    const { submissions, handleDownload: handleSubmissionDownload, handleDownloadAll: handleSubmissionDownloadAll } = useSubmissions(sessionCode);
 
     const [selectedStudent, setSelectedStudent] = useState<{ name: string; violations: Violation[] } | null>(null);
     const [showEndSessionModal, setShowEndSessionModal] = useState(false);
@@ -142,6 +142,7 @@ export const SessionDetail: React.FC = () => {
                 <SubmissionsPanel
                     submissions={submissions}
                     onDownload={handleSubmissionDownload}
+                    onDownloadAll={handleSubmissionDownloadAll}
                 />
 
                 <ViolationLogModal

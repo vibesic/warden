@@ -8,11 +8,13 @@ import type { SubmissionItem } from '../../hooks/useSubmissions';
 interface SubmissionsPanelProps {
   submissions: SubmissionItem[];
   onDownload: (storedName: string) => void;
+  onDownloadAll: () => void;
 }
 
 export const SubmissionsPanel: React.FC<SubmissionsPanelProps> = React.memo(({
   submissions,
   onDownload,
+  onDownloadAll,
 }) => {
   const columns = React.useMemo(() => [
     {
@@ -64,9 +66,20 @@ export const SubmissionsPanel: React.FC<SubmissionsPanelProps> = React.memo(({
 
   return (
     <section className="mt-8">
-      <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4 pl-6">
-        Student Submissions ({submissions.length})
-      </h2>
+      <div className="flex items-center justify-between mb-4 pl-6 pr-2 gap-3 flex-wrap">
+        <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide">
+          Student Submissions ({submissions.length})
+        </h2>
+        <button
+          type="button"
+          onClick={onDownloadAll}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors"
+          title="Download all submissions as ZIP"
+        >
+          <Download size={14} />
+          Download all
+        </button>
+      </div>
       <Card className="border-gray-200 overflow-hidden" padding="none">
         <Table
           data={submissions}

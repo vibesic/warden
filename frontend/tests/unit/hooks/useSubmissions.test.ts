@@ -80,7 +80,7 @@ describe('useSubmissions', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1);
     });
-    
+
     expect(mockFetch).toHaveBeenCalledTimes(1);
 
     // Advance timer for the poll
@@ -105,5 +105,42 @@ describe('useSubmissions', () => {
     await vi.waitFor(() => {
       expect(result.current.submissions).toEqual([]);
     });
+  });
+
+  it('should open download-all window with token query param', async () => {
+    vi.useRealTimers();
+    mockFetch.mockResolvedValueOnce({
+      json: () => Promise.resolve({ success: true, data: [] }),
+    });
+
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const { result } = renderHook(() => useSubmissions('ABC123'));
+
+    await vi.waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    act(() => {
+      result.current.handleDownloadAll();
+    });
+
+    expect(openSpy).toHaveBeenCalledWith(
+      expect.stringMatching(/\/api\/submissions\/ABC123\/download-all\?token=test-token$/),
+      '_blank',
+    );
+
+    openSpy.mockRestore();
+  });
+
+  it('should not open download-all window when sessionCode is undefined', () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const { result } = renderHook(() => useSubmissions(undefined));
+
+    act(() => {
+      result.current.handleDownloadAll();
+    });
+
+    expect(openSpy).not.toHaveBeenCalled();
+    openSpy.mockRestore();
   });
 });

@@ -15,6 +15,7 @@ export interface SubmissionItem {
 interface UseSubmissionsResult {
   submissions: SubmissionItem[];
   handleDownload: (storedName: string) => void;
+  handleDownloadAll: () => void;
 }
 
 export const useSubmissions = (sessionCode: string | undefined, pollIntervalMs: number = SUBMISSION_POLL_INTERVAL_MS): UseSubmissionsResult => {
@@ -41,11 +42,11 @@ export const useSubmissions = (sessionCode: string | undefined, pollIntervalMs: 
   useEffect(() => {
     const controller = new AbortController();
     fetchSubmissions(controller.signal);
-    
+
     const interval = setInterval(() => {
       fetchSubmissions();
     }, pollIntervalMs);
-    
+
     return () => {
       controller.abort();
       clearInterval(interval);
@@ -57,5 +58,11 @@ export const useSubmissions = (sessionCode: string | undefined, pollIntervalMs: 
     window.open(`${API_BASE_URL}/api/submissions/${sessionCode}/download/${storedName}?token=${token}`, '_blank');
   }, [sessionCode]);
 
-  return { submissions, handleDownload };
+  const handleDownloadAll = useCallback(() => {
+    if (!sessionCode) return;
+    const token = sessionStorage.getItem('teacherToken') || '';
+    window.open(`${API_BASE_URL}/api/submissions/${sessionCode}/download-all?token=${token}`, '_blank');
+  }, [sessionCode]);
+
+  return { submissions, handleDownload, handleDownloadAll };
 };

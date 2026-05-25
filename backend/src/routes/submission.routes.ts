@@ -4,6 +4,8 @@
  */
 import { Router, Request, Response } from 'express';
 import path from 'path';
+import fs from 'fs';
+import archiver from 'archiver';
 import { createUploadMiddleware } from '../utils/upload';
 import { getSessionByCode } from '../services/session.service';
 import { createSubmission, getSubmissionsForSession, findSubmissionByStoredName } from '../services/submission.service';
@@ -11,7 +13,8 @@ import { findSessionStudentByStudentId } from '../services/student.service';
 import { requireTeacherAuth } from '../middleware/authMiddleware';
 import { requireSession } from '../middleware/sessionMiddleware';
 import { asyncHandler } from '../utils/asyncHandler';
-import { serveFileDownload, deleteUploadedFile } from '../utils/fileHelpers';
+import { serveFileDownload, deleteUploadedFile, getSecureFilePath } from '../utils/fileHelpers';
+import { logger } from '../utils/logger';
 
 const upload = createUploadMiddleware();
 
@@ -103,5 +106,64 @@ router.get('/submissions/:sessionCode/download/:storedName', requireTeacherAuth,
 
   serveFileDownload(safeName, submission.originalName, res);
 }, 'Error downloading file'));
+
+/** Teacher downloads all submissions for a session as a ZIP archive. */
+router.get('/submissions/:sessionCode/download-all', requireTeacherAuth, requireSession('sessionCode'), asyncHandler(async (_req: Request, res: Response): Promise<void> => {
+  const session = res.locals.session;
+  const submissions = await getSubmissionsForSession(session.id);
+
+  if (submissions.length === 0) {
+    res.status(404).json({ success: false, message: 'No submissions to download' });
+    return;
+  }
+
+  const sanitize = (value: string): string => value.replace(/[^a-zA-Z0-9._-]+/g, '_');
+  const zipFilename = `submissions_${sanitize(session.sessionCode || session.id)}.zip`;
+
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="${zipFilename}"`);
+
+  const archive = archiver('zip', { zlib: { level: 9 } });
+
+  archive.on('warning', (err) => {
+    logger.warn({ err }, 'Archive warning');
+  });
+
+  archive.on('error', (err) => {
+    logger.error({ err }, 'Archive error');
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Error creating archive' });
+    } else {
+      res.destroy(err);
+    }
+  });
+
+  archive.pipe(res);
+
+  const usedNames = new Set<string>();
+  for (const submission of submissions) {
+    const filePath = getSecureFilePath(submission.storedName);
+    if (!fs.existsSync(filePath)) {
+      logger.warn({ storedName: submission.storedName }, 'Submission file missing on disk; skipping');
+      continue;
+    }
+
+    const studentId = sanitize(submission.sessionStudent.student.studentId);
+    const ext = path.extname(submission.originalName);
+    const baseName = path.basename(submission.originalName, ext);
+    let entryName = `${studentId}_${sanitize(baseName)}${ext}`;
+
+    let counter = 1;
+    while (usedNames.has(entryName)) {
+      entryName = `${studentId}_${sanitize(baseName)}_${counter}${ext}`;
+      counter += 1;
+    }
+    usedNames.add(entryName);
+
+    archive.file(filePath, { name: entryName });
+  }
+
+  await archive.finalize();
+}, 'Error downloading all submissions'));
 
 export { router as submissionRoutes };
