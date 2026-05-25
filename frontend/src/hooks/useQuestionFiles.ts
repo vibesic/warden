@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
-import { API_BASE_URL } from '../config/api';
+import { apiRoutes, authHeaders } from '../config/apiRoutes';
+import { isAbortError } from '../utils/fetchErrors';
 import type { QuestionFileItem } from '../types/exam';
 
 interface UseQuestionFilesResult {
@@ -20,15 +21,15 @@ export const useQuestionFiles = (sessionCode: string): UseQuestionFilesResult =>
   const fetchQuestionFiles = useCallback(async (signal?: AbortSignal) => {
     if (!sessionCode) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/session/${sessionCode}/questions`, {
+      const res = await fetch(apiRoutes.sessionQuestions(sessionCode), {
         signal
       });
       const data = await res.json();
       if (data.success) {
         setQuestionFiles(data.data);
       }
-    } catch (error: any) {
-      if (error.name === 'AbortError') return;
+    } catch (error) {
+      if (isAbortError(error)) return;
       // Silently fail
     }
   }, [sessionCode]);
@@ -48,12 +49,9 @@ export const useQuestionFiles = (sessionCode: string): UseQuestionFilesResult =>
       const formData = new FormData();
       formData.append('file', file);
 
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const res = await fetch(`${API_BASE_URL}/api/session/${sessionCode}/questions`, {
+      const res = await fetch(apiRoutes.sessionQuestions(sessionCode), {
         method: 'POST',
-        headers,
+        headers: authHeaders(token),
         body: formData,
       });
 
@@ -73,12 +71,9 @@ export const useQuestionFiles = (sessionCode: string): UseQuestionFilesResult =>
   const handleQuestionDelete = useCallback(async (fileId: string, token?: string) => {
     if (!sessionCode) return;
     try {
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const res = await fetch(`${API_BASE_URL}/api/session/${sessionCode}/questions/${fileId}`, {
+      const res = await fetch(apiRoutes.sessionQuestion(sessionCode, fileId), {
         method: 'DELETE',
-        headers,
+        headers: authHeaders(token),
       });
       const data = await res.json();
       if (data.success) {
@@ -90,7 +85,7 @@ export const useQuestionFiles = (sessionCode: string): UseQuestionFilesResult =>
   }, [sessionCode]);
 
   const handleQuestionDownload = useCallback((fileId: string) => {
-    window.open(`${API_BASE_URL}/api/session/${sessionCode}/questions/${fileId}/download`, '_blank');
+    window.open(apiRoutes.sessionQuestionDownload(sessionCode, fileId), '_blank');
   }, [sessionCode]);
 
   return {

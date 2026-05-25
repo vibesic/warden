@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
-import { API_BASE_URL } from '../config/api';
+import { apiRoutes, teacherAuthHeaders } from '../config/apiRoutes';
 import { SUBMISSION_POLL_INTERVAL_MS } from '../config/constants';
+import { extractFetchErrorMessage, isAbortError } from '../utils/fetchErrors';
 
 export interface SubmissionItem {
   id: string;
@@ -28,17 +29,16 @@ export const useSubmissions = (sessionCode: string | undefined, pollIntervalMs: 
   const fetchSubmissions = useCallback(async (signal?: AbortSignal) => {
     if (!sessionCode) return;
     try {
-      const token = sessionStorage.getItem('teacherToken') || '';
-      const res = await fetch(`${API_BASE_URL}/api/submissions/${sessionCode}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        signal
+      const res = await fetch(apiRoutes.submissionsList(sessionCode), {
+        headers: teacherAuthHeaders(),
+        signal,
       });
       const data = await res.json();
       if (data.success) {
         setSubmissions(data.data);
       }
-    } catch (error: any) {
-      if (error.name === 'AbortError') return;
+    } catch (error) {
+      if (isAbortError(error)) return;
       // Silently fail — submissions are supplementary
     }
   }, [sessionCode]);
@@ -58,8 +58,9 @@ export const useSubmissions = (sessionCode: string | undefined, pollIntervalMs: 
   }, [fetchSubmissions, pollIntervalMs]);
 
   const handleDownload = useCallback((storedName: string) => {
+    if (!sessionCode) return;
     const token = sessionStorage.getItem('teacherToken') || '';
-    window.open(`${API_BASE_URL}/api/submissions/${sessionCode}/download/${storedName}?token=${token}`, '_blank');
+    window.open(apiRoutes.submissionDownload(sessionCode, storedName, token), '_blank');
   }, [sessionCode]);
 
   const handleDownloadAll = useCallback(async (): Promise<void> => {
@@ -67,19 +68,11 @@ export const useSubmissions = (sessionCode: string | undefined, pollIntervalMs: 
     setIsDownloadingAll(true);
     setDownloadAllError(null);
     try {
-      const token = sessionStorage.getItem('teacherToken') || '';
-      const res = await fetch(
-        `${API_BASE_URL}/api/submissions/${sessionCode}/download-all`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      const res = await fetch(apiRoutes.submissionsDownloadAll(sessionCode), {
+        headers: teacherAuthHeaders(),
+      });
       if (!res.ok) {
-        let message = 'Download failed';
-        try {
-          const body = await res.json();
-          if (body && typeof body.message === 'string') message = body.message;
-        } catch {
-          // body might not be JSON; keep default message
-        }
+        const message = await extractFetchErrorMessage(res, 'Download failed');
         throw new Error(message);
       }
 

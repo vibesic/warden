@@ -1,6 +1,6 @@
 import React, { Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, Outlet } from 'react-router-dom';
-import { API_BASE_URL } from './config/api';
+import { apiRoutes, authHeaders } from './config/apiRoutes';
 
 const SecureExamMonitor = React.lazy(() =>
     import('./components/SecureExamMonitor').then(m => ({ default: m.SecureExamMonitor }))
@@ -96,8 +96,8 @@ const TeacherRoute = () => {
 
         const abortController = new AbortController();
 
-        fetch(`${API_BASE_URL}/api/auth/verify`, {
-            headers: { Authorization: `Bearer ${token}` },
+        fetch(apiRoutes.authVerify(), {
+            headers: authHeaders(token),
             signal: abortController.signal,
         })
             .then(res => {
