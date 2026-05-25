@@ -8,6 +8,7 @@
  */
 import { Request, Response, NextFunction } from 'express';
 import { getSessionByCode } from '../services/session.service';
+import { sendErrorJson } from '../utils/httpResponses';
 import { logger } from '../utils/logger';
 
 interface SessionRecord {
@@ -30,18 +31,18 @@ export const requireActiveSession = (paramName = 'code') => {
     try {
       const code = req.params[paramName];
       if (!code) {
-        res.status(400).json({ success: false, message: 'Session code is required' });
+        sendErrorJson(res, 400, 'Session code is required');
         return;
       }
 
       const session = await getSessionByCode(code) as SessionRecord | null;
       if (!session) {
-        res.status(404).json({ success: false, message: 'Session not found' });
+        sendErrorJson(res, 404, 'Session not found');
         return;
       }
 
       if (!session.isActive) {
-        res.status(400).json({ success: false, message: 'Session is no longer active' });
+        sendErrorJson(res, 400, 'Session is no longer active');
         return;
       }
 
@@ -63,13 +64,13 @@ export const requireSession = (paramName = 'code') => {
     try {
       const code = req.params[paramName];
       if (!code) {
-        res.status(400).json({ success: false, message: 'Session code is required' });
+        sendErrorJson(res, 400, 'Session code is required');
         return;
       }
 
       const session = await getSessionByCode(code) as SessionRecord | null;
       if (!session) {
-        res.status(404).json({ success: false, message: 'Session not found' });
+        sendErrorJson(res, 404, 'Session not found');
         return;
       }
 

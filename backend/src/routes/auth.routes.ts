@@ -7,6 +7,7 @@ import { Router, Request, Response } from 'express';
 import { TeacherLoginSchema } from '../types/auth';
 import { generateTeacherToken, getTeacherPassword, verifyTeacherToken } from '../services/auth.service';
 import { authRateLimiter } from '../middleware/rateLimiter';
+import { sendErrorJson } from '../utils/httpResponses';
 
 const router = Router();
 
@@ -14,7 +15,7 @@ const router = Router();
 router.post('/auth/teacher', authRateLimiter, (req: Request, res: Response): void => {
   const result = TeacherLoginSchema.safeParse(req.body);
   if (!result.success) {
-    res.status(400).json({ success: false, message: 'Password is required' });
+    sendErrorJson(res, 400, 'Password is required');
     return;
   }
 
@@ -25,7 +26,7 @@ router.post('/auth/teacher', authRateLimiter, (req: Request, res: Response): voi
     password.length !== teacherPassword.length ||
     !crypto.timingSafeEqual(Buffer.from(password), Buffer.from(teacherPassword))
   ) {
-    res.status(401).json({ success: false, message: 'Invalid password' });
+    sendErrorJson(res, 401, 'Invalid password');
     return;
   }
 
@@ -37,7 +38,7 @@ router.post('/auth/teacher', authRateLimiter, (req: Request, res: Response): voi
 router.get('/auth/verify', (req: Request, res: Response): void => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token || !verifyTeacherToken(token)) {
-    res.status(401).json({ success: false, message: 'Invalid or expired token' });
+    sendErrorJson(res, 401, 'Invalid or expired token');
     return;
   }
   res.json({ success: true });

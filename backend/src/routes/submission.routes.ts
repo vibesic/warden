@@ -14,6 +14,7 @@ import { requireTeacherAuth } from '../middleware/authMiddleware';
 import { requireSession } from '../middleware/sessionMiddleware';
 import { asyncHandler } from '../utils/asyncHandler';
 import { serveFileDownload, deleteUploadedFile, getSecureFilePath } from '../utils/fileHelpers';
+import { sendErrorJson } from '../utils/httpResponses';
 import { logger } from '../utils/logger';
 
 const upload = createUploadMiddleware();
@@ -22,7 +23,7 @@ const router = Router();
 
 const handleUploadError = (res: Response, file: Express.Multer.File | undefined, message: string) => {
   if (file) deleteUploadedFile(file.filename);
-  res.status(400).json({ success: false, message });
+  sendErrorJson(res, 400, message);
 };
 
 /** Student uploads a file. */
@@ -101,7 +102,7 @@ router.get('/submissions/:sessionCode/download/:storedName', requireTeacherAuth,
   const submission = await findSubmissionByStoredName(safeName, session.id);
 
   if (!submission) {
-    res.status(404).json({ success: false, message: 'File not found' });
+    sendErrorJson(res, 404, 'File not found');
     return;
   }
 
@@ -114,7 +115,7 @@ router.get('/submissions/:sessionCode/download-all', requireTeacherAuth, require
   const submissions = await getSubmissionsForSession(session.id);
 
   if (submissions.length === 0) {
-    res.status(404).json({ success: false, message: 'No submissions to download' });
+    sendErrorJson(res, 404, 'No submissions to download');
     return;
   }
 
@@ -137,7 +138,7 @@ router.get('/submissions/:sessionCode/download-all', requireTeacherAuth, require
   archive.on('error', (err) => {
     logger.error({ err }, 'Archive error');
     if (!res.headersSent) {
-      res.status(500).json({ success: false, message: 'Error creating archive' });
+      sendErrorJson(res, 500, 'Error creating archive');
     } else {
       res.destroy(err);
     }

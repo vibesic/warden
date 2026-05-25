@@ -14,6 +14,7 @@ import { requireTeacherAuth } from '../middleware/authMiddleware';
 import { requireActiveSession, requireSession } from '../middleware/sessionMiddleware';
 import { asyncHandler } from '../utils/asyncHandler';
 import { serveFileDownload, deleteUploadedFile } from '../utils/fileHelpers';
+import { sendErrorJson } from '../utils/httpResponses';
 
 const upload = createUploadMiddleware('q-');
 
@@ -30,7 +31,7 @@ router.post(
     const session = res.locals.session;
 
     if (!file) {
-      res.status(400).json({ success: false, message: 'No file provided' });
+      sendErrorJson(res, 400, 'No file provided');
       return;
     }
 
@@ -87,7 +88,7 @@ router.get(
     const session = res.locals.session;
     const questionFile = await getQuestionFileById(req.params.id);
     if (!questionFile || questionFile.sessionId !== session.id) {
-      res.status(404).json({ success: false, message: 'File not found' });
+      sendErrorJson(res, 404, 'File not found');
       return;
     }
 
@@ -104,7 +105,7 @@ router.delete(
     const session = res.locals.session;
     const questionFile = await getQuestionFileById(req.params.id);
     if (!questionFile || questionFile.sessionId !== session.id) {
-      res.status(404).json({ success: false, message: 'File not found' });
+      sendErrorJson(res, 404, 'File not found');
       return;
     }
 

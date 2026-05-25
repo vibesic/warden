@@ -5,6 +5,7 @@
  */
 import { Request, Response, NextFunction } from 'express';
 import { verifyTeacherToken } from '../services/auth.service';
+import { sendErrorJson } from '../utils/httpResponses';
 
 /**
  * Reject requests without a valid teacher Bearer token.
@@ -19,7 +20,7 @@ export const requireTeacherAuth = (
     (req.query.token as string | undefined);
 
   if (!token || !verifyTeacherToken(token)) {
-    res.status(401).json({ success: false, message: 'Unauthorized' });
+    sendErrorJson(res, 401, 'Unauthorized');
     return;
   }
   next();
