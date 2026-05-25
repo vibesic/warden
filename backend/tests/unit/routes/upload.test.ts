@@ -5,32 +5,39 @@ import { prisma } from '@src/utils/prisma';
 import { generateTeacherToken } from '@src/services/auth.service';
 
 // Mock prisma
-vi.mock('@src/utils/prisma', () => ({
-  prisma: {
-    checkTarget: {
-      count: vi.fn().mockResolvedValue(5),
-      createMany: vi.fn(),
+vi.mock('@src/utils/prisma', () => {
+  const submissionMock = {
+    create: vi.fn(),
+    findMany: vi.fn().mockResolvedValue([]),
+    findFirst: vi.fn(),
+    deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+  };
+  return {
+    prisma: {
+      checkTarget: {
+        count: vi.fn().mockResolvedValue(5),
+        createMany: vi.fn(),
+      },
+      session: {
+        findUnique: vi.fn(),
+        findFirst: vi.fn(),
+      },
+      sessionStudent: {
+        findFirst: vi.fn(),
+      },
+      submission: submissionMock,
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      $transaction: vi.fn(async (callback) => callback({ submission: submissionMock })),
     },
-    session: {
-      findUnique: vi.fn(),
-      findFirst: vi.fn(),
-    },
-    sessionStudent: {
-      findFirst: vi.fn(),
-    },
-    submission: {
-      create: vi.fn(),
-      findMany: vi.fn(),
-      findFirst: vi.fn(),
-    },
-    $queryRaw: vi.fn().mockResolvedValue([]),
-  },
-}));
+  };
+});
 
 describe('Upload & Submissions API', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (prisma.checkTarget.count as ReturnType<typeof vi.fn>).mockResolvedValue(5);
+    (prisma.submission.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.submission.deleteMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 0 });
   });
 
   describe('POST /api/upload', () => {
@@ -112,6 +119,41 @@ describe('Upload & Submissions API', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.originalName).toBe('test.txt');
+    });
+
+    it('should overwrite a previous submission from the same student', async () => {
+      (prisma.session.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 'sess-1',
+        code: '123456',
+        isActive: true,
+      });
+      (prisma.sessionStudent.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 'ss-1',
+        studentId: 'uuid-1',
+      });
+      (prisma.submission.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { id: 'old-1', storedName: 'old-stored.txt' },
+      ]);
+      (prisma.submission.create as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 'sub-new',
+        originalName: 'replacement.txt',
+        storedName: 'new-stored.txt',
+        sizeBytes: 20,
+        createdAt: new Date('2026-02-19T02:00:00Z'),
+      });
+
+      const res = await request(app)
+        .post('/api/upload')
+        .field('sessionCode', '123456')
+        .field('studentId', 'stu1')
+        .attach('file', Buffer.from('replacement'), 'replacement.txt');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(prisma.submission.deleteMany).toHaveBeenCalledWith({
+        where: { id: { in: ['old-1'] } },
+      });
+      expect(prisma.submission.create).toHaveBeenCalledTimes(1);
     });
   });
 
