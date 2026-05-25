@@ -11,7 +11,12 @@ import { Server, Socket } from 'socket.io';
 import { logger } from '../utils/logger';
 import { createViolation, getLatestDisconnectionTime } from '../services/violation.service';
 import { verifyTeacherToken } from '../services/auth.service';
+import { getSessionByCode } from '../services/session.service';
+import { validateData } from '../utils/validation';
+import { checkSocketRateLimit } from './socketRateLimiter';
 import { DISCONNECTION_COOLDOWN_MS } from './constants';
+import { roomNames } from './roomNames';
+import type { ZodSchema } from 'zod';
 import type { ViolationType, ViolationReason } from '../types/schemas';
 
 /**
@@ -108,7 +113,7 @@ export const createAndBroadcastViolation = async (
 
   const violation = await createViolation(params);
 
-  io.to(`teacher:session:${sessionCode}`).emit('dashboard:alert', {
+  io.to(roomNames.teacherSession(sessionCode)).emit('dashboard:alert', {
     studentId,
     violation: {
       ...violation,
@@ -125,7 +130,7 @@ export const broadcastStudentLeft = (
   sessionCode: string,
   studentId: string,
 ): void => {
-  io.to(`teacher:session:${sessionCode}`).emit('dashboard:update', {
+  io.to(roomNames.teacherSession(sessionCode)).emit('dashboard:update', {
     type: 'STUDENT_LEFT',
     studentId,
   });
@@ -205,4 +210,71 @@ export const emitUnauthorized = (socket: Socket): void => {
   socket.emit('dashboard:error', {
     message: 'Unauthorized: invalid or missing teacher token',
   });
+};
+
+/**
+ * Options for {@link withStudentEvent}.
+ */
+interface StudentEventOptions<TSchema> {
+  /** Rate-limit bucket key (matches the socket event name by convention). */
+  event: string;
+  /** Optional Zod schema to validate the event payload. */
+  schema?: ZodSchema<TSchema>;
+  /** Human-readable label used when validation fails. */
+  invalidDataLabel?: string;
+  /**
+   * If true (default), verify that the student's session is still active
+   * before invoking the handler. Disable for events that should fire
+   * regardless of session state (e.g. tab-close signals).
+   */
+  requireActiveSession?: boolean;
+}
+
+interface StudentEventContext<T> {
+  socket: Socket;
+  data: T;
+  studentData: SocketStudentData;
+}
+
+/**
+ * Wrap a student socket event handler with the standard guard chain:
+ * rate limit → payload validation → student data lookup → session check.
+ *
+ * Bails out silently if any guard fails. Errors thrown by the handler are
+ * caught and logged so a single bad event cannot tear down the socket.
+ *
+ * Usage:
+ *   socket.on('heartbeat', withStudentEvent(socket, { event: 'heartbeat' },
+ *     async ({ studentData }) => { ... }));
+ */
+export const withStudentEvent = <T = void>(
+  socket: Socket,
+  options: StudentEventOptions<T>,
+  handler: (ctx: StudentEventContext<T>) => Promise<void>,
+) => async (rawData?: unknown): Promise<void> => {
+  if (!checkSocketRateLimit(socket, options.event)) return;
+  try {
+    let payload: T = undefined as T;
+    if (options.schema) {
+      const validated = validateData(
+        options.schema,
+        rawData,
+        options.invalidDataLabel ?? `Invalid ${options.event} data`,
+      );
+      if (!validated) return;
+      payload = validated;
+    }
+
+    const studentData = getSocketStudentData(socket);
+    if (!studentData) return;
+
+    if (options.requireActiveSession !== false) {
+      const session = await getSessionByCode(studentData.sessionCode);
+      if (!session?.isActive) return;
+    }
+
+    await handler({ socket, data: payload, studentData });
+  } catch (error) {
+    logger.error({ error, event: options.event }, 'Student socket handler error');
+  }
 };

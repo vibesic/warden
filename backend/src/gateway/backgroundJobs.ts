@@ -4,6 +4,7 @@ import { findDeadHeartbeats, markStudentOffline } from '../services/student.serv
 import { getRandomCheckTarget } from '../services/violation.service';
 import { getExpiredSessions, endSessionById } from '../services/session.service';
 import { createAndBroadcastViolation, broadcastStudentLeft } from './helpers';
+import { roomNames } from './roomNames';
 import {
   HEARTBEAT_CHECK_INTERVAL_MS,
   HEARTBEAT_DEAD_THRESHOLD_MS,
@@ -118,7 +119,7 @@ export const startTimerChecker = (io: Server): NodeJS.Timeout => {
 
         const ended = await endSessionById(session.id);
 
-        io.to(`session:${session.code}`).emit('session:ended', {
+        io.to(roomNames.session(session.code)).emit('session:ended', {
           message: 'Exam time is up. The session has ended automatically.',
         });
 
