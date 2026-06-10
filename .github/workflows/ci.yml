@@ -1,0 +1,36 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js 20
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    # 1. Install dependencies across the monorepo
+    - name: Install Dependencies
+      run: npm install
+
+    # 2. Run Backend and Frontend Tests
+    - name: Run All Tests
+      run: |
+        cd backend && npx prisma generate
+        cd ..
+        npm run test
+
+    # 3. Build Production Images (Validating the prod build)
+    - name: Build Production Images
+      run: npm run docker:build
