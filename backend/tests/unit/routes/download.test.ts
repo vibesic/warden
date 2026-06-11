@@ -72,6 +72,7 @@ describe('Download API', () => {
         originalName: 'homework.pdf',
         storedName: testFileName,
         sessionId: mockSession.id,
+        sessionStudent: { student: { studentId: 'S010', name: 'Frank' } },
       });
 
       const res = await request(app)
@@ -92,20 +93,35 @@ describe('Download API', () => {
       expect(res.body.message).toBe('File not found');
     });
 
-    it('should download file with original name from DB', async () => {
+    it('should download file as a ZIP with per-student folder', async () => {
       const token = generateTeacherToken();
       (prisma.submission.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
         originalName: 'homework.pdf',
         storedName: testFileName,
         sessionId: mockSession.id,
+        sessionStudent: { student: { studentId: 'S005', name: 'Eve' } },
       });
 
       const res = await request(app)
         .get(`/api/submissions/123456/download/${testFileName}`)
-        .set('Authorization', `Bearer ${token}`);
+        .set('Authorization', `Bearer ${token}`)
+        .buffer(true)
+        .parse((response, cb) => {
+          const chunks: Buffer[] = [];
+          response.on('data', (c: Buffer) => chunks.push(c));
+          response.on('end', () => cb(null, Buffer.concat(chunks)));
+        });
 
       expect(res.status).toBe(200);
-      expect(res.headers['content-disposition']).toContain('homework.pdf');
+      expect(res.headers['content-type']).toContain('application/zip');
+      expect(res.headers['content-disposition']).toMatch(/submission_.*\.zip/);
+
+      const body = res.body as Buffer;
+      expect(body.length).toBeGreaterThan(0);
+      expect(body.slice(0, 2).toString()).toBe('PK');
+
+      const asString = body.toString('binary');
+      expect(asString).toContain('S005 - Eve/homework.pdf');
     });
 
     it('should return 404 if submission not in session', async () => {
@@ -273,6 +289,9 @@ describe('Download API', () => {
       const body = res.body as Buffer;
       expect(body.length).toBeGreaterThan(0);
       expect(body.slice(0, 2).toString()).toBe('PK');
+      const asString = body.toString('binary');
+      expect(asString).toContain('S001 - Alice/alice.txt');
+      expect(asString).toContain('S002 - Bob/bob.txt');
     });
 
     it('should skip submissions whose files are missing on disk', async () => {
@@ -316,7 +335,7 @@ describe('Download API', () => {
 
     it('should dedupe entry names when two submissions share studentId + originalName', async () => {
       // This scenario is rare under the new unique constraint, but the route
-      // still defends against duplicate ZIP entry names with a counter suffix.
+      // still defends against duplicate ZIP entry names in the same student folder.
       const token = generateTeacherToken();
       (prisma.submission.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
         {
@@ -354,8 +373,8 @@ describe('Download API', () => {
       expect(body.slice(0, 2).toString()).toBe('PK');
       // Both entry names should appear in the zip directory
       const asString = body.toString('binary');
-      expect(asString).toContain('S001_answer.txt');
-      expect(asString).toContain('S001_answer_1.txt');
+      expect(asString).toContain('S001 - Alice/answer.txt');
+      expect(asString).toContain('S001 - Alice/answer_1.txt');
     });
   });
 });

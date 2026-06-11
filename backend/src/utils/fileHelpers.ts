@@ -19,6 +19,19 @@ export const getSecureFilePath = (storedName: string): string => {
 };
 
 /**
+ * Sanitize a string to be safely used as a folder or file name segment.
+ * Removes directory traversal characters and invalid path characters.
+ */
+export const sanitizePathSegment = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed) return 'Unknown';
+  return trimmed
+    .replace(/[\\/:*?"<>|\x00-\x1F]/g, '_')
+    .replace(/\s+/g, ' ')
+    .replace(/^\.+$/, 'Unknown');
+};
+
+/**
  * Serve a file download to the client.
  * Returns `true` if the response was sent, `false` if the file was not
  * found (404 response already sent).
