@@ -10,8 +10,18 @@ export const useCurrentTime = (intervalMs: number = CLOCK_TICK_INTERVAL_MS): Dat
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), intervalMs);
-    return () => clearInterval(timer);
+    const updateTime = () => setCurrentTime(new Date());
+    const timer = setInterval(updateTime, intervalMs);
+
+    // Ensure the timer syncs immediately when standard timer throttling is bypassed (e.g. tab becomes active)
+    document.addEventListener('visibilitychange', updateTime);
+    window.addEventListener('focus', updateTime);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', updateTime);
+      window.removeEventListener('focus', updateTime);
+    };
   }, [intervalMs]);
 
   return currentTime;

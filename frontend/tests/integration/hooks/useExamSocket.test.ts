@@ -83,6 +83,37 @@ describe('useExamSocket', () => {
       });
     });
 
+    it('should set serverTimeOffset from registered event', async () => {
+      const useExamSocket = await importHook();
+      const { result } = renderHook(() => useExamSocket('S001', 'Alice', '123456'));
+
+      const fakeServerTime = Date.now() + 5000;
+      act(() => {
+        mockSocket.simulateEvent('registered', {
+          studentId: 'S001',
+          serverTime: fakeServerTime,
+        });
+      });
+
+      expect(result.current.serverTimeOffset).toBeGreaterThan(4000);
+      expect(result.current.serverTimeOffset).toBeLessThan(6000);
+    });
+
+    it('should update serverTimeOffset on heartbeat_ack', async () => {
+      const useExamSocket = await importHook();
+      const { result } = renderHook(() => useExamSocket('S001', 'Alice', '123456'));
+
+      const fakeServerTime = Date.now() + 10000;
+      act(() => {
+        mockSocket.simulateEvent('heartbeat_ack', {
+          serverTime: fakeServerTime,
+        });
+      });
+
+      expect(result.current.serverTimeOffset).toBeGreaterThan(9000);
+      expect(result.current.serverTimeOffset).toBeLessThan(11000);
+    });
+
     it('should disconnect on unmount', async () => {
       const useExamSocket = await importHook();
       const { unmount } = renderHook(() => useExamSocket('S001', 'Alice', '123456'));

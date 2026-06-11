@@ -149,6 +149,31 @@ describe('ExamSessionContext', () => {
     expect(mockSendHeartbeat).toHaveBeenCalledTimes(2);
   });
 
+  it('should send heartbeat on visibilitychange and focus', () => {
+    // Initial random jitter < 2000
+    vi.spyOn(Math, 'random').mockReturnValue(0.5); // 1000ms
+    renderHook(() => useExamSession(), { wrapper });
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    // Initial heartbeat on mount
+    expect(mockSendHeartbeat).toHaveBeenCalledOnce();
+
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(mockSendHeartbeat).toHaveBeenCalledTimes(2);
+
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+    });
+    expect(mockSendHeartbeat).toHaveBeenCalledTimes(3);
+
+    Math.random; // reset mock if it was replaced completely, but spy on handles cleanup via clearAllMocks
+  });
+
   it('should fetch question files on mount', async () => {
     const questionData = [
       { id: 'q1', originalName: 'exam.pdf', sizeBytes: 1024, createdAt: '2025-01-01T00:00:00Z' },

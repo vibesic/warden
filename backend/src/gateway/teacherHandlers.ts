@@ -83,6 +83,10 @@ export const registerTeacherHandlers = (io: Server, socket: Socket): void => {
     }
   });
 
+  socket.on('dashboard:ping', () => {
+    socket.emit('dashboard:time_sync', { serverTime: Date.now() });
+  });
+
   socket.on('teacher:create_session', async (data?: unknown) => {
     if (!checkSocketRateLimit(socket, 'teacher:create_session')) return;
     if (!isTeacherAuthenticated(socket)) {

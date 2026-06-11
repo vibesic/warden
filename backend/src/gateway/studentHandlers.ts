@@ -105,6 +105,7 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
     'heartbeat',
     withStudentEvent(socket, { event: 'heartbeat' }, async ({ studentData }) => {
       await updateHeartbeat(studentData.sessionStudentId);
+      socket.emit('heartbeat_ack', { serverTime: Date.now() });
     }),
   );
 

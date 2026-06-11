@@ -178,6 +178,22 @@ describe('useTeacherSocket', () => {
 
       expect(result.current.serverTimeOffset).toBe(0);
     });
+
+    it('should update serverTimeOffset on dashboard:time_sync', async () => {
+      const useTeacherSocket = await importHook();
+      const { result } = renderHook(() => useTeacherSocket('123456'));
+
+      const fakeServerTime = Date.now() + 8000;
+      act(() => {
+        mockSocket.simulateEvent('connect');
+        mockSocket.simulateEvent('dashboard:time_sync', {
+          serverTime: fakeServerTime,
+        });
+      });
+
+      expect(result.current.serverTimeOffset).toBeGreaterThan(7000);
+      expect(result.current.serverTimeOffset).toBeLessThan(9000);
+    });
   });
 
   describe('Session Ended', () => {

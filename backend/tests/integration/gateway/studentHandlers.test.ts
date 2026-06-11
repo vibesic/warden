@@ -167,6 +167,27 @@ describe('Student Handlers - Edge Cases', () => {
   });
 
   describe('heartbeat edge cases', () => {
+    it('should acknowledge heartbeat with serverTime when registered', async () => {
+      // First, register successfully
+      await new Promise<void>((resolve) => {
+        clientSocket.once('registered', () => resolve());
+        clientSocket.emit('register', { studentId: 'S001', name: 'Alice', sessionCode: '123456' });
+      });
+
+      // Emulate fake timer to measure time difference properly in case of slow test
+      const ackSpy = vi.fn();
+      clientSocket.on('heartbeat_ack', ackSpy);
+
+      clientSocket.emit('heartbeat', {});
+
+      await new Promise(r => setTimeout(r, 100));
+
+      expect(ackSpy).toHaveBeenCalled();
+      const payload = ackSpy.mock.calls[0][0];
+      expect(payload.serverTime).toBeGreaterThan(0);
+      clientSocket.off('heartbeat_ack', ackSpy);
+    });
+
     it('should ignore heartbeat when socket not registered', async () => {
       // Use a fresh socket that has never registered
       const freshSocket = Client(`http://localhost:${port}`);

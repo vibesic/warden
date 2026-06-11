@@ -134,6 +134,12 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
         setActiveSession(prev => prev && prev.code === session.code ? session : prev);
       });
 
+      socket.on('dashboard:time_sync', (data: { serverTime: number }) => {
+        if (data.serverTime) {
+          setServerTimeOffset(data.serverTime - Date.now());
+        }
+      });
+
       socket.on('dashboard:update', (data: DashboardUpdatePayload) => {
         if (data.type === 'SUBMISSION_UPDATED') {
           setLastSubmissionUpdate(Date.now());
@@ -231,6 +237,25 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
       socketRef.current.emit('dashboard:join_overview');
     }
   }, [isConnected, sessionCode]);
+
+  // Periodic time sync
+  useEffect(() => {
+    if (!isConnected) return;
+    const syncTime = () => socketRef.current?.emit('dashboard:ping');
+    const timer = setInterval(syncTime, 30000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') syncTime();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', syncTime);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', syncTime);
+    };
+  }, [isConnected]);
 
   const createSession = useCallback((durationMinutes?: number) => {
     socketRef.current?.emit('teacher:create_session', durationMinutes ? { durationMinutes } : {});

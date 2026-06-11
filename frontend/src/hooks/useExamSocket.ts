@@ -87,14 +87,20 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
       }
     });
 
-    socket.on('disconnect', () => {
-        setIsConnected(false);
-        isRegisteredRef.current = false;
-      });
+    socket.on('heartbeat_ack', (data: { serverTime: number }) => {
+      if (data.serverTime) {
+        setServerTimeOffset(data.serverTime - Date.now());
+      }
+    });
 
-      socket.on('session:questions_updated', () => {
-        setLastQuestionUpdate(Date.now());
-      });
+    socket.on('disconnect', () => {
+      setIsConnected(false);
+      isRegisteredRef.current = false;
+    });
+
+    socket.on('session:questions_updated', () => {
+      setLastQuestionUpdate(Date.now());
+    });
 
     // Notify server before tab/window closes so it can distinguish
     // intentional close from WiFi loss.

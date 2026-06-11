@@ -228,6 +228,25 @@ describe('Teacher Handlers - Extended', () => {
     });
   });
 
+  describe('dashboard:ping', () => {
+    it('should respond with dashboard:time_sync containing serverTime', async () => {
+      const socket = await connectTeacher(port);
+
+      const timeSyncSpy = vi.fn();
+      socket.on('dashboard:time_sync', timeSyncSpy);
+
+      socket.emit('dashboard:ping');
+
+      await new Promise(r => setTimeout(r, 100));
+
+      expect(timeSyncSpy).toHaveBeenCalled();
+      const payload = timeSyncSpy.mock.calls[0][0];
+      expect(payload.serverTime).toBeGreaterThan(0);
+
+      socket.close();
+    });
+  });
+
   describe('dashboard:join_overview - extended', () => {
     it('should return session history with student counts', async () => {
       const historyMock = [

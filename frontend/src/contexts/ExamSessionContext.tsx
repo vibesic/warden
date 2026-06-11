@@ -111,11 +111,19 @@ export const ExamSessionProvider: React.FC<ProviderProps> = ({
 
     }, initialJitter);
 
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') sendHeartbeat();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', sendHeartbeat);
+
     return () => {
       clearTimeout(timeout);
       if (timerId !== undefined) {
         clearWorkerInterval(timerId);
       }
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', sendHeartbeat);
     };
   }, [sendHeartbeat, sessionEnded]);
 
