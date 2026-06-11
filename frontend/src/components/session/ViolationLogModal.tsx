@@ -20,14 +20,12 @@ const violationColumns: TableColumn<Violation>[] = [
     cell: (v) => v.type.replace(/_/g, ' '),
   },
   {
-    header: 'Reason',
-    className: 'px-4 py-3 font-medium text-orange-700',
-    cell: (v) => v.reason ? v.reason.replace(/_/g, ' ') : '-',
-  },
-  {
-    header: 'Details',
+    header: 'Description',
     className: 'px-4 py-3 text-gray-700',
-    cell: (v) => v.details || '-',
+    cell: (v) => {
+      const parts = [v.reason?.replace(/_/g, ' '), v.details].filter(Boolean);
+      return parts.length > 0 ? parts.join(' - ') : '-';
+    },
   },
 ];
 
@@ -42,7 +40,7 @@ export const ViolationLogModal: React.FC<ViolationLogModalProps> = ({
       isOpen={!!selectedStudent}
       onClose={onClose}
       title={`Violation Log: ${selectedStudent.name}`}
-      size="xl"
+      size="4xl"
       headerClassName="bg-red-50 text-red-800"
     >
       <Table

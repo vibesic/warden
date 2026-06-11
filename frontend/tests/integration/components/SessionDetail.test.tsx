@@ -39,6 +39,9 @@ import { SessionDetail } from '@src/components/SessionDetail';
 
 describe('SessionDetail', () => {
   beforeEach(() => {
+    sessionStorage.clear();
+    sessionStorage.setItem('teacherToken', 'my-token');
+
     mockFetch = vi.fn().mockResolvedValue({
       json: () => Promise.resolve({ success: true, data: [] }),
     });
@@ -594,5 +597,5 @@ describe('SessionDetail', () => {
       });
     });
 
-      });
+  });
 });

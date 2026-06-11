@@ -7,7 +7,7 @@ interface ModalProps {
     title?: React.ReactNode;
     children: React.ReactNode;
     footer?: React.ReactNode;
-    size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+    size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | 'full';
     closeOnBackdropClick?: boolean;
     headerClassName?: string;
     bodyClassName?: string;
@@ -59,35 +59,39 @@ export const Modal: React.FC<ModalProps> = ({
         md: 'max-w-md',
         lg: 'max-w-lg',
         xl: 'max-w-2xl',
+        '2xl': 'max-w-3xl',
+        '3xl': 'max-w-4xl',
+        '4xl': 'max-w-5xl',
+        '5xl': 'max-w-6xl',
         full: 'max-w-full m-4'
     };
 
     return (
-        <div 
+        <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200"
             onClick={handleBackdropClick}
         >
-            <div 
+            <div
                 ref={modalRef}
                 className={`bg-white rounded-xl shadow-2xl w-full ${sizes[size]} flex flex-col overflow-hidden max-h-[90vh] transform transition-all scale-100 opacity-100`}
                 role="dialog"
                 aria-modal="true"
             >
                 <header className={`p-4 border-b border-gray-100 flex justify-between items-center ${headerClassName}`}>
-                        <div className="text-lg font-bold text-gray-800">{title}</div>
-                        <button 
-                            onClick={onClose}
-                            className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded-full transition-colors"
-                            aria-label="Close"
-                        >
-                            <X size={20} />
-                        </button>
-                    </header>
-                
+                    <div className="text-lg font-bold text-gray-800">{title}</div>
+                    <button
+                        onClick={onClose}
+                        className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded-full transition-colors"
+                        aria-label="Close"
+                    >
+                        <X size={20} />
+                    </button>
+                </header>
+
                 <div className={`p-6 overflow-y-auto ${bodyClassName}`}>
                     {children}
                 </div>
-                
+
                 {footer && (
                     <div className={`p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 ${footerClassName}`}>
                         {footer}

@@ -31,7 +31,13 @@ export const SessionDetail: React.FC = () => {
     const [selectedStudent, setSelectedStudent] = useState<{ name: string; violations: Violation[] } | null>(null);
     const [showEndSessionModal, setShowEndSessionModal] = useState(false);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
-    const [connectionFilter, setConnectionFilter] = useState<'all' | 'online' | 'offline'>('all');
+    const [connectionFilter, setConnectionFilter] = useState<'all' | 'online' | 'offline'>(() => {
+        return (sessionStorage.getItem('wardenConnectionFilter') as 'all' | 'online' | 'offline') || 'all';
+    });
+
+    useEffect(() => {
+        sessionStorage.setItem('wardenConnectionFilter', connectionFilter);
+    }, [connectionFilter]);
 
     useEffect(() => {
         if (isAuthError) {
