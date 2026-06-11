@@ -82,6 +82,8 @@ const io = new Server(httpServer, {
 const initResult = initializeSocket(io);
 clearIntervals = initResult.clearIntervals;
 
+app.set('io', io);
+
 const HOST = process.env.HOST || '0.0.0.0';
 
 /**

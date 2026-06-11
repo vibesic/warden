@@ -57,7 +57,6 @@ export const ExamSessionProvider: React.FC<ProviderProps> = ({
   const [serverViolation, setServerViolation] = useState(false);
   const [sessionEnded, setSessionEnded] = useState(false);
   const [violationReported, setViolationReported] = useState(false);
-  const { questionFiles } = useQuestionFiles(sessionCode);
   const currentTime = useCurrentTime();
 
   const handleSessionEnded = useCallback(() => {
@@ -73,8 +72,10 @@ export const ExamSessionProvider: React.FC<ProviderProps> = ({
 
   const isViolating = !isSecure || serverViolation;
 
-  const { isConnected, sendHeartbeat, reportViolation, error, sessionTimer, serverTimeOffset } =
+  const { isConnected, sendHeartbeat, reportViolation, error, sessionTimer, serverTimeOffset, lastQuestionUpdate } =
     useExamSocket(studentId, studentName, sessionCode, handleSessionEnded, handleServerViolation);
+
+  const { questionFiles } = useQuestionFiles(sessionCode, lastQuestionUpdate);
 
   const remainingTime = (() => {
     if (!sessionTimer?.durationMinutes || !sessionTimer.createdAt) return null;

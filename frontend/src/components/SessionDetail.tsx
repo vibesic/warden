@@ -17,16 +17,16 @@ import { ViolationLogModal } from './session/ViolationLogModal';
 export const SessionDetail: React.FC = () => {
     const { sessionCode } = useParams<{ sessionCode: string }>();
     const navigate = useNavigate();
-    const { isConnected, students, activeSession, isAuthError, serverTimeOffset, endSession } = useTeacherSocket(sessionCode);
+    const { isConnected, students, activeSession, isAuthError, serverTimeOffset, lastSubmissionUpdate, endSession } = useTeacherSocket(sessionCode);
     const { formatElapsedTime, formatRemainingTime, getRemainingMs } = useSessionTimer(serverTimeOffset);
-    const { questionFiles, questionUploading, questionUploadError, handleQuestionUpload, handleQuestionDelete, handleQuestionDownload } = useQuestionFiles(sessionCode || '');
+    const { questionFiles, questionUploading, questionUploadProgress, questionUploadError, handleQuestionUpload, handleQuestionDelete, handleQuestionDownload } = useQuestionFiles(sessionCode || '');
     const {
         submissions,
         handleDownload: handleSubmissionDownload,
         handleDownloadAll: handleSubmissionDownloadAll,
         isDownloadingAll: isSubmissionDownloadingAll,
         downloadAllError: submissionDownloadAllError,
-    } = useSubmissions(sessionCode);
+    } = useSubmissions(sessionCode, undefined, lastSubmissionUpdate);
 
     const [selectedStudent, setSelectedStudent] = useState<{ name: string; violations: Violation[] } | null>(null);
     const [showEndSessionModal, setShowEndSessionModal] = useState(false);
@@ -139,6 +139,7 @@ export const SessionDetail: React.FC = () => {
                     questionFiles={questionFiles}
                     isActive={activeSession?.isActive ?? false}
                     questionUploading={questionUploading}
+                    questionUploadProgress={questionUploadProgress}
                     questionUploadError={questionUploadError}
                     onUpload={handleQuestionUpload}
                     onDelete={handleQuestionDelete}

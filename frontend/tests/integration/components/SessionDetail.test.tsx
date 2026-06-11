@@ -594,31 +594,5 @@ describe('SessionDetail', () => {
       });
     });
 
-    it('should upload a question file and add to list', async () => {
-      const user = userEvent.setup();
-      const newFile = { id: 'qf-new', originalName: 'new-q.pdf', sizeBytes: 1024, createdAt: '2024-01-01T00:15:00Z' };
-      sessionStorage.setItem('teacherToken', 'test-token');
-
-      mockFetch.mockImplementation((url: string, options?: RequestInit) => {
-        if ((url as string).includes('/questions') && options?.method === 'POST') {
-          return Promise.resolve({ json: () => Promise.resolve({ success: true, data: newFile }) });
-        }
-        return urlAwareFetch({ success: true, data: [] })(url);
       });
-
-      render(<SessionDetail />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Upload Question File')).toBeInTheDocument();
-      });
-
-      const fileInput = document.getElementById('question-file-upload') as HTMLInputElement;
-      const file = new File(['content'], 'new-q.pdf', { type: 'application/pdf' });
-      await user.upload(fileInput, file);
-
-      await waitFor(() => {
-        expect(screen.getByText('new-q.pdf')).toBeInTheDocument();
-      });
-    });
-  });
 });

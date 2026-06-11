@@ -21,7 +21,7 @@ interface UseSubmissionsResult {
   downloadAllError: string | null;
 }
 
-export const useSubmissions = (sessionCode: string | undefined, pollIntervalMs: number = SUBMISSION_POLL_INTERVAL_MS): UseSubmissionsResult => {
+export const useSubmissions = (sessionCode: string | undefined, pollIntervalMs: number = SUBMISSION_POLL_INTERVAL_MS, externalUpdateTrigger?: number): UseSubmissionsResult => {
   const [submissions, setSubmissions] = useState<SubmissionItem[]>([]);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [downloadAllError, setDownloadAllError] = useState<string | null>(null);
@@ -55,7 +55,7 @@ export const useSubmissions = (sessionCode: string | undefined, pollIntervalMs: 
       controller.abort();
       clearInterval(interval);
     };
-  }, [fetchSubmissions, pollIntervalMs]);
+  }, [fetchSubmissions, pollIntervalMs, externalUpdateTrigger]);
 
   const handleDownload = useCallback((storedName: string) => {
     if (!sessionCode) return;

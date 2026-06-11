@@ -345,8 +345,15 @@ describe('Submission Service', () => {
       await findSubmissionByStoredName('stored.pdf', 'sess-1');
 
       expect(prisma.submission.findFirst).toHaveBeenCalledWith({
-        where: { storedName: 'stored.pdf', sessionId: 'sess-1' },
-      });
+          where: { storedName: 'stored.pdf', sessionId: 'sess-1' },
+          include: {
+            sessionStudent: {
+              include: {
+                student: true,
+              },
+            },
+          },
+        });
     });
   });
 });

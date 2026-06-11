@@ -19,6 +19,7 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
   const [error, setError] = useState('');
   const [sessionTimer, setSessionTimer] = useState<SessionTimerInfo | null>(null);
   const [serverTimeOffset, setServerTimeOffset] = useState(0);
+  const [lastQuestionUpdate, setLastQuestionUpdate] = useState(Date.now());
   const isRegisteredRef = useRef(false);
   const violationQueue = useRef<{ type: string; reason?: string; details?: string }[]>([]);
   const onSessionEndedRef = useRef(onSessionEnded);
@@ -87,9 +88,13 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
     });
 
     socket.on('disconnect', () => {
-      setIsConnected(false);
-      isRegisteredRef.current = false;
-    });
+        setIsConnected(false);
+        isRegisteredRef.current = false;
+      });
+
+      socket.on('session:questions_updated', () => {
+        setLastQuestionUpdate(Date.now());
+      });
 
     // Notify server before tab/window closes so it can distinguish
     // intentional close from WiFi loss.
@@ -158,6 +163,6 @@ export const useExamSocket = (studentId: string, name: string, sessionCode: stri
     }
   }, [studentId]);
 
-  return { isConnected, sendHeartbeat, reportViolation, error, sessionTimer, serverTimeOffset };
+  return { isConnected, sendHeartbeat, reportViolation, error, sessionTimer, serverTimeOffset, lastQuestionUpdate };
 };
 

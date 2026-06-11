@@ -147,8 +147,15 @@ export const getSubmissionsForStudent = async (sessionStudentId: string, session
 export const findSubmissionByStoredName = async (
   storedName: string,
   sessionId: string,
-): Promise<Submission | null> => {
+): Promise<(Submission & { sessionStudent: { student: { studentId: string; name: string } } }) | null> => {
   return prisma.submission.findFirst({
     where: { storedName, sessionId },
+    include: {
+      sessionStudent: {
+        include: {
+          student: true,
+        },
+      },
+    },
   });
 };

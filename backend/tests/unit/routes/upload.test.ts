@@ -209,4 +209,79 @@ describe('Upload & Submissions API', () => {
       expect(res.body.data[0].student.name).toBe('Alice');
     });
   });
+
+
+  describe('GET /api/upload/:sessionCode/:studentId/download', () => {
+    it('should allow a student to download their own submission', async () => {
+      (prisma.session.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 'sess-1',
+        isActive: true,
+      });
+
+      (prisma.sessionStudent.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 'ss-1',
+      });
+
+      (prisma.submission.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+        {
+          id: 'sub-1',
+          storedName: 'fake-stored-name.txt',
+          originalName: 'answer.txt',
+          sizeBytes: 10,
+          createdAt: new Date(),
+        }
+      ]);
+
+      const fsMock = require('fs');
+      vi.spyOn(fsMock, 'existsSync').mockReturnValue(true);
+
+      const res = await request(app).get('/api/upload/session-123/studentABC/download');
+    });
+  });
+
+  describe('GET /api/upload/:sessionCode/:studentId', () => {
+    it('should return metadata if submission exists', async () => {
+      (prisma.session.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 'sess-1',
+        isActive: true,
+      });
+
+      (prisma.sessionStudent.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 'ss-1',
+      });
+
+      (prisma.submission.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+        {
+          id: 'sub-1',
+          storedName: 'fake-stored-name.txt',
+          originalName: 'answer.txt',
+          sizeBytes: 10,
+          createdAt: new Date(),
+        }
+      ]);
+
+      const res = await request(app).get('/api/upload/session-123/studentABC');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.originalName).toBe('answer.txt');
+    });
+
+    it('should return null data if no submission exists', async () => {
+      (prisma.session.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 'sess-1',
+        isActive: true,
+      });
+
+      (prisma.sessionStudent.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 'ss-1',
+      });
+
+      (prisma.submission.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+      const res = await request(app).get('/api/upload/session-123/studentABC');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toBeNull();
+    });
+  });
 });

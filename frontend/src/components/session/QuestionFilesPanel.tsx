@@ -9,6 +9,7 @@ interface QuestionFilesPanelProps {
   questionFiles: QuestionFileItem[];
   isActive: boolean;
   questionUploading: boolean;
+  questionUploadProgress?: number;
   questionUploadError: string;
   onUpload: (file: File, token?: string) => Promise<void>;
   onDelete: (fileId: string, token?: string) => Promise<void>;
@@ -19,6 +20,7 @@ export const QuestionFilesPanel: React.FC<QuestionFilesPanelProps> = React.memo(
   questionFiles,
   isActive,
   questionUploading,
+  questionUploadProgress = 0,
   questionUploadError,
   onUpload,
   onDelete,
@@ -107,10 +109,18 @@ export const QuestionFilesPanel: React.FC<QuestionFilesPanelProps> = React.memo(
             />
             <label
               htmlFor="question-file-upload"
-              className={`inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg cursor-pointer hover:bg-indigo-700 transition-colors ${questionUploading ? 'opacity-50 pointer-events-none' : ''}`}
+              className={`relative overflow-hidden inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg cursor-pointer hover:bg-indigo-700 transition-colors ${questionUploading ? 'opacity-90 pointer-events-none' : ''}`}
             >
-              <Upload size={14} />
-              {questionUploading ? 'Uploading...' : 'Upload Question File'}
+              {questionUploading && (
+                <div
+                  className="absolute left-0 top-0 bottom-0 bg-indigo-400 transition-all duration-200 ease-out z-0"
+                  style={{ width: `${questionUploadProgress}%` }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-2">
+                <Upload size={14} />
+                {questionUploading ? (questionUploadProgress === 0 ? 'Preparing...' : `Uploading... ${questionUploadProgress}%`) : 'Upload Question File'}
+              </span>
             </label>
           </div>
         )}

@@ -15,6 +15,8 @@ import { requireActiveSession, requireSession } from '../middleware/sessionMiddl
 import { asyncHandler } from '../utils/asyncHandler';
 import { serveFileDownload, deleteUploadedFile } from '../utils/fileHelpers';
 import { sendErrorJson } from '../utils/httpResponses';
+import { roomNames } from '../gateway/roomNames';
+import type { Server as SocketIOServer } from 'socket.io';
 
 const upload = createUploadMiddleware('q-');
 
@@ -43,6 +45,11 @@ router.post(
         mimeType: file.mimetype || null,
         sizeBytes: file.size,
       });
+
+      const io = req.app.get('io') as SocketIOServer | undefined;
+      if (io) {
+        io.to(roomNames.session(session.code || session.id)).emit('session:questions_updated');
+      }
 
       res.json({
         success: true,
@@ -111,6 +118,11 @@ router.delete(
 
     deleteUploadedFile(questionFile.storedName);
     await deleteQuestionFile(questionFile.id);
+
+    const io = req.app.get('io') as SocketIOServer | undefined;
+    if (io) {
+      io.to(roomNames.session(session.code || session.id)).emit('session:questions_updated');
+    }
 
     res.json({ success: true, message: 'File deleted' });
   }, 'Error deleting question file'),

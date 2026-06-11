@@ -70,7 +70,7 @@ export const SubmissionsPanel: React.FC<SubmissionsPanelProps> = React.memo(({
 
   return (
     <section className="mt-8">
-      <div className="flex items-center justify-between mb-4 pl-6 pr-2 gap-3 flex-wrap">
+      <div className="flex items-center justify-between mb-4 px-6 gap-3 flex-wrap">
         <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide">
           Student Submissions ({submissions.length})
         </h2>
@@ -82,7 +82,7 @@ export const SubmissionsPanel: React.FC<SubmissionsPanelProps> = React.memo(({
             type="button"
             onClick={onDownloadAll}
             disabled={isDownloadingAll}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg cursor-pointer hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:pointer-events-none"
             title="Download all submissions as ZIP"
             aria-busy={isDownloadingAll}
           >

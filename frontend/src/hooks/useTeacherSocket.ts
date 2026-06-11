@@ -44,7 +44,7 @@ interface SessionStateStudent {
 }
 
 interface DashboardUpdatePayload {
-  type: 'STUDENT_JOINED' | 'STUDENT_LEFT';
+  type: 'STUDENT_JOINED' | 'STUDENT_LEFT' | 'SUBMISSION_UPDATED';
   studentId: string;
   name?: string;
   isOnline?: boolean;
@@ -74,6 +74,7 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
   const [error, setError] = useState<string | null>(null);
   const [isAuthError, setIsAuthError] = useState(false);
   const [serverTimeOffset, setServerTimeOffset] = useState(0);
+  const [lastSubmissionUpdate, setLastSubmissionUpdate] = useState<number>(Date.now());
 
   useEffect(() => {
     const token = sessionStorage.getItem('teacherToken') || '';
@@ -134,6 +135,11 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
       });
 
       socket.on('dashboard:update', (data: DashboardUpdatePayload) => {
+        if (data.type === 'SUBMISSION_UPDATED') {
+          setLastSubmissionUpdate(Date.now());
+          return;
+        }
+
         if (!sessionCodeRef.current) return;
         setStudents(prev => {
           if (data.type === 'STUDENT_JOINED') {
@@ -234,5 +240,5 @@ export const useTeacherSocket = (sessionCode?: string | null) => {
     socketRef.current?.emit('teacher:end_session');
   }, []);
 
-  return { isConnected, students, activeSession, history, error, isAuthError, serverTimeOffset, createSession, endSession };
+  return { isConnected, students, activeSession, history, error, isAuthError, serverTimeOffset, lastSubmissionUpdate, createSession, endSession };
 };

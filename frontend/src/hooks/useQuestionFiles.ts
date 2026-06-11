@@ -3,9 +3,10 @@ import { apiRoutes, authHeaders } from '../config/apiRoutes';
 import { isAbortError } from '../utils/fetchErrors';
 import type { QuestionFileItem } from '../types/exam';
 
-interface UseQuestionFilesResult {
+export interface UseQuestionFilesResult {
   questionFiles: QuestionFileItem[];
   questionUploading: boolean;
+  questionUploadProgress: number;
   questionUploadError: string;
   fetchQuestionFiles: () => Promise<void>;
   handleQuestionUpload: (file: File, token?: string) => Promise<void>;
@@ -13,9 +14,10 @@ interface UseQuestionFilesResult {
   handleQuestionDownload: (fileId: string) => void;
 }
 
-export const useQuestionFiles = (sessionCode: string): UseQuestionFilesResult => {
+export const useQuestionFiles = (sessionCode: string, externalUpdateTrigger?: number): UseQuestionFilesResult => {
   const [questionFiles, setQuestionFiles] = useState<QuestionFileItem[]>([]);
   const [questionUploading, setQuestionUploading] = useState(false);
+  const [questionUploadProgress, setQuestionUploadProgress] = useState(0);
   const [questionUploadError, setQuestionUploadError] = useState('');
 
   const fetchQuestionFiles = useCallback(async (signal?: AbortSignal) => {
@@ -38,34 +40,67 @@ export const useQuestionFiles = (sessionCode: string): UseQuestionFilesResult =>
     const controller = new AbortController();
     fetchQuestionFiles(controller.signal);
     return () => controller.abort();
-  }, [fetchQuestionFiles]);
+  }, [fetchQuestionFiles, externalUpdateTrigger]);
 
   const handleQuestionUpload = useCallback(async (file: File, token?: string) => {
     if (!sessionCode) return;
     setQuestionUploading(true);
+    setQuestionUploadProgress(0);
     setQuestionUploadError('');
 
-    try {
+    return new Promise<void>((resolve) => {
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch(apiRoutes.sessionQuestions(sessionCode), {
-        method: 'POST',
-        headers: authHeaders(token),
-        body: formData,
-      });
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', apiRoutes.sessionQuestions(sessionCode));
 
-      const data = await res.json();
-      if (data.success) {
-        setQuestionFiles((prev) => [...prev, data.data]);
-      } else {
-        setQuestionUploadError(data.message || 'Upload failed');
+      if (token) {
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       }
-    } catch {
-      setQuestionUploadError('Upload failed. Check your connection.');
-    } finally {
-      setQuestionUploading(false);
-    }
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = Math.max(1, Math.round((event.loaded / event.total) * 100));
+          setQuestionUploadProgress(percentComplete);
+        }
+      };
+
+      xhr.onload = () => {
+        setQuestionUploadProgress(100);
+        setTimeout(() => {
+          setQuestionUploading(false);
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              if (data.success) {
+                setQuestionFiles((prev) => [...prev, data.data]);
+              } else {
+                setQuestionUploadError(data.message || 'Upload failed');
+              }
+            } catch {
+              setQuestionUploadError('Invalid response from server');
+            }
+          } else {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              setQuestionUploadError(data.message || 'Upload failed');
+            } catch {
+              setQuestionUploadError('Upload failed. Check your connection.');
+            }
+          }
+          resolve();
+        }, 500);
+      };
+
+      xhr.onerror = () => {
+        setQuestionUploading(false);
+        setQuestionUploadError('Upload failed. Check your connection.');
+        resolve();
+      };
+
+      xhr.send(formData);
+    });
   }, [sessionCode]);
 
   const handleQuestionDelete = useCallback(async (fileId: string, token?: string) => {
@@ -91,6 +126,7 @@ export const useQuestionFiles = (sessionCode: string): UseQuestionFilesResult =>
   return {
     questionFiles,
     questionUploading,
+    questionUploadProgress,
     questionUploadError,
     fetchQuestionFiles,
     handleQuestionUpload,

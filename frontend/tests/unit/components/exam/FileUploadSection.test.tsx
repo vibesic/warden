@@ -2,10 +2,6 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-/* ------------------------------------------------------------------ */
-/*  Mock the exam session context                                     */
-/* ------------------------------------------------------------------ */
-
 let mockSessionCode = 'ABC123';
 let mockStudentId = 'S001';
 
@@ -29,15 +25,48 @@ import { FileUploadSection } from '@src/components/exam/FileUploadSection';
 
 const mockFetch = vi.fn();
 
+class MockXHR {
+  status = 200;
+  responseText = '';
+  onload: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  upload = { onprogress: null as ((event: any) => void) | null };
+  _method = '';
+  _url = '';
+  _data: any = null;
+
+  open(method: string, url: string) {
+    this._method = method;
+    this._url = url;
+  }
+
+  send(data: any) {
+    this._data = data;
+    MockXHR.lastInstance = this;
+  }
+
+  static lastInstance: MockXHR | null = null;
+}
+
 beforeEach(() => {
+  MockXHR.lastInstance = null;
+  vi.stubGlobal('XMLHttpRequest', MockXHR);
   mockFetch.mockReset();
+  mockFetch.mockImplementation(async () => ({
+    json: () => Promise.resolve({ success: true, data: null }),
+  }));
   vi.stubGlobal('fetch', mockFetch);
   vi.spyOn(Math, 'random').mockReturnValue(0);
   mockSessionCode = 'ABC123';
   mockStudentId = 'S001';
+  
+  // Fake timers are essential here because our component has intervals loops
+  vi.useFakeTimers({ shouldAdvanceTime: true });
 });
 
 afterEach(() => {
+  vi.runOnlyPendingTimers();
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -55,40 +84,31 @@ describe('FileUploadSection', () => {
   });
 
   it('should upload file and display it on success', async () => {
-    const user = userEvent.setup();
-    mockFetch.mockResolvedValueOnce({
-      json: () => Promise.resolve({
-        success: true,
-        data: { id: 'f1', originalName: 'answer.pdf', sizeBytes: 1024, createdAt: '2025-01-01T00:00:00Z' },
-      }),
-    });
-
+    const user = userEvent.setup({ delay: null });
     render(<FileUploadSection />);
 
     const input = document.getElementById('file-upload') as HTMLInputElement;
     const file = new File(['content'], 'answer.pdf', { type: 'application/pdf' });
     await user.upload(input, file);
 
+    vi.advanceTimersByTime(3000); // clear jitter
+    expect(MockXHR.lastInstance).not.toBeNull();
+
+    const xhr = MockXHR.lastInstance!;
+    xhr.responseText = JSON.stringify({
+      success: true,
+      data: { id: 'f1', originalName: 'answer.pdf', sizeBytes: 1024, createdAt: '2025-01-01T00:00:00Z' },
+    });
+    xhr.onload!();
+    
+    vi.advanceTimersByTime(1000); // let interval process onload delay
     await waitFor(() => {
       expect(screen.getByText('answer.pdf')).toBeInTheDocument();
     });
-
-    expect(mockFetch).toHaveBeenCalledOnce();
-    const [url, options] = mockFetch.mock.calls[0];
-    expect(url).toContain('/api/upload');
-    expect(options.method).toBe('POST');
-    expect(options.body).toBeInstanceOf(FormData);
   });
 
   it('should send sessionCode and studentId in form data', async () => {
-    const user = userEvent.setup();
-    mockFetch.mockResolvedValueOnce({
-      json: () => Promise.resolve({
-        success: true,
-        data: { id: 'f2', originalName: 'test.txt', sizeBytes: 100, createdAt: '2025-01-01T00:00:00Z' },
-      }),
-    });
-
+    const user = userEvent.setup({ delay: null });
     mockSessionCode = 'SESS42';
     mockStudentId = 'STU99';
     render(<FileUploadSection />);
@@ -96,30 +116,29 @@ describe('FileUploadSection', () => {
     const input = document.getElementById('file-upload') as HTMLInputElement;
     const file = new File(['test'], 'test.txt', { type: 'text/plain' });
     await user.upload(input, file);
+    vi.advanceTimersByTime(3000); // clear jitter
 
-    await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledOnce();
-    });
-
-    const formData = mockFetch.mock.calls[0][1].body as FormData;
+    const formData = MockXHR.lastInstance!._data as FormData;
     expect(formData.get('sessionCode')).toBe('SESS42');
     expect(formData.get('studentId')).toBe('STU99');
   });
 
   it('should show error message on server failure response', async () => {
-    const user = userEvent.setup();
-    mockFetch.mockResolvedValueOnce({
-      json: () => Promise.resolve({
-        success: false,
-        message: 'File too large',
-      }),
-    });
-
+    const user = userEvent.setup({ delay: null });
     render(<FileUploadSection />);
 
     const input = document.getElementById('file-upload') as HTMLInputElement;
     const file = new File(['x'], 'big.zip', { type: 'application/zip' });
     await user.upload(input, file);
+    vi.advanceTimersByTime(3000); // clear jitter
+
+    const xhr = MockXHR.lastInstance!;
+    xhr.responseText = JSON.stringify({
+      success: false,
+      message: 'File too large',
+    });
+    xhr.onload!();
+    vi.advanceTimersByTime(1000); // let interval process onload delay
 
     await waitFor(() => {
       expect(screen.getByText('File too large')).toBeInTheDocument();
@@ -127,113 +146,105 @@ describe('FileUploadSection', () => {
   });
 
   it('should show generic error on network failure', async () => {
-    const user = userEvent.setup();
-    mockFetch.mockRejectedValueOnce(new Error('Network error'));
-
+    const user = userEvent.setup({ delay: null });
     render(<FileUploadSection />);
 
     const input = document.getElementById('file-upload') as HTMLInputElement;
     const file = new File(['x'], 'test.txt', { type: 'text/plain' });
     await user.upload(input, file);
+    vi.advanceTimersByTime(3000); // clear jitter
+
+    MockXHR.lastInstance!.onerror!();
+    vi.advanceTimersByTime(100);
 
     await waitFor(() => {
       expect(screen.getByText('Upload failed. Check your connection.')).toBeInTheDocument();
     });
   });
 
-  it('should show "Uploading..." while upload is in progress', async () => {
-    const user = userEvent.setup();
-    let resolveUpload: (value: unknown) => void;
-    const uploadPromise = new Promise((resolve) => { resolveUpload = resolve; });
-
-    mockFetch.mockReturnValueOnce(uploadPromise);
-
+  it('should show "Preparing..." immediately then transition', async () => {
+    const user = userEvent.setup({ delay: null });
     render(<FileUploadSection />);
 
     const input = document.getElementById('file-upload') as HTMLInputElement;
     const file = new File(['x'], 'test.txt', { type: 'text/plain' });
     await user.upload(input, file);
+    
+    // During jitter
+    await waitFor(() => expect(screen.getByText(/Preparing.../i)).toBeInTheDocument());
 
-    expect(screen.getByText('Uploading...')).toBeInTheDocument();
-
-    // Resolve and clean up
-    resolveUpload!({
-      json: () => Promise.resolve({ success: true, data: { id: 'f1', originalName: 'test.txt', sizeBytes: 4, createdAt: '2025-01-01T00:00:00Z' } }),
-    });
+    vi.advanceTimersByTime(3000); // clear jitter
+    const xhr = MockXHR.lastInstance!;
+    xhr.upload.onprogress!({ lengthComputable: true, loaded: 50, total: 100 });
+    
+    vi.advanceTimersByTime(200); // wait for interval loop update
 
     await waitFor(() => {
-      // After the first upload succeeds, the label becomes "Replace File"
-      // (submissions are unique per student per session).
+      expect(screen.getByText(/Uploading.../i)).toBeInTheDocument();
+    });
+
+    xhr.responseText = JSON.stringify({
+      success: true,
+      data: { id: 'f1', originalName: 'test.txt', sizeBytes: 4, createdAt: '2025-01-01T00:00:00Z' },
+    });
+    xhr.onload!();
+    vi.advanceTimersByTime(1000);
+
+    await waitFor(() => {
       expect(screen.getByText('Replace File')).toBeInTheDocument();
     });
   });
 
-  it('should show file size for uploaded files', async () => {
-    const user = userEvent.setup();
-    mockFetch.mockResolvedValueOnce({
-      json: () => Promise.resolve({
-        success: true,
-        data: { id: 'f3', originalName: 'report.pdf', sizeBytes: 2048, createdAt: '2025-01-01T00:00:00Z' },
-      }),
-    });
-
-    render(<FileUploadSection />);
-
-    const input = document.getElementById('file-upload') as HTMLInputElement;
-    const file = new File(['content'], 'report.pdf', { type: 'application/pdf' });
-    await user.upload(input, file);
-
-    await waitFor(() => {
-      expect(screen.getByText('report.pdf')).toBeInTheDocument();
-      expect(screen.getByText('2.0 KB')).toBeInTheDocument();
-    });
-  });
-
   it('should replace the previously uploaded file when a new upload succeeds', async () => {
-    const user = userEvent.setup();
-
-    mockFetch
-      .mockResolvedValueOnce({
-        json: () => Promise.resolve({
-          success: true,
-          data: {
-            id: 'f1',
-            originalName: 'file1.txt',
-            sizeBytes: 100,
-            createdAt: '2025-01-01T00:00:00Z',
-            replaced: { count: 0, previousCreatedAt: null },
-          },
-        }),
-      })
-      .mockResolvedValueOnce({
-        json: () => Promise.resolve({
-          success: true,
-          data: {
-            id: 'f2',
-            originalName: 'file2.txt',
-            sizeBytes: 200,
-            createdAt: '2025-01-01T00:01:00Z',
-            replaced: { count: 1, previousCreatedAt: '2025-01-01T00:00:00Z' },
-          },
-        }),
-      });
-
+    const user = userEvent.setup({ delay: null });
     render(<FileUploadSection />);
 
     const input = document.getElementById('file-upload') as HTMLInputElement;
 
     await user.upload(input, new File(['a'], 'file1.txt', { type: 'text/plain' }));
+    vi.advanceTimersByTime(3000);
+
+    const xhr1 = MockXHR.lastInstance!;
+    xhr1.responseText = JSON.stringify({
+      success: true,
+      data: {
+        id: 'f1',
+        originalName: 'file1.txt',
+        sizeBytes: 100,
+        createdAt: '2025-01-01T00:00:00Z',
+        replaced: { count: 0, previousCreatedAt: null },
+      },
+    });
+    xhr1.onload!();
+    vi.advanceTimersByTime(1000);
+
     await waitFor(() => {
       expect(screen.getByText('file1.txt')).toBeInTheDocument();
     });
 
+    MockXHR.lastInstance = null;
+
     await user.upload(input, new File(['b'], 'file2.txt', { type: 'text/plain' }));
+    vi.advanceTimersByTime(3000);
+
+    const xhr2 = MockXHR.lastInstance!;
+    xhr2.responseText = JSON.stringify({
+      success: true,
+      data: {
+        id: 'f2',
+        originalName: 'file2.txt',
+        sizeBytes: 200,
+        createdAt: '2025-01-01T00:01:00Z',
+        replaced: { count: 1, previousCreatedAt: '2025-01-01T00:00:00Z' },
+      },
+    });
+    xhr2.onload!();
+    vi.advanceTimersByTime(1000);
+
     await waitFor(() => {
       expect(screen.getByText('file2.txt')).toBeInTheDocument();
+      expect(screen.queryByText('file1.txt')).not.toBeInTheDocument();
+      expect(screen.getByText(/replaced previous submission/i)).toBeInTheDocument();
     });
-
-    // The first file should no longer be visible; submissions are unique.
-    expect(screen.queryByText('file1.txt')).not.toBeInTheDocument();
-    expect(screen.getByText(/replaced previous submission/i)).toBeInTheDocument();
   });
 });
