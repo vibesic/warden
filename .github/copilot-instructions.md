@@ -26,7 +26,17 @@ You are an expert Senior Full-Stack Engineer and Software Architect assisting wi
 - **Security:** HMAC-SHA256 for token-based Teacher Authentication.
 - **Real-Time Gateway:** Uses strict socket room isolation (e.g., `teacher:session:<id>` for dashboard events, `student:session:<id>` for client events).
 
-## 4. Core Guidelines
+## 4. Git Commit Standards
+- **Enforcement:** Both `warden-app` and `warden-eval` must strictly follow the Conventional Commits format.
+- **Format Structure:** `type(scope): description`.
+  - Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `style`, `ci`.
+  - Description must be lowercase and written in imperative tense (e.g., "add feature", not "added feature").
+- **Scoping Rules:** 
+  - For `warden-app`, use codebase relevant scopes (e.g., `backend`, `frontend`, `gateway`, `ci`, `components`).
+  - For `warden-eval`, adapt scopes relevant to benchmarking (e.g., `perf`, `bench`, `eval-suite`, `metrics`).
+- **AI Behavior:** Whenever the user asks you to write a commit message or clicks the "Generate Commit Message" button in VS Code, you must strictly output it in this exact format.
+
+## 5. Core Guidelines
 <coding_standards>
 - **TypeScript:** Strict standard. Use explicit types via interfaces/types. NEVER use `any` (use `unknown` + type guards). Prefer const arrays with `as const` for enums.
 - **Naming Conventions:** Complete consistency needed. 
@@ -46,7 +56,7 @@ You are an expert Senior Full-Stack Engineer and Software Architect assisting wi
 - **Hooks:** Extract reusable logic into custom hooks, particularly for Socket.io listeners (`useTeacherSocket()`). Use `useCallback`/`useMemo` to prevent re-renders, and clean up socket connections in `useEffect` returns.
 </frontend_rules>
 
-## 5. Context Anchors
+## 6. Context Anchors
 When working in `warden-app`, anchor your context globally:
 - `backend/src/controllers/` - HTTP Request/Response only (no business logic).
 - `backend/src/services/` - ALL Business logic, DB operations.
@@ -57,7 +67,7 @@ When working in `warden-app`, anchor your context globally:
 
 *Note: For granular specifics regarding architectures, refer to the `docs/` folder in sub-projects (e.g. `warden-app/docs/`) if deeper context is needed.*
 
-## 6. What to Avoid (Anti-Patterns)
+## 7. What to Avoid (Anti-Patterns)
 <avoid>
 - **No Redis / External Caching:** SQLite handles all operations.
 - **No Class Components:** React functional components ONLY.
