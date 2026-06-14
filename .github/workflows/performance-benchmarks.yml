@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Performance Benchmarks
+
+"on":
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_call:
+    secrets:
+      GH_PAT:
+        required: true
+
+jobs:
+  benchmark:
+    name: Run Benchmarks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout warden-app
+        uses: actions/checkout@v4
+
+      - name: Checkout warden-eval
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/warden-eval
+          token: ${{ secrets.GH_PAT }}
+          path: eval-suite
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Boot warden-app locally
+        run: |
+          # Start the services detached
+          docker compose up --build -d
+
+          echo "Waiting for backend to be ready..."
+          timeout 60 bash -c 'until curl -s http://localhost:3333/health | grep -q "\"status\":\"ok\""; do sleep 2; done' || (echo "Backend failed to start" && docker compose logs backend && exit 1)
+          
+          echo "Waiting for frontend to be ready..."
+          timeout 60 bash -c 'until curl -s http://localhost:5174 > /dev/null; do sleep 2; done' || (echo "Frontend failed to start" && docker compose logs frontend && exit 1)
+
+      - name: Install eval-suite dependencies
+        working-directory: eval-suite
+        run: npm ci || npm install
+
+      - name: Run performance benchmarks
+        working-directory: eval-suite
+        # The runAll.ts script automatically exits with a non-zero code if any benchmark fails
+        run: npm run bench:all
+
+      - name: Upload Benchmark Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-report
+          path: eval-suite/results/
+          retention-days: 14
