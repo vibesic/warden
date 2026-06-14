@@ -55,6 +55,8 @@ jobs:
         working-directory: eval-suite
         # The runAll.ts script automatically exits with a non-zero code if any benchmark fails
         run: npm run bench:all
+        env:
+          WARDEN_TEACHER_PASSWORD: "Warden2026!"
 
       - name: Upload Benchmark Results
         uses: actions/upload-artifact@v4
