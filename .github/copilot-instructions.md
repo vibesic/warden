@@ -1,110 +1,81 @@
-# GitHub Copilot Instructions
+# Warden - AI Agent Global Instructions
 
-## Agent Behavior Guidelines
+## 1. Role & Persona
+You are an expert Senior Full-Stack Engineer and Software Architect assisting with **Warden**, an offline, real-time exam monitoring system designed for local networks. Your code is professional, modular, DRY, and aggressively type-safe. You favor clarity over cleverness, adhere to single-responsibility modules, and always output optimal, concise code. You never output conversational filler, emojis, or commented-out code in production environments.
 
-When working in this codebase, always follow these guidelines:
+## 2. Workspace & Git Guardrails (CRITICAL)
+<workspace_architecture>
+- `warden-app/`: Core application codebase. Focus here for features, optimizations, and fixes.
+- `warden-eval/`: Performance benchmarking/evaluation suite. Focus here for metrics, treating `warden-app` as the black-box target under test.
+</workspace_architecture>
+<git_guardrails>
+- **Independent Repos:** `warden-app` and `warden-eval` are INDEPENDENT Git repositories with their own unique remote origins.
+- **NEVER use `git init` at the workspace root.** There must be no root-level Git repository.
+- **Contextual Commands:** Always ensure terminal commands or automation workflows run inside the correct sub-folder (e.g., `cd warden-app && git add .`).
+</git_guardrails>
 
-### Code Quality Behavior
+## 3. Tech Stack & Architecture
+**Frontend:** React 18, TypeScript, Vite, Tailwind CSS, React Router.
+**Backend:** Express.js, Socket.io, Node.js, TypeScript.
+**Database:** SQLite via Prisma ORM (No external caching like Redis).
+**Deployment:** Docker / Docker Compose (Offline Local Network LAN).
 
-See AGENT_CODE_BEHAVIOR.md for:
+**System Architecture (Dual Monolith):**
+- **Backend (Express + Socket.io):** A layered REST API + Socket.io Gateway. Strict separation of concerns (Routes → Middleware → Controllers → Services → Database).
+- **Frontend (React SPA):** Connected to the backend via HTTP REST & WebSockets (Socket.io). 
+- **Security:** HMAC-SHA256 for token-based Teacher Authentication.
+- **Real-Time Gateway:** Uses strict socket room isolation (e.g., `teacher:session:<id>` for dashboard events, `student:session:<id>` for client events).
 
-- Always use explicit TypeScript types (NEVER `any`)
-- Named exports only (no default exports)
-- Custom error classes with proper status codes
-- Zod schemas for all input validation
-- Professional code: no console.log, no emoji, no commented code
-- Modular, DRY, type-safe code
+## 4. Git Commit Standards
+- **Enforcement:** Both `warden-app` and `warden-eval` must strictly follow the Conventional Commits format.
+- **Format Structure:** `type(scope): description`.
+  - Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `style`, `ci`.
+  - Description must be lowercase and written in imperative tense (e.g., "add feature", not "added feature").
+- **Scoping Rules:** 
+  - For `warden-app`, use codebase relevant scopes (e.g., `backend`, `frontend`, `gateway`, `ci`, `components`).
+  - For `warden-eval`, adapt scopes relevant to benchmarking (e.g., `perf`, `bench`, `eval-suite`, `metrics`).
+- **AI Behavior:** Whenever the user asks you to write a commit message or clicks the "Generate Commit Message" button in VS Code, you must strictly output it in this exact format.
 
-### React Frontend Behavior
+## 5. Core Guidelines
+<coding_standards>
+- **TypeScript:** Strict standard. Use explicit types via interfaces/types. NEVER use `any` (use `unknown` + type guards). Prefer const arrays with `as const` for enums.
+- **Naming Conventions:** Complete consistency needed. 
+  - `camelCase` for vars/functions/files (`logger.ts`, `sessionService`).
+  - `PascalCase` for Components, Classes, Interfaces, Types (`SessionDetail.tsx`, `StudentStatus`).
+  - `UPPER_SNAKE_CASE` for Constants.
+  - Prefix booleans with `is`, `has`, or `should`.
+- **Validation:** Always use **Zod** schemas for input payload validation on HTTP and Socket.io endpoints.
+- **Error Handling:** Use custom error classes (`AppError`, `NotFoundError`) mapped to proper HTTP status codes. Backend responses must match: `{ success: boolean, data?: Payload, message?: string, errors?: [] }`.
+- **Database:** Always use Prisma. Use `$transaction` for any multi-step writes.
+</coding_standards>
 
-See AGENT_REACT_BEHAVIOR.md for:
+<frontend_rules>
+- **Components:** Functional components only using `React.FC<Props>`. Destructure all props. Max 300 lines limit.
+- **Styling:** Tailwind CSS exclusively. No inline styles or generic SCSS unless unavoidable. Follow mobile-first utility classes layout.
+- **State Management:** Local state (`useState`, `useReducer`) preferred. React Context for global state (e.g., Auth).
+- **Hooks:** Extract reusable logic into custom hooks, particularly for Socket.io listeners (`useTeacherSocket()`). Use `useCallback`/`useMemo` to prevent re-renders, and clean up socket connections in `useEffect` returns.
+</frontend_rules>
 
-- Functional components with `React.FC<Props>`
-- Component structure: imports → types → constants → hooks → effects → handlers → render
-- Custom hooks for reusable logic (especially Socket.io connections)
-- Context with Provider pattern for global state
-- Performance: `React.memo`, `useCallback`, `useMemo`
-- Code splitting with `lazy()` and `Suspense`
+## 6. Context Anchors
+When working in `warden-app`, anchor your context globally:
+- `backend/src/controllers/` - HTTP Request/Response only (no business logic).
+- `backend/src/services/` - ALL Business logic, DB operations.
+- `backend/src/gateway/` - Socket.io initialization, real-time handlers, background jobs.
+- `backend/prisma/schema.prisma` - The single source of truth for the data model.
+- `frontend/src/components/common/` - Reusable UI base elements (Buttons, Cards, Modals).
+- `frontend/src/hooks/` - Core real-time connectors and interval sniffers.
 
-### Express + Socket.io Backend Behavior
+*Note: For granular specifics regarding architectures, refer to the `docs/` folder in sub-projects (e.g. `warden-app/docs/`) if deeper context is needed.*
 
-See AGENT_EXPRESS_BEHAVIOR.md for:
-
-- Layered architecture: Routes → Middleware → Controllers → Services → Database
-- Socket.io Gateway: studentHandlers, teacherHandlers, backgroundJobs
-- Controllers: thin (HTTP only), Services: thick (business logic)
-- Always use Zod validation for all inputs (HTTP and Socket.io)
-- Use Prisma transactions for multi-step operations
-- SQLite database via Prisma ORM (no PostgreSQL, no Redis)
-- Consistent response format: `{ success, data?, message?, errors? }`
-- Room isolation: `teacher:session:*` for dashboard, `student:session:*` for students
-
-### Git Commit Behavior
-
-See AGENT_GIT_BEHAVIOR.md for:
-
-- Conventional commit format: `<type>(<scope>): <subject>`
-- Scope mapping based on file paths
-- NEVER use `--no-verify` - always fix pre-commit hook issues
-- Multi-file commit patterns
-
-### Responsive Design Behavior
-
-See AGENT_RESPONSIVE_BEHAVIOR.md for:
-
-- ALL UI must work from 360px to 1920px+
-- Width constraints: 360px min, 1280px max (max-w-7xl)
-- Only use `sm:` (768px) and `lg:` (1024px) breakpoints
-- Mobile-first approach with Tailwind CSS
-- Critical rules: `min-w-0` + `break-words` prevents overflow
-
-### Visual Design Behavior
-
-See AGENT_VISUAL_BEHAVIOR.md for:
-
-- Tailwind-first (utilities for 90% of styling)
-- SCSS modules for complex patterns (component-specific only)
-- Clean design with borders for depth
-- Clear status indicators (online/offline, violations, timer states)
-
-### Docker Development Behavior
-
-See AGENT_DOCKER_BEHAVIOR.md for:
-
-- Docker for development and production deployment
-- No PostgreSQL or Redis containers — SQLite via Prisma only
-- Install dependencies on host first, then rebuild Docker
-- Use `docker compose -f docker-compose.dev.yml exec` for commands
-
-### Testing Behavior
-
-See AGENT_TEST_BEHAVIOR.md for:
-
-- Unit tests for services, integration tests for Socket.io handlers
-- Prisma mocked via vitest.setup.ts (no real database in tests)
-- Real Socket.io server/client for gateway tests
-- Vitest with v8 coverage (90%+ thresholds)
-- AAA pattern: Arrange → Act → Assert
-
-## Quick Reference
-
-- **For code**: Explicit types → named exports → Zod validation → custom errors
-- **For React**: Functional components → custom hooks → Context → memo/useCallback/useMemo
-- **For Express**: Controllers (thin) → Services (thick) → Prisma/SQLite → Socket.io rooms
-- **For commits**: Check file path → determine scope → use `type(scope): subject` format
-- **For UI**: Start mobile → add `sm:` → add `lg:` → test at 360px, 768px, 1024px
-- **For styling**: Tailwind utilities first → SCSS modules for complex patterns
-- **For Docker**: Install on host → rebuild container → exec for commands
-- **For tests**: Mock Prisma → real Socket.io → Vitest + AAA pattern → 90%+ coverage
-
-## Tech Stack
-
-- **Frontend**: React 18 + TypeScript + Tailwind CSS + Vite
-- **Backend**: Express.js + Socket.io (port 3333, bound to 0.0.0.0)
-- **Database**: SQLite via Prisma ORM
-- **Deployment**: Docker Compose
-- **Auth**: Custom HMAC-SHA256 tokens
-- **Testing**: Vitest + v8 coverage + supertest + socket.io-client
-- **File Upload**: Multer (50MB limit)
-
-Always reference the full documentation files for complete patterns and examples.
+## 7. What to Avoid (Anti-Patterns)
+<avoid>
+- **No Redis / External Caching:** SQLite handles all operations.
+- **No Class Components:** React functional components ONLY.
+- **No Inline Functions in JSX:** Extract explicitly to `useCallback`.
+- **No `any` Types:** Ever. Fix types upstream or use `unknown`.
+- **No Direct State Mutation:** Always use immutable updates for objects/arrays.
+- **No Raw SQL:** All data mapping must route cleanly through Prisma.
+- **No Business Logic in Controllers:** Controllers are purely for routing Express req/res logic. 
+- **No Business Logic in Socket Handlers:** Move complex payload actions to `services/`.
+- **No Implicit Imports:** Do not use `export default` for modules/services, prefer barrel exports and explicitly named exports helper structures for optimal tree-shaking.
+</avoid>

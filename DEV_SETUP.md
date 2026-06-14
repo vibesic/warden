@@ -43,7 +43,7 @@ npm run dev
 ```
 
 **What this does:**
-1. Starts the SQLite database, Express backend (port `3333`), and Vite frontend (port `5174` internal, mapped to `80` external).
+1. Starts the SQLite database, Express backend (port `3333`), and Vite frontend (port `5174` internal, mapped to `5174` external).
 2. Mounts your local `./frontend` and `./backend` folders directly into the Docker containers as volumes.
 3. Automatically runs Prisma migrations (`npx prisma generate && npx prisma migrate deploy`).
 4. Watches for file changes. If you edit a React file in `frontend/src`, Vite instantly hot-reloads it. If you edit a Node.js file in `backend/src`, `nodemon` restarts the server automatically!
@@ -51,13 +51,13 @@ npm run dev
 ### Debugging & Logs
 To view the output of your running application (backend console logs, frontend build errors, etc.), open a second terminal tab and run:
 ```bash
-npm run dev:logs
+docker compose logs -f
 ```
 
 ### Stopping the Environment
 When you are done coding, shut down the containers cleanly to free up system resources:
 ```bash
-npm run dev:down
+docker compose down
 ```
 
 ## 5. Testing and Validation (Pre-Commit)

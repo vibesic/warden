@@ -119,6 +119,9 @@ Once the containers are running:
 
 To allow students to connect to your exam session:
 1. Ensure your host machine and student devices are connected to the same Local Area Network (Wi-Fi or LAN).
+   - **Important for Offline Wi-Fi (No Internet):** Because the exam network is isolated, devices may automatically disconnect and switch to other known networks (like a cell hotspot or home Wi-Fi) seeking internet access. To prevent sudden drops:
+     - **Windows users:** Go to **Settings > Network & internet > Wi-Fi > Manage known networks**. Click on your other saved networks and uncheck "**Connect automatically when in range**" (or just tell your computer to "Forget" them for the exam).
+     - **Mac users:** Go to **System Settings > Wi-Fi > Advanced...** and uncheck "**Auto-Join**" for any other saved networks.
 2. Find your computer's local IP address (e.g., typically `192.168.x.x` or `10.x.x.x`). You can find this out via `ipconfig` (Windows) or `ifconfig` (macOS/Linux).
 3. Have the students open a browser on their devices and go to `http://<YOUR_IP_ADDRESS>`.
    - **For Mac Users using Google Chrome**: Starting with macOS 15 (Sequoia), macOS blocks third-party browsers from accessing local network IPs by default. If a student sees "Site can't be reached" in Chrome but Safari works, they must go to **System Settings > Privacy & Security > Local Network** and enable **Google Chrome**.
