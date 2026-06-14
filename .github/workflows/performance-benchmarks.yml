@@ -61,6 +61,7 @@ jobs:
         env:
           WARDEN_TEACHER_PASSWORD: "Warden2026!"
           WARDEN_BACKEND_PID: 1
+          FAIL_FAST: "true"
 
       - name: Upload Benchmark Results
         uses: actions/upload-artifact@v4
