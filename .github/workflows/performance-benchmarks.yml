@@ -3,9 +3,10 @@ name: Performance Benchmarks
 
 "on":
   push:
-    branches: [ "main" ]
+    branches: [ "main", "docs/update-setup-guides" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
   workflow_call:
     secrets:
       GH_PAT:
