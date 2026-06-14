@@ -35,8 +35,11 @@ jobs:
 
       - name: Boot warden-app locally
         run: |
-          # Create an empty .env file to bypass docker-compose error since we don't push .env
-          touch .env
+          # Create a .env file with envs required for tests (disable rate limiting and provide a dummy PID if measured via api or fallback)
+          cat > .env <<EOF
+          DISABLE_RATE_LIMIT=true
+          WARDEN_BACKEND_PID=1
+          EOF
           
           # Start the services detached
           docker compose up --build -d
@@ -57,6 +60,7 @@ jobs:
         run: npm run bench:all
         env:
           WARDEN_TEACHER_PASSWORD: "Warden2026!"
+          WARDEN_BACKEND_PID: 1
 
       - name: Upload Benchmark Results
         uses: actions/upload-artifact@v4

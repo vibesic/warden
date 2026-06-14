@@ -21,7 +21,9 @@ import rateLimit from 'express-rate-limit';
  * is completely impractical. Generous limit accommodates repeated
  * testing, multiple teachers, and page reloads.
  */
-export const authRateLimiter = rateLimit({
+export const authRateLimiter = process.env.DISABLE_RATE_LIMIT === 'true' 
+  ? (req: any, res: any, next: any) => next() 
+  : rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
   standardHeaders: true,
@@ -35,7 +37,9 @@ export const authRateLimiter = rateLimit({
  * take ~1,042 hours — still completely impractical. Easily accommodates
  * 50 students + developer testing.
  */
-export const sessionValidationRateLimiter = rateLimit({
+export const sessionValidationRateLimiter = process.env.DISABLE_RATE_LIMIT === 'true'
+  ? (req: any, res: any, next: any) => next()
+  : rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 1000,
   standardHeaders: true,
@@ -52,7 +56,9 @@ export const sessionValidationRateLimiter = rateLimit({
  * and test scripts — easily 2–3× normal traffic.
  * Set to 5000 for comfortable headroom while still catching DoS.
  */
-export const generalRateLimiter = rateLimit({
+export const generalRateLimiter = process.env.DISABLE_RATE_LIMIT === 'true'
+  ? (req: any, res: any, next: any) => next()
+  : rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5000,
   standardHeaders: true,
