@@ -35,6 +35,9 @@ jobs:
 
       - name: Boot warden-app locally
         run: |
+          # Create an empty .env file to bypass docker-compose error since we don't push .env
+          touch .env
+          
           # Start the services detached
           docker compose up --build -d
 
