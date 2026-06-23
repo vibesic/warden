@@ -14,45 +14,42 @@ interface RegisterStudentParams {
 export const registerStudent = async (params: RegisterStudentParams): Promise<SessionStudent & { student: { studentId: string; name: string } }> => {
   const { studentId, sessionId, name, ipAddress, deviceType, deviceOs, deviceBrowser } = params;
 
-  return await prisma.$transaction(async (tx) => {
-    // Upsert the Student identity record
-    const student = await tx.student.upsert({
-      where: { studentId },
-      update: { name },
-      create: { studentId, name },
-    });
+  // Run as separate statements instead of interactive $transaction to prevent SQLite deadlock under load
+  const student = await prisma.student.upsert({
+    where: { studentId },
+    update: { name },
+    create: { studentId, name },
+  });
 
-    // Upsert the SessionStudent participation record
-    const sessionStudent = await tx.sessionStudent.upsert({
-      where: {
-        studentId_sessionId: {
-          studentId: student.id,
-          sessionId,
-        },
-      },
-      update: {
-        isOnline: true,
-        lastHeartbeat: new Date(),
-        ipAddress,
-        deviceType,
-        deviceOs,
-        deviceBrowser,
-      },
-      create: {
+  const sessionStudent = await prisma.sessionStudent.upsert({
+    where: {
+      studentId_sessionId: {
         studentId: student.id,
         sessionId,
-        isOnline: true,
-        lastHeartbeat: new Date(),
-        ipAddress,
-        deviceType,
-        deviceOs,
-        deviceBrowser,
       },
-      include: { student: true },
-    });
-
-    return sessionStudent;
+    },
+    update: {
+      isOnline: true,
+      lastHeartbeat: new Date(),
+      ipAddress,
+      deviceType,
+      deviceOs,
+      deviceBrowser,
+    },
+    create: {
+      studentId: student.id,
+      sessionId,
+      isOnline: true,
+      lastHeartbeat: new Date(),
+      ipAddress,
+      deviceType,
+      deviceOs,
+      deviceBrowser,
+    },
+    include: { student: true },
   });
+
+  return sessionStudent;
 };
 
 export const updateHeartbeat = async (sessionStudentId: string): Promise<SessionStudent> => {
