@@ -13,7 +13,6 @@ import { createViolation, getLatestDisconnectionTime } from '../services/violati
 import { verifyTeacherToken } from '../services/auth.service';
 import { getSessionByCode } from '../services/session.service';
 import { validateData } from '../utils/validation';
-import { checkSocketRateLimit } from './socketRateLimiter';
 import { DISCONNECTION_COOLDOWN_MS } from './constants';
 import { roomNames } from './roomNames';
 import type { ZodSchema } from 'zod';
@@ -99,7 +98,7 @@ export const createAndBroadcastViolation = async (
   studentId: string,
   params: { sessionStudentId: string; type: ViolationType; reason?: ViolationReason; details?: string },
 ): Promise<void> => {
-  // Rate-limit DISCONNECTION violations to avoid flooding the teacher
+  // Suppress duplicate DISCONNECTION violations to avoid flooding the teacher
   // dashboard when a student's WiFi flaps repeatedly.
   if (params.type === 'DISCONNECTION') {
     if (await isDisconnectionOnCooldown(params.sessionStudentId)) {
@@ -216,7 +215,7 @@ export const emitUnauthorized = (socket: Socket): void => {
  * Options for {@link withStudentEvent}.
  */
 interface StudentEventOptions<TSchema> {
-  /** Rate-limit bucket key (matches the socket event name by convention). */
+  /** Event name used for logging and validation error messages. */
   event: string;
   /** Optional Zod schema to validate the event payload. */
   schema?: ZodSchema<TSchema>;
@@ -238,7 +237,7 @@ interface StudentEventContext<T> {
 
 /**
  * Wrap a student socket event handler with the standard guard chain:
- * rate limit → payload validation → student data lookup → session check.
+ * payload validation → student data lookup → session check.
  *
  * Bails out silently if any guard fails. Errors thrown by the handler are
  * caught and logged so a single bad event cannot tear down the socket.
@@ -252,7 +251,6 @@ export const withStudentEvent = <T = void>(
   options: StudentEventOptions<T>,
   handler: (ctx: StudentEventContext<T>) => Promise<void>,
 ) => async (rawData?: unknown): Promise<void> => {
-  if (!checkSocketRateLimit(socket, options.event)) return;
   try {
     let payload: T = undefined as T;
     if (options.schema) {
