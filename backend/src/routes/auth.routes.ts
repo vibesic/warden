@@ -6,13 +6,12 @@ import crypto from 'crypto';
 import { Router, Request, Response } from 'express';
 import { TeacherLoginSchema } from '../types/auth';
 import { generateTeacherToken, getTeacherPassword, verifyTeacherToken } from '../services/auth.service';
-import { authRateLimiter } from '../middleware/rateLimiter';
 import { sendErrorJson } from '../utils/httpResponses';
 
 const router = Router();
 
 /** Teacher login with password. */
-router.post('/auth/teacher', authRateLimiter, (req: Request, res: Response): void => {
+router.post('/auth/teacher', (req: Request, res: Response): void => {
   const result = TeacherLoginSchema.safeParse(req.body);
   if (!result.success) {
     sendErrorJson(res, 400, 'Password is required');

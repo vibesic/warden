@@ -19,7 +19,6 @@ import {
   resolveDisconnectReason,
   withStudentEvent,
 } from './helpers';
-import { checkSocketRateLimit } from './socketRateLimiter';
 import { roomNames } from './roomNames';
 import { parseDeviceInfo } from '../utils/device';
 import {
@@ -40,7 +39,6 @@ export {
 
 export const registerStudentHandlers = (io: Server, socket: Socket): void => {
   socket.on('register', async (data: unknown) => {
-    if (!checkSocketRateLimit(socket, 'register')) return;
     try {
       const validatedData = validateData(RegisterSchema, data, 'Invalid register data');
       if (!validatedData) {
@@ -188,7 +186,6 @@ export const registerStudentHandlers = (io: Server, socket: Socket): void => {
   // This flag lets the disconnect handler distinguish intentional close
   // from a network drop.
   socket.on('student:tab-closing', () => {
-    if (!checkSocketRateLimit(socket, 'student:tab-closing')) return;
     socket.data.tabClosing = true;
     logger.info(
       { studentId: socket.data.studentId },

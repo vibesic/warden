@@ -7,7 +7,6 @@ import { logger } from '../utils/logger';
 import { validateSession } from '../services/session.service';
 import { getEnabledCheckTargetUrls } from '../services/violation.service';
 import { requireTeacherAuth } from '../middleware/authMiddleware';
-import { sessionValidationRateLimiter } from '../middleware/rateLimiter';
 import { PUBLIC_DOMAINS } from '../utils/domainList';
 import { fisherYatesShuffle } from '../utils/shuffle';
 import { asyncHandler } from '../utils/asyncHandler';
@@ -15,7 +14,7 @@ import { asyncHandler } from '../utils/asyncHandler';
 const router = Router();
 
 /** Public: validate a session code (used by student login). */
-router.get('/session/:code', sessionValidationRateLimiter, asyncHandler(async (req: Request, res: Response): Promise<void> => {
+router.get('/session/:code', asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { code } = req.params;
   const result = await validateSession(code);
   res.json(result);

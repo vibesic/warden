@@ -7,7 +7,6 @@ import { logger, requestLogger } from './utils/logger';
 import { PUBLIC_DOMAINS } from './utils/domainList';
 import { isProductionMode, corsOriginCallback } from './utils/config';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
-import { generalRateLimiter } from './middleware/rateLimiter';
 import { authRoutes } from './routes/auth.routes';
 import { sessionRoutes } from './routes/session.routes';
 import { submissionRoutes } from './routes/submission.routes';
@@ -66,9 +65,6 @@ app.use(express.json({ limit: '1mb' })); // Explicit payload bound for memory re
 
 /* ── Request logging ──────────────────────────────────────────── */
 app.use(requestLogger);
-
-/* ── Rate limiting ───────────────────────────────────────────── */
-app.use('/api', generalRateLimiter);
 
 /* ── Health ──────────────────────────────────────────────────── */
 app.get('/health', (_req, res) => {
