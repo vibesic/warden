@@ -10,12 +10,13 @@ RUN npm install
 
 COPY . .
 
-# Generate Prisma client and push schema to SQLite
+# Generate Prisma client
 RUN npx prisma generate
 
-# Create data directory for SQLite
+# Create data directory for SQLite and run migrations during image build
 RUN mkdir -p /app/data
+RUN DATABASE_URL="file:/app/data/dev.db" npx prisma migrate deploy
 
 EXPOSE ${PORT:-4444}
 
-CMD ["sh", "-c", "npx prisma generate && npx prisma migrate deploy && npm run dev"]
+CMD ["npm", "run", "dev"]
