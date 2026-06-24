@@ -24,6 +24,9 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/prisma ./prisma
 
 RUN mkdir -p /app/data
+# Run migrations during image build to populate dev.db immediately
+RUN DATABASE_URL="file:/app/data/dev.db" npx prisma migrate deploy
+
 EXPOSE 3333
 
-CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]
+CMD ["npm", "start"]
